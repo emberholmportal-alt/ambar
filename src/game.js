@@ -1,11 +1,13 @@
 /* ÁMBAR · motor del stream (Phaser 3) */
 /* ===== assets embebidos ===== */
 const A_W={blue:"assets/img/warrior_blue.png",red:"assets/img/warrior_red.png",purple:"assets/img/warrior_purple.png",yellow:"assets/img/warrior_yellow.png"};
-const A_GRASS="assets/img/grass.png", A_WATER="assets/img/water.png";
-const A_HOUSE="assets/img/house.png", A_TOWER="assets/img/tower.png";
-const A_TREE="assets/img/tree.png", A_GOLD="assets/img/goldmine.png";
+// terreno, edificios y naturaleza: Kenney Medieval RTS (CC0, 64×64). Guerreros y ovejas siguen en Tiny Swords (animados).
+const A_GRASS="assets/img/kenney_grass.png", A_WATER="assets/img/kenney_water.png";
+const A_HOUSE="assets/img/kenney_house.png", A_HOUSE2="assets/img/kenney_house2.png", A_HOUSE3="assets/img/kenney_house3.png";
+const A_TOWER="assets/img/kenney_tower.png";
+const A_TREE="assets/img/kenney_tree.png", A_GOLD="assets/img/kenney_castle.png";
 const A_SHEEP="assets/img/sheep.png";
-const A_DECO=["assets/img/deco1.png","assets/img/deco2.png","assets/img/deco3.png","assets/img/deco4.png"];
+const A_DECO=["assets/img/kenney_deco1.png","assets/img/kenney_deco2.png","assets/img/kenney_deco3.png","assets/img/kenney_deco4.png"];
 
 /* ===== chrome ===== */
 const $=id=>document.getElementById(id); const feedEl=$('feed'),reticleEl=$('reticle');
@@ -20,6 +22,7 @@ function reticleLock(on){reticleEl.classList.toggle('lock',on)} function setCloc
 const T=64, COLS=34, ROWS=22, WORLD_W=COLS*T, WORLD_H=ROWS*T;
 const IX0=2, IY0=2, IX1=COLS-3, IY1=ROWS-3;              // isla (tiles)
 const WSCALE=0.72;
+const BSCALE=1.28;                                      // multiplicador de escala de edificios (assets Kenney 64×64)
 const GUILDS=[
   {id:'guardia',name:'Guardia de Hierro',tex:'blue',  color:0x4a90c2, cx:9, cy:7},
   {id:'yunque', name:'Orden del Yunque', tex:'red',   color:0xd64545, cx:COLS-10, cy:7},
@@ -53,7 +56,8 @@ new Phaser.Game({type:Phaser.AUTO,backgroundColor:'#123041',
 function preload(){
   for(const k in A_W) this.load.spritesheet('warrior_'+k, A_W[k], {frameWidth:110,frameHeight:98});
   this.load.image('grass',A_GRASS); this.load.image('water',A_WATER);
-  this.load.image('house',A_HOUSE); this.load.image('tower',A_TOWER);
+  this.load.image('house',A_HOUSE); this.load.image('house2',A_HOUSE2); this.load.image('house3',A_HOUSE3);
+  this.load.image('tower',A_TOWER);
   this.load.image('tree',A_TREE);   this.load.image('gold',A_GOLD);
   this.load.spritesheet('sheep',A_SHEEP,{frameWidth:64,frameHeight:64});
   A_DECO.forEach((d,i)=>this.load.image('deco'+i,d));
@@ -107,8 +111,8 @@ function create(){
   // naturaleza: arboledas en grupo + árboles sueltos + maleza + pastura con rebaño
   for(let c=0;c<4;c++){ const t=randFree(); if(!t) continue;
     for(let k=rint(3,6);k>0;k--){ const gx=Phaser.Math.Clamp(t.x+rint(-1,1),IX0,IX1), gy=Phaser.Math.Clamp(t.y+rint(-1,1),IY0,IY1);
-      if(!blocked[gy][gx]) placeDeco('tree',gx,gy,Phaser.Math.FloatBetween(0.6,0.82),true); } }
-  for(let i=0;i<N_TREES;i++){const t=randFree(); if(t) placeDeco('tree',t.x,t.y,Phaser.Math.FloatBetween(0.62,0.8),true);}
+      if(!blocked[gy][gx]) placeDeco('tree',gx,gy,Phaser.Math.FloatBetween(0.78,1.0),true); } }
+  for(let i=0;i<N_TREES;i++){const t=randFree(); if(t) placeDeco('tree',t.x,t.y,Phaser.Math.FloatBetween(0.8,1.05),true);}
   for(let i=0;i<N_DECO;i++){const t=randFree(); if(t) placeDeco('deco'+rint(0,3),t.x,t.y,Phaser.Math.FloatBetween(0.8,1.0),false);}
   const pasto=randFree();
   if(pasto) for(let k=0;k<4;k++){ const gx=Phaser.Math.Clamp(pasto.x+rint(-1,1),IX0,IX1), gy=Phaser.Math.Clamp(pasto.y+rint(-1,1),IY0,IY1); if(!blocked[gy][gx]) spawnSheep(gx,gy); }
@@ -133,9 +137,11 @@ function create(){
 /* ===== colocación ===== */
 function dispSize(key,sc){const s=scene.textures.get(key).getSourceImage();return [s.width*sc,s.height*sc];}
 function placeBuilding(key,tx,ty,sc,district){
+  const tex = key==='house' ? pick(['house','house2','house3']) : key;   // variedad de casas
+  const s = sc*BSCALE;
   const x=tx*T+T/2, y=ty*T+T;                     // base sobre el tile
-  const spr=scene.add.image(x,y,key).setOrigin(0.5,1).setScale(sc).setDepth(y);
-  const [w,h]=dispSize(key,sc);
+  const spr=scene.add.image(x,y,tex).setOrigin(0.5,1).setScale(s).setDepth(y);
+  const [w,h]=dispSize(tex,s);
   const foot=scene.add.rectangle(x,y-10,w*0.55,20).setOrigin(0.5,0.5).setVisible(false);
   scene.physics.add.existing(foot,true); obstacles.add(foot);
   for(let ox=-1;ox<=1;ox++)for(let oy=-1;oy<=0;oy++){const gx=tx+ox,gy=ty+oy; if(blocked[gy]) blocked[gy][gx]=true;}

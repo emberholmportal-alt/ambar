@@ -4,8 +4,11 @@
 - **Phaser 3** — MIT License. https://phaser.io
 
 ## Assets gráficos
+- **Kenney Medieval RTS** por **Kenney** — https://kenney.nl/assets/medieval-rts
+  Terreno (pasto/agua), edificios (casas, torres, castillo) y naturaleza (árboles, rocas, arbustos, troncos).
+  Licencia: **CC0 1.0** (dominio público). Uso, modificación y redistribución libres, sin atribución obligatoria.
 - **Tiny Swords** por **Pixel Frog** — https://pixelfrog-assets.itch.io/tiny-swords
-  Personajes por facción, edificios, terreno y decoración.
+  Guerreros por facción (animados) y ovejas.
   Licencia: se permite usar (incluso comercialmente) y modificar los assets en proyectos.
   **No se permite redistribuir, revender ni re-empaquetar el pack de assets suelto.**
   Dar crédito no es obligatorio pero se agradece.
