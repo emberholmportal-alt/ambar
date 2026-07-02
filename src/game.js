@@ -241,6 +241,18 @@ const TPL=[
   {tag:'TRAICIÓN',c:'#9b6fce',major:true,fx:'clash',kind:'defect',t:x=>`TRAICIÓN. ${x.a} abandona el ${x.g} y jura lealtad a otro estandarte.`},
 ];
 function livingNpcs(){return npcs.filter(n=>!n.sheep&&!n.dead);}
+
+// Ejecuta SOLO la consecuencia de un evento major + su FX en el lugar.
+// Corre SIEMPRE (haya o no corte de cámara) para que el mundo quede
+// consistente con lo que narra la crónica. Los guards de idempotencia
+// viven en ruinBuilding/killNpc/defect.
+function applyConsequence(tpl,a,b,focus){
+  if(focus){ playFx(tpl.fx,focus.x,focus.y-30); ruinBuilding(focus); return; }
+  playFx(tpl.fx,a.spr.x,a.spr.y);
+  if(tpl.kind==='kill')        killNpc(Math.random()<0.5?a:b);
+  else if(tpl.kind==='defect') defect(a);
+}
+
 function fireEvent(){
   const tpl=pick(TPL), living=livingNpcs(); if(!living.length)return;
   const a=pick(living); let b=pick(living),gd=0; while(b===a&&gd++<6) b=pick(living);
@@ -249,17 +261,21 @@ function fireEvent(){
   const text=tpl.t(ctx); pushChronicle(tpl.tag,tpl.c,text,tpl.major);
 
   if(tpl.spawn){ spawnNpc(gsel.id); return; }
-  if(!tpl.major || cameraBusy) return;
+  if(!tpl.major) return;
 
-  setWatching(text); tViewers+=rint(150,480);
-  let fx=a.spr.x, fy=a.spr.y;
-  if(tpl.kind==='ruin'){ const b2=pick(buildings.filter(x=>!x.ruined))||pick(buildings);
-      if(b2){fx=b2.x;fy=b2.y-30; cutToPos(b2.x,b2.y-20); scene.time.delayedCall(700,()=>{playFx('fire',b2.x,b2.y-30); ruinBuilding(b2);}); return;} }
-  cutToPos(a.spr.x,a.spr.y-30); showLabel(a);
-  scene.time.delayedCall(700,()=>{playFx(tpl.fx,fx,fy);
-    if(tpl.kind==='kill') killNpc(Math.random()<0.5?a:b);
-    else if(tpl.kind==='defect') defect(a);
-  });
+  // foco del evento: para 'ruin' un edificio en pie; si no, el NPC protagonista
+  const focus = tpl.kind==='ruin' ? (pick(buildings.filter(x=>!x.ruined))||pick(buildings)) : null;
+
+  if(!cameraBusy){
+    // cámara libre: corte cinematográfico + consecuencia sincronizada con la llegada
+    setWatching(text); tViewers+=rint(150,480);
+    cutToPos(focus?focus.x:a.spr.x, focus?focus.y-20:a.spr.y-30);
+    if(!focus) showLabel(a);
+    scene.time.delayedCall(700,()=>applyConsequence(tpl,a,b,focus));
+  } else {
+    // cámara ocupada: el evento pasa igual, fuera de cámara, ya mismo
+    applyConsequence(tpl,a,b,focus);
+  }
 }
 
 /* ===== día/noche ===== */
