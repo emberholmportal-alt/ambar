@@ -7,7 +7,7 @@ const A_HOUSE="assets/img/kenney_house.png", A_HOUSE2="assets/img/kenney_house2.
 const A_TOWER="assets/img/kenney_tower.png";
 const A_TREE="assets/img/kenney_tree.png", A_GOLD="assets/img/kenney_castle.png";
 const A_SHEEP="assets/img/sheep.png";
-const A_DECO=["assets/img/kenney_deco1.png","assets/img/kenney_deco2.png","assets/img/kenney_deco3.png","assets/img/kenney_deco4.png"];
+const A_DECO=["assets/img/kenney_deco1.png","assets/img/kenney_deco2.png","assets/img/kenney_deco3.png","assets/img/kenney_deco4.png","assets/img/kenney_deco5.png","assets/img/kenney_deco6.png"];
 
 /* ===== chrome ===== */
 const $=id=>document.getElementById(id); const feedEl=$('feed'),reticleEl=$('reticle');
@@ -23,6 +23,9 @@ const T=64, COLS=34, ROWS=22, WORLD_W=COLS*T, WORLD_H=ROWS*T;
 const IX0=2, IY0=2, IX1=COLS-3, IY1=ROWS-3;              // isla (tiles)
 const WSCALE=0.72;
 const BSCALE=1.28;                                      // multiplicador de escala de edificios (assets Kenney 64×64)
+const HOUSES=['house','house2','house3','house4','house5','house6','house7'];   // variantes de casa
+const TREES=['tree','tree2','tree3','tree4'];                                   // variantes de árbol
+const roadSet=new Set(); const rk=(x,y)=>x+','+y;                               // tiles de calle (caminables, no edificables)
 const GUILDS=[
   {id:'guardia',name:'Guardia de Hierro',tex:'blue',  color:0x4a90c2, cx:9, cy:7},
   {id:'yunque', name:'Orden del Yunque', tex:'red',   color:0xd64545, cx:COLS-10, cy:7},
@@ -44,8 +47,8 @@ let evAcc=0, evNext=2200, worldMin=6*60, clkAcc=0, viewers=1204, tViewers=1204, 
 const rint=(a,b)=>Math.floor(Math.random()*(b-a+1))+a, pick=a=>a[Math.floor(Math.random()*a.length)];
 
 /* ===== parámetros de densidad (tuneables) ===== */
-const NPC_START=72, NPC_MAX=90;          // pobladores inicial / techo (estable en 24/7)
-const N_TREES=30, N_DECO=24, N_SHEEP=8;  // vegetación y rebaño sueltos (además de arboledas/pastura)
+const NPC_START=84, NPC_MAX=100;         // pobladores inicial / techo (estable en 24/7)
+const N_TREES=22, N_DECO=26, N_SHEEP=8;  // vegetación y rebaño sueltos (la ciudad ya llena buena parte)
 
 new Phaser.Game({type:Phaser.AUTO,backgroundColor:'#123041',
   scale:{mode:Phaser.Scale.RESIZE,parent:'game',width:'100%',height:'100%'},
@@ -56,9 +59,11 @@ new Phaser.Game({type:Phaser.AUTO,backgroundColor:'#123041',
 function preload(){
   for(const k in A_W) this.load.spritesheet('warrior_'+k, A_W[k], {frameWidth:110,frameHeight:98});
   this.load.image('grass',A_GRASS); this.load.image('water',A_WATER);
-  this.load.image('house',A_HOUSE); this.load.image('house2',A_HOUSE2); this.load.image('house3',A_HOUSE3);
-  this.load.image('tower',A_TOWER);
-  this.load.image('tree',A_TREE);   this.load.image('gold',A_GOLD);
+  this.load.image('road','assets/img/kenney_road.png'); this.load.image('dirt','assets/img/kenney_dirt.png');
+  ['','2','3','4','5','6','7'].forEach(n=>this.load.image('house'+n,'assets/img/kenney_house'+n+'.png'));
+  this.load.image('tower',A_TOWER); this.load.image('gold',A_GOLD);
+  ['hall','barn','shop','stall1','stall2','tent1','tent2','windmill'].forEach(k=>this.load.image(k,'assets/img/kenney_'+k+'.png'));
+  ['tree','tree2','tree3','tree4'].forEach(k=>this.load.image(k,'assets/img/kenney_'+k+'.png'));
   this.load.spritesheet('sheep',A_SHEEP,{frameWidth:64,frameHeight:64});
   A_DECO.forEach((d,i)=>this.load.image('deco'+i,d));
 }
@@ -88,34 +93,38 @@ function create(){
   // marcar agua como bloqueada (fuera de isla)
   for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) if(x<IX0||x>IX1||y<IY0||y>IY1) blocked[y][x]=true;
 
-  // distritos de facción: barrio denso (torre + casas + torre de vigía + estandarte)
-  for(const g of GUILDS){
-    placeBuilding('tower', g.cx,   g.cy-1, 0.98);
-    placeBuilding('house', g.cx-2, g.cy,   0.92);
-    placeBuilding('house', g.cx+2, g.cy,   0.92, g.id);
-    placeBuilding('house', g.cx-1, g.cy+2, 0.9);
-    placeBuilding('house', g.cx+1, g.cy+2, 0.9);
-    placeBuilding('tower', g.cx+2, g.cy-2, 0.78);   // torre de vigía
-    banner(g.cx, g.cy, g.color);
-  }
-  // barrio real + mercado central
+  // ── red de calles empedradas + plaza central ────────────────────────
   const px=Math.floor(COLS/2), py=Math.floor(ROWS/2);
-  placeBuilding('gold',  px,   py,   0.9);
-  placeBuilding('tower', px-3, py-1, 0.98);
-  placeBuilding('tower', px+3, py-1, 0.98);
-  placeBuilding('house', px-2, py+2, 0.9);
-  placeBuilding('house', px,   py+2, 0.9);
-  placeBuilding('house', px+2, py+2, 0.9);
+  const AVEN=[9,17,24], CALL=[7,11,15];                   // avenidas (V) y calles (H)
+  for(const rx of AVEN) for(let y=IY0;y<=IY1;y++) paveRoad(rx,y);
+  for(const ry of CALL) for(let x=IX0;x<=IX1;x++) paveRoad(x,ry);
+  for(let y=py-2;y<=py+2;y++)for(let x=px-2;x<=px+2;x++) paveRoad(x,y);   // plaza empedrada
+
+  // ── plaza mayor: palacio + salón + mercado bullicioso ───────────────
+  placeBuilding('gold', px, py, 1.05);                    // palacio central (ex-goldmine)
+  placeBuilding('hall', px-3, py-1, 0.92);
+  placeBuilding('shop', px+3, py-1, 0.92);
+  placeDeco('stall1', px-2, py+2, 0.82,false); placeDeco('stall2', px+2, py+2, 0.82,false);
+  placeDeco('tent1',  px+3, py+2, 0.82,false); placeDeco('tent2',  px-3, py+2, 0.82,false);
   banner(px, py-2, 0xc9a227);
 
-  // naturaleza: arboledas en grupo + árboles sueltos + maleza + pastura con rebaño
-  for(let c=0;c<4;c++){ const t=randFree(); if(!t) continue;
-    for(let k=rint(3,6);k>0;k--){ const gx=Phaser.Math.Clamp(t.x+rint(-1,1),IX0,IX1), gy=Phaser.Math.Clamp(t.y+rint(-1,1),IY0,IY1);
-      if(!blocked[gy][gx]) placeDeco('tree',gx,gy,Phaser.Math.FloatBetween(0.78,1.0),true); } }
-  for(let i=0;i<N_TREES;i++){const t=randFree(); if(t) placeDeco('tree',t.x,t.y,Phaser.Math.FloatBetween(0.8,1.05),true);}
-  for(let i=0;i<N_DECO;i++){const t=randFree(); if(t) placeDeco('deco'+rint(0,3),t.x,t.y,Phaser.Math.FloatBetween(0.8,1.0),false);}
+  // ── cuatro barrios de facción (bloques densos) ──────────────────────
+  fillQuarter(3, 3, 15, 9,  6, 5,  guildById.guardia.color);
+  fillQuarter(19,3, 30, 9,  28,5,  guildById.yunque.color);
+  fillQuarter(3, 13,15,18,  6, 16, guildById.sombra.color);
+  fillQuarter(19,13,30,18,  28,16, guildById.sol.color);
+
+  // molinos en las afueras
+  placeDeco('windmill', 4, 11, 1.0, false); placeDeco('windmill', 29, 11, 1.0, false);
+
+  // ── naturaleza en los huecos (arboledas mixtas + rebaños) ───────────
+  for(let c=0;c<5;c++){ const t=randFree(); if(!t) continue;
+    for(let k=rint(2,5);k>0;k--){ const gx=Phaser.Math.Clamp(t.x+rint(-1,1),IX0,IX1), gy=Phaser.Math.Clamp(t.y+rint(-1,1),IY0,IY1);
+      if(!blocked[gy][gx]&&!roadSet.has(rk(gx,gy))) placeDeco(pick(TREES),gx,gy,Phaser.Math.FloatBetween(0.78,1.02),true); } }
+  for(let i=0;i<N_TREES;i++){const t=randFree(); if(t) placeDeco(pick(TREES),t.x,t.y,Phaser.Math.FloatBetween(0.8,1.05),true);}
+  for(let i=0;i<N_DECO;i++){const t=randFree(); if(t) placeDeco('deco'+rint(0,5),t.x,t.y,Phaser.Math.FloatBetween(0.8,1.0),false);}
   const pasto=randFree();
-  if(pasto) for(let k=0;k<4;k++){ const gx=Phaser.Math.Clamp(pasto.x+rint(-1,1),IX0,IX1), gy=Phaser.Math.Clamp(pasto.y+rint(-1,1),IY0,IY1); if(!blocked[gy][gx]) spawnSheep(gx,gy); }
+  if(pasto) for(let k=0;k<4;k++){ const gx=Phaser.Math.Clamp(pasto.x+rint(-1,1),IX0,IX1), gy=Phaser.Math.Clamp(pasto.y+rint(-1,1),IY0,IY1); if(!blocked[gy][gx]&&!roadSet.has(rk(gx,gy))) spawnSheep(gx,gy); }
   for(let i=0;i<N_SHEEP;i++){const t=randFree(); if(t) spawnSheep(t.x,t.y);}
 
   // casillas caminables
@@ -136,15 +145,30 @@ function create(){
 
 /* ===== colocación ===== */
 function dispSize(key,sc){const s=scene.textures.get(key).getSourceImage();return [s.width*sc,s.height*sc];}
+function paveRoad(x,y){ if(x<IX0||x>IX1||y<IY0||y>IY1) return;
+  roadSet.add(rk(x,y)); scene.add.image(x*T,y*T,'road').setOrigin(0,0).setDepth(-9); }
+function fillQuarter(x0,y0,x1,y1,kx,ky,color){
+  placeBuilding('tower', kx, ky, 1.0);                    // fortaleza del barrio
+  banner(kx, ky+1, color);
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+    if((x+y)%2!==0) continue;                             // deja callecitas internas
+    if(blocked[y]&&blocked[y][x]) continue;
+    if(roadSet.has(rk(x,y))) continue;
+    if(Math.random()<0.26) continue;                      // algún vacío
+    const r=Math.random();
+    const key = r<0.72?pick(HOUSES) : r<0.87?'shop' : 'barn';
+    placeBuilding(key, x, y, Phaser.Math.FloatBetween(0.82,0.96));
+  }
+}
 function placeBuilding(key,tx,ty,sc,district){
-  const tex = key==='house' ? pick(['house','house2','house3']) : key;   // variedad de casas
+  const tex = key==='house' ? pick(HOUSES) : key;   // variedad de casas
   const s = sc*BSCALE;
   const x=tx*T+T/2, y=ty*T+T;                     // base sobre el tile
   const spr=scene.add.image(x,y,tex).setOrigin(0.5,1).setScale(s).setDepth(y);
   const [w,h]=dispSize(tex,s);
   const foot=scene.add.rectangle(x,y-10,w*0.55,20).setOrigin(0.5,0.5).setVisible(false);
   scene.physics.add.existing(foot,true); obstacles.add(foot);
-  for(let ox=-1;ox<=1;ox++)for(let oy=-1;oy<=0;oy++){const gx=tx+ox,gy=ty+oy; if(blocked[gy]) blocked[gy][gx]=true;}
+  if(blocked[ty]) blocked[ty][tx]=true;                 // huella 1×1 (assets Kenney 64×64, ocupan ~1 tile)
   buildings.push({spr,x,y,tx,ty,district:district||null,ruined:false});
   return spr;
 }
@@ -164,7 +188,7 @@ function banner(tx,ty,color){
   const fl=scene.add.triangle(x+2,y-16,0,0,20,6,0,14,color).setOrigin(0,0).setDepth(y+40);
   fl.setStrokeStyle(1,0x120d09,0.6);
 }
-function randFree(){for(let i=0;i<40;i++){const x=rint(IX0,IX1),y=rint(IY0,IY1); if(!blocked[y][x]){blocked[y][x];return{x,y};}}return null;}
+function randFree(){for(let i=0;i<60;i++){const x=rint(IX0,IX1),y=rint(IY0,IY1); if(!blocked[y][x]&&!roadSet.has(rk(x,y))) return{x,y};}return null;}
 function makeName(){const b=pick(NAME_B);return b?`${pick(NAME_A)} ${b}`:pick(NAME_A);}
 
 function spawnNpc(gid){
