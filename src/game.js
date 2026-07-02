@@ -40,6 +40,10 @@ let paused=false, speed=1, nightRect=null;
 let evAcc=0, evNext=2200, worldMin=6*60, clkAcc=0, viewers=1204, tViewers=1204, vAcc=0;
 const rint=(a,b)=>Math.floor(Math.random()*(b-a+1))+a, pick=a=>a[Math.floor(Math.random()*a.length)];
 
+/* ===== parámetros de densidad (tuneables) ===== */
+const NPC_START=72, NPC_MAX=90;          // pobladores inicial / techo (estable en 24/7)
+const N_TREES=30, N_DECO=24, N_SHEEP=8;  // vegetación y rebaño sueltos (además de arboledas/pastura)
+
 new Phaser.Game({type:Phaser.AUTO,backgroundColor:'#123041',
   scale:{mode:Phaser.Scale.RESIZE,parent:'game',width:'100%',height:'100%'},
   render:{pixelArt:true,antialias:false,roundPixels:true},
@@ -80,25 +84,35 @@ function create(){
   // marcar agua como bloqueada (fuera de isla)
   for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) if(x<IX0||x>IX1||y<IY0||y>IY1) blocked[y][x]=true;
 
-  // distritos: casas + torre + estandarte
+  // distritos de facción: barrio denso (torre + casas + torre de vigía + estandarte)
   for(const g of GUILDS){
-    placeBuilding('tower', g.cx, g.cy-1, 0.95);
-    placeBuilding('house', g.cx-2, g.cy+1, 0.95);
-    placeBuilding('house', g.cx+1, g.cy+1, 0.95);
-    placeBuilding('house', g.cx+2, g.cy-1, 0.95, g.id);
+    placeBuilding('tower', g.cx,   g.cy-1, 0.98);
+    placeBuilding('house', g.cx-2, g.cy,   0.92);
+    placeBuilding('house', g.cx+2, g.cy,   0.92, g.id);
+    placeBuilding('house', g.cx-1, g.cy+2, 0.9);
+    placeBuilding('house', g.cx+1, g.cy+2, 0.9);
+    placeBuilding('tower', g.cx+2, g.cy-2, 0.78);   // torre de vigía
     banner(g.cx, g.cy, g.color);
   }
-  // plaza central del rey
+  // barrio real + mercado central
   const px=Math.floor(COLS/2), py=Math.floor(ROWS/2);
-  placeBuilding('gold', px, py, 0.85);
-  placeBuilding('tower', px-3, py-1, 0.95);
-  placeBuilding('tower', px+3, py-1, 0.95);
+  placeBuilding('gold',  px,   py,   0.9);
+  placeBuilding('tower', px-3, py-1, 0.98);
+  placeBuilding('tower', px+3, py-1, 0.98);
+  placeBuilding('house', px-2, py+2, 0.9);
+  placeBuilding('house', px,   py+2, 0.9);
+  placeBuilding('house', px+2, py+2, 0.9);
   banner(px, py-2, 0xc9a227);
 
-  // naturaleza
-  for(let i=0;i<18;i++){const t=randFree(); if(t) placeDeco('tree',t.x,t.y,0.72,true);}
-  for(let i=0;i<12;i++){const t=randFree(); if(t) placeDeco('deco'+rint(0,3),t.x,t.y,0.9,false);}
-  for(let i=0;i<4;i++){const t=randFree(); if(t) spawnSheep(t.x,t.y);}
+  // naturaleza: arboledas en grupo + árboles sueltos + maleza + pastura con rebaño
+  for(let c=0;c<4;c++){ const t=randFree(); if(!t) continue;
+    for(let k=rint(3,6);k>0;k--){ const gx=Phaser.Math.Clamp(t.x+rint(-1,1),IX0,IX1), gy=Phaser.Math.Clamp(t.y+rint(-1,1),IY0,IY1);
+      if(!blocked[gy][gx]) placeDeco('tree',gx,gy,Phaser.Math.FloatBetween(0.6,0.82),true); } }
+  for(let i=0;i<N_TREES;i++){const t=randFree(); if(t) placeDeco('tree',t.x,t.y,Phaser.Math.FloatBetween(0.62,0.8),true);}
+  for(let i=0;i<N_DECO;i++){const t=randFree(); if(t) placeDeco('deco'+rint(0,3),t.x,t.y,Phaser.Math.FloatBetween(0.8,1.0),false);}
+  const pasto=randFree();
+  if(pasto) for(let k=0;k<4;k++){ const gx=Phaser.Math.Clamp(pasto.x+rint(-1,1),IX0,IX1), gy=Phaser.Math.Clamp(pasto.y+rint(-1,1),IY0,IY1); if(!blocked[gy][gx]) spawnSheep(gx,gy); }
+  for(let i=0;i<N_SHEEP;i++){const t=randFree(); if(t) spawnSheep(t.x,t.y);}
 
   // casillas caminables
   for(let y=IY0;y<=IY1;y++)for(let x=IX0;x<=IX1;x++) if(!blocked[y][x]) walkTiles.push({x:x*T+T/2,y:y*T+T/2});
@@ -106,7 +120,7 @@ function create(){
   npcGroup=this.physics.add.group();
   this.physics.add.collider(npcGroup,obstacles);
   this.physics.world.setBounds(IX0*T,IY0*T,iw,ih);
-  for(let i=0;i<46;i++) spawnNpc();
+  for(let i=0;i<NPC_START;i++) spawnNpc();
 
   // ciclo día/noche (overlay fijo a cámara)
   nightRect=this.add.rectangle(0,0,10,10,0x0a1436,0).setOrigin(0,0).setScrollFactor(0).setDepth(90000);
@@ -148,6 +162,7 @@ function randFree(){for(let i=0;i<40;i++){const x=rint(IX0,IX1),y=rint(IY0,IY1);
 function makeName(){const b=pick(NAME_B);return b?`${pick(NAME_A)} ${b}`:pick(NAME_A);}
 
 function spawnNpc(gid){
+  if(livingNpcs().length>=NPC_MAX) return null;   // techo de población (estable en 24/7)
   const g=gid?guildById[gid]:pick(GUILDS);
   // aparecer cerca del distrito
   let sx=g.cx+rint(-3,3), sy=g.cy+rint(-2,3);
