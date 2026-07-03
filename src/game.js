@@ -49,6 +49,8 @@ const rint=(a,b)=>Math.floor(Math.random()*(b-a+1))+a, pick=a=>a[Math.floor(Math
 /* ===== parámetros de densidad (tuneables) ===== */
 const NPC_START=84, NPC_MAX=100;         // pobladores inicial / techo (estable en 24/7)
 const N_TREES=22, N_DECO=26, N_SHEEP=8;  // vegetación y rebaño sueltos (la ciudad ya llena buena parte)
+const MONSTERS=['skeleton','orc','demon','ghost','spider','slime','bat','wizard'];  // criaturas D&D (Tiny Dungeon, CC0 16×16)
+const MSCALE=3.2, N_MONSTERS=5;          // escala de criaturas / cuántas vagan de fondo
 
 new Phaser.Game({type:Phaser.AUTO,backgroundColor:'#123041',
   scale:{mode:Phaser.Scale.RESIZE,parent:'game',width:'100%',height:'100%'},
@@ -66,6 +68,8 @@ function preload(){
   ['tree','tree2','tree3','tree4'].forEach(k=>this.load.image(k,'assets/img/kenney_'+k+'.png'));
   this.load.spritesheet('sheep',A_SHEEP,{frameWidth:64,frameHeight:64});
   A_DECO.forEach((d,i)=>this.load.image('deco'+i,d));
+  ['skeleton','orc','demon','ghost','spider','slime','bat','wizard','chest','mimic','torch','potion']
+    .forEach(k=>this.load.image('td_'+k,'assets/img/td_'+k+'.png'));   // criaturas y tesoros D&D
 }
 function makeDot(s){const g=s.add.graphics({add:false});g.fillStyle(0xffffff,1);g.fillCircle(4,4,4);g.generateTexture('dot',8,8);g.destroy();}
 
@@ -107,6 +111,7 @@ function create(){
   placeDeco('stall1', px-2, py+2, 0.82,false); placeDeco('stall2', px+2, py+2, 0.82,false);
   placeDeco('tent1',  px+3, py+2, 0.82,false); placeDeco('tent2',  px-3, py+2, 0.82,false);
   banner(px, py-2, 0xc9a227);
+  placeTorch(px-2, py-2); placeTorch(px+2, py-2);   // braseros de la plaza (brillan de noche)
 
   // ── cuatro barrios de facción (bloques densos) ──────────────────────
   fillQuarter(3, 3, 15, 9,  6, 5,  guildById.guardia.color);
@@ -134,6 +139,7 @@ function create(){
   this.physics.add.collider(npcGroup,obstacles);
   this.physics.world.setBounds(IX0*T,IY0*T,iw,ih);
   for(let i=0;i<NPC_START;i++) spawnNpc();
+  for(let i=0;i<N_MONSTERS;i++){ const t=randFree(); if(t) spawnMonster(pick(MONSTERS),t.x,t.y); }   // bichos que merodean
 
   // ciclo día/noche (overlay fijo a cámara)
   nightRect=this.add.rectangle(0,0,10,10,0x0a1436,0).setOrigin(0,0).setScrollFactor(0).setDepth(90000);
@@ -187,6 +193,44 @@ function banner(tx,ty,color){
   scene.add.rectangle(x,y-4,3,26,0x4a3d2c).setDepth(y+40);
   const fl=scene.add.triangle(x+2,y-16,0,0,20,6,0,14,color).setOrigin(0,0).setDepth(y+40);
   fl.setStrokeStyle(1,0x120d09,0.6);
+}
+/* ===== criaturas D&D ===== */
+function spawnMonster(kind,tx,ty){
+  const s=scene.physics.add.sprite(tx*T+T/2,ty*T+T/2,'td_'+kind).setOrigin(0.5,0.85).setScale(MSCALE);
+  s.setCollideWorldBounds(true); npcGroup.add(s); s.setDepth(s.y);
+  const n={spr:s,sheep:false,monster:true,kind,tx:s.x,ty:s.y,idle:0,stuck:0,lx:s.x,ly:s.y,dead:false};
+  retarget(n); npcs.push(n); return n;
+}
+function poofMonster(n){
+  if(!n||n.dead)return; n.dead=true; npcs=npcs.filter(x=>x!==n);
+  ring(n.spr.x,n.spr.y-12,0xb060d0); burst(n.spr.x,n.spr.y-14,0x9b6fce,10,10);
+  n.spr.destroy();
+}
+function spawnRaid(){                                  // horda de monstruos junto a un barrio
+  const g=pick(GUILDS), kinds=['orc','skeleton','demon','spider','slime','bat'], mm=[];
+  for(let i=rint(3,5);i>0;i--){
+    const sx=Phaser.Math.Clamp(g.cx+rint(-3,3),IX0,IX1), sy=Phaser.Math.Clamp(g.cy+rint(-3,3),IY0,IY1);
+    const m=spawnMonster(pick(kinds),sx,sy); if(m) mm.push(m);
+  }
+  return {cx:g.cx*T+T/2, cy:g.cy*T+T/2, mm};
+}
+function spawnDragon(x,y){                             // el dragón cae sobre el barrio y se va
+  const d=scene.add.image(x,y-140,'td_demon').setOrigin(0.5,0.5).setScale(4.6).setFlipX(true).setDepth(99995);
+  scene.tweens.add({targets:d,y:y-46,duration:620,ease:'Quad.easeIn',
+    onComplete:()=>scene.tweens.add({targets:d,y:y-170,alpha:0,duration:800,ease:'Quad.easeOut',onComplete:()=>d.destroy()})});
+}
+function dropTreasure(x,y){                            // cofre (o mimic traicionero) que queda en el mundo
+  const kind=Math.random()<0.25?'mimic':'chest';
+  const c=scene.add.image(x,y,'td_'+kind).setOrigin(0.5,0.9).setScale(0.1).setDepth(y);
+  scene.tweens.add({targets:c,scale:2.8,duration:420,ease:'Back.easeOut'});
+  ring(x,y-8,0xc9a227); burst(x,y-8,0xc9a227,10,8);
+}
+function placeTorch(tx,ty){                            // antorcha con glow parpadeante
+  const x=tx*T+T/2, y=ty*T+T-4;
+  const glow=scene.add.circle(x,y-26,22,0xffb060,0.26).setDepth(y-1);
+  scene.add.image(x,y,'td_torch').setOrigin(0.5,1).setScale(2.4).setDepth(y);
+  scene.tweens.add({targets:glow,alpha:{from:0.16,to:0.34},scaleX:{from:0.9,to:1.2},scaleY:{from:0.9,to:1.2},
+    duration:560,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
 }
 function randFree(){for(let i=0;i<60;i++){const x=rint(IX0,IX1),y=rint(IY0,IY1); if(!blocked[y][x]&&!roadSet.has(rk(x,y))) return{x,y};}return null;}
 function makeName(){const b=pick(NAME_B);return b?`${pick(NAME_A)} ${b}`:pick(NAME_A);}
@@ -251,7 +295,7 @@ function grave(x,y){
   g.fillStyle(0x2c3320,0.5); g.fillEllipse(x,y,20,6);
 }
 function killNpc(n){
-  if(!n||n.dead||n.sheep)return; n.dead=true;
+  if(!n||n.dead||n.sheep||n.monster)return; n.dead=true;
   npcs=npcs.filter(x=>x!==n);
   const gx=n.spr.x,gy=n.spr.y;
   n.spr.body.setVelocity(0); n.spr.anims.stop();
@@ -259,7 +303,7 @@ function killNpc(n){
     onComplete:()=>{n.spr.destroy(); grave(gx,gy);}});
 }
 function defect(n){
-  if(!n||n.dead||n.sheep)return;
+  if(!n||n.dead||n.sheep||n.monster)return;
   const others=GUILDS.filter(g=>g.id!==n.guild); const g=pick(others);
   n.guild=g.id; n.tex=g.tex;
   n.spr.setTexture('warrior_'+g.tex, n.spr.frame.name);
@@ -278,24 +322,26 @@ const TPL=[
   {tag:'REFUERZO',c:'#8fb4d6',major:false,spawn:true,t:x=>`Un barco atraca en los muelles: nuevos brazos para el ${x.g}.`},
   {tag:'PASTOR',c:'#9fb06a',major:false,t:x=>`Las ovejas de ${x.d} escapan del corral. Alguien maldice en voz alta.`},
   {tag:'GUERRA',c:'#e5533a',major:true,fx:'fire',kind:'ruin',t:x=>`GUERRA DE FACCIONES. El ${x.g} asalta ${x.d}. El acero canta y las puertas arden.`},
-  {tag:'DRAGÓN',c:'#f2703a',major:true,fx:'fire',kind:'ruin',t:x=>`¡DRAGÓN! Una sombra alada cae sobre ${x.d}. Fuego, ceniza y gritos.`},
+  {tag:'DRAGÓN',c:'#f2703a',major:true,fx:'fire',kind:'ruin',dragon:true,t:x=>`¡DRAGÓN! Una sombra alada cae sobre ${x.d}. Fuego, ceniza y gritos.`},
+  {tag:'INVASIÓN',c:'#7fbf5a',major:true,fx:'clash',kind:'raid',t:x=>`¡INVASIÓN! Una horda sale de las Profundidades y cae sobre ${x.d}. ¡A las armas!`},
   {tag:'DUELO',c:'#ff6b6b',major:true,fx:'clash',kind:'kill',t:x=>`DUELO A MUERTE: ${x.a} contra ${x.b}. Solo uno queda en pie sobre la hierba.`},
   {tag:'MAGNICIDIO',c:'#9aa0a6',major:true,fx:'clash',kind:'kill',t:x=>`MAGNICIDIO. ${x.a} cae sin vida en ${x.d}. El ${x.g} lo niega todo.`},
-  {tag:'HALLAZGO',c:'#c9a227',major:true,fx:'ring',kind:'none',t:x=>`HALLAZGO. ${x.a} desentierra ${x.i} en las ruinas bajo ${x.d}. Todos lo quieren.`},
+  {tag:'HALLAZGO',c:'#c9a227',major:true,fx:'ring',kind:'none',treasure:true,t:x=>`HALLAZGO. ${x.a} desentierra ${x.i} en las ruinas bajo ${x.d}. Todos lo quieren.`},
   {tag:'FIESTA',c:'#c9a227',major:true,fx:'confetti',kind:'none',t:x=>`FESTÍN en ${x.d}: música, antorchas y vino. Hasta el ${x.g} baja las armas.`},
   {tag:'TRAICIÓN',c:'#9b6fce',major:true,fx:'clash',kind:'defect',t:x=>`TRAICIÓN. ${x.a} abandona el ${x.g} y jura lealtad a otro estandarte.`},
 ];
-function livingNpcs(){return npcs.filter(n=>!n.sheep&&!n.dead);}
+function livingNpcs(){return npcs.filter(n=>!n.sheep&&!n.monster&&!n.dead);}
 
 // Ejecuta SOLO la consecuencia de un evento major + su FX en el lugar.
 // Corre SIEMPRE (haya o no corte de cámara) para que el mundo quede
 // consistente con lo que narra la crónica. Los guards de idempotencia
 // viven en ruinBuilding/killNpc/defect.
 function applyConsequence(tpl,a,b,focus){
-  if(focus){ playFx(tpl.fx,focus.x,focus.y-30); ruinBuilding(focus); return; }
+  if(focus){ playFx(tpl.fx,focus.x,focus.y-30); if(tpl.dragon) spawnDragon(focus.x,focus.y-30); ruinBuilding(focus); return; }
   playFx(tpl.fx,a.spr.x,a.spr.y);
   if(tpl.kind==='kill')        killNpc(Math.random()<0.5?a:b);
   else if(tpl.kind==='defect') defect(a);
+  else if(tpl.treasure)        dropTreasure(a.spr.x,a.spr.y);
 }
 
 function fireEvent(){
@@ -306,6 +352,16 @@ function fireEvent(){
   const text=tpl.t(ctx); pushChronicle(tpl.tag,tpl.c,text,tpl.major);
 
   if(tpl.spawn){ spawnNpc(gsel.id); return; }
+
+  // INVASIÓN: horda de monstruos junto a un barrio; los defensores la repelen tras unos segundos
+  if(tpl.kind==='raid'){
+    const r=spawnRaid();
+    if(!cameraBusy){ setWatching(text); tViewers+=rint(150,480); cutToPos(r.cx,r.cy); }
+    scene.time.delayedCall(700,()=>playFx('clash',r.cx,r.cy));
+    if(Math.random()<0.5) scene.time.delayedCall(1800,()=>{ const v=pick(livingNpcs()); if(v) killNpc(v); });
+    scene.time.delayedCall(6500,()=>r.mm.forEach(poofMonster));
+    return;
+  }
   if(!tpl.major) return;
 
   // foco del evento: para 'ruin' un edificio en pie; si no, el NPC protagonista
@@ -338,19 +394,21 @@ function update(time,delta){
   for(const n of npcs){
     if(n.dead) continue;
     if(paused){ n.spr.body&&n.spr.body.setVelocity(0); n.spr.anims&&n.spr.anims.stop(); continue; }
-    const spd=(n.sheep?14:40)*m;
+    const isW=!n.sheep&&!n.monster;                    // guerrero (animado) vs oveja/monstruo (estático)
+    const spd=(n.sheep?14:n.monster?30:40)*m;
     const dx=n.tx-n.spr.x, dy=n.ty-n.spr.y, d=Math.hypot(dx,dy);
     if(Math.hypot(n.spr.x-n.lx,n.spr.y-n.ly)<0.25) n.stuck+=delta; else n.stuck=0;
     n.lx=n.spr.x; n.ly=n.spr.y;
     if(d<4||n.stuck>600){
       n.stuck=0; n.spr.body.setVelocity(0);
       if(n.idle<=0){ n.idle=rint(400,1800);
-        if(!n.sheep){ n.spr.anims.stop(); n.spr.setFrame(n.faceUp?6:0); n.spr.setFlipX(n.faceLeft); } }
+        if(isW){ n.spr.anims.stop(); n.spr.setFrame(n.faceUp?6:0); n.spr.setFlipX(n.faceLeft); } }
       else { n.idle-=delta*m; if(n.idle<=0) retarget(n); }
     } else {
       const inv=spd/d; n.spr.body.setVelocity(dx*inv,dy*inv);
-      if(!n.sheep){ n.faceLeft=dx<0; n.faceUp=(Math.abs(dy)>Math.abs(dx))&&dy<0;
+      if(isW){ n.faceLeft=dx<0; n.faceUp=(Math.abs(dy)>Math.abs(dx))&&dy<0;
         n.spr.play('warrior_'+n.tex+(n.faceUp?'-runB':'-runF'),true); n.spr.setFlipX(n.faceLeft); }
+      else if(n.monster){ n.spr.setFlipX(dx<0); }
     }
     n.spr.setDepth(n.spr.y);
     if(n.label){ n.label.x=n.spr.x; n.label.y=n.spr.y-52; }

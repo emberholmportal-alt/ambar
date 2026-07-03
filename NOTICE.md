@@ -7,6 +7,9 @@
 - **Kenney Medieval RTS** por **Kenney** — https://kenney.nl/assets/medieval-rts
   Terreno (pasto/agua), edificios (casas, torres, castillo) y naturaleza (árboles, rocas, arbustos, troncos).
   Licencia: **CC0 1.0** (dominio público). Uso, modificación y redistribución libres, sin atribución obligatoria.
+- **Kenney Tiny Dungeon** por **Kenney** — https://kenney.nl/assets/tiny-dungeon
+  Criaturas (esqueleto, orco, demonio, fantasma, araña, slime, murciélago, mago) y tesoros (cofres, mimic, antorchas, pociones).
+  Licencia: **CC0 1.0** (dominio público). Uso, modificación y redistribución libres, sin atribución obligatoria.
 - **Tiny Swords** por **Pixel Frog** — https://pixelfrog-assets.itch.io/tiny-swords
   Guerreros por facción (animados) y ovejas.
   Licencia: se permite usar (incluso comercialmente) y modificar los assets en proyectos.
