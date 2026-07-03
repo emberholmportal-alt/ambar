@@ -54,6 +54,14 @@
   .card .req{font-size:8.5px;color:var(--ember)}
   .toast{position:absolute;bottom:96px;left:50%;transform:translateX(-50%);background:rgba(18,13,9,.92);border:1px solid var(--brass-dim);border-radius:4px;padding:8px 16px;font-size:12px;z-index:30;opacity:0;transition:.3s;pointer-events:none}
   .toast.on{opacity:1}
+  .qbox{position:absolute;left:12px;top:12px;width:200px;background:linear-gradient(180deg,var(--bg2),var(--bg3));border:1px solid var(--line);border-radius:6px;padding:10px;z-index:11}
+  .qbox .qh{font-size:9px;letter-spacing:.2em;color:var(--muted);margin-bottom:5px}
+  .qbox .qt{font-size:11.5px;line-height:1.45;margin-bottom:8px}
+  .qbox button{width:100%;font-size:10px;padding:7px 6px 9px}
+  .qbox.done{border-color:var(--brass);box-shadow:0 0 14px rgba(201,162,39,.25)}
+  .raidbanner{position:absolute;top:12px;left:50%;transform:translateX(-50%);background:rgba(90,20,15,.92);border:1px solid var(--ember);border-radius:4px;padding:8px 18px;font-size:12px;font-weight:700;letter-spacing:.08em;color:#ffd9d0;z-index:12;display:none;animation:rpulse 1.1s ease-in-out infinite}
+  .raidbanner.on{display:block}
+  @keyframes rpulse{0%,100%{opacity:1}50%{opacity:.65}}
   @media(max-width:700px){ .brand small{display:none} .res{font-size:11px} .res img{width:20px;height:20px} }
 </style>
 </head>
@@ -65,13 +73,24 @@
     <div class="res" id="rMad"><img src="assets/img/ts/res_wood.png" alt="madera"><span id="vMad">0</span><span class="cap" id="cMad"></span></div>
     <div class="res" id="rCom"><img src="assets/img/ts/res_meat.png" alt="comida"><span id="vCom">0</span><span class="cap" id="cCom"></span></div>
     <div class="res ambar" title="Moneda simulada — placeholder de la economía real (F4)"><span id="vAmbar">0</span> $AMBAR</div>
+    <button class="ghost" id="btnCaravana" title="Trae +250 del recurso que menos tengas">◆ CARAVANA (8)</button>
+    <button class="ghost" id="btnMercen" style="display:none" title="Refuerzos durante el asalto">◆ MERCENARIOS (10)</button>
     <button class="ghost" id="btnTiempo" title="Acelerar el tiempo del prototipo">⏱ ×1</button>
   </div>
   <div class="stage">
     <div id="game"></div>
     <div class="hint" id="hint"></div>
+    <div class="qbox" id="qBox">
+      <div class="qh">📜 MISIÓN</div>
+      <div class="qt" id="qTxt">—</div>
+      <button class="ghost" id="btnQuest">···</button>
+    </div>
+    <div class="raidbanner" id="raidbanner">⚔️ ¡ASALTO GOBLIN EN CURSO!</div>
     <div class="selpanel" id="selpanel">
       <h3 id="selNom">—</h3><div class="lvl" id="selLvl"></div>
+      <button class="ghost" id="btnCosechar" style="display:none">COSECHAR</button>
+      <button class="ghost" id="btnReparar" style="display:none">REPARAR</button>
+      <button class="ghost" id="btnLimpiar" style="display:none">LIMPIAR</button>
       <button class="ghost" id="btnMover">MOVER</button>
       <button class="ghost" id="btnMejorar">MEJORAR</button>
       <button class="ghost" id="btnAcelerar">◆ ACELERAR OBRA</button>
