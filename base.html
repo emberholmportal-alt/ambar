@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+<title>ÁMBAR · Mi Base (prototipo)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.80.1/phaser.min.js"></script>
+<style>
+  :root{
+    --bg:#16110c;--bg2:#1f1811;--bg3:#120d09;--ink:#ece3d0;--muted:#8c7f68;
+    --brass:#c9a227;--brass-dim:#7a6420;--ember:#e5533a;--line:rgba(201,162,39,.16);
+    --ok:#5fa55a;--bad:#c94f45;--azul:#4a90c2;
+    --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Courier New",monospace;
+    --display:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--mono);overflow:hidden}
+  .app{height:100dvh;display:flex;flex-direction:column}
+  /* ---- HUD superior ---- */
+  .hud{display:flex;align-items:center;gap:14px;padding:8px 14px;background:linear-gradient(180deg,var(--bg2),var(--bg3));border-bottom:1px solid var(--line);z-index:20;flex-wrap:wrap}
+  .brand{font-family:var(--display);font-weight:700;font-size:16px;margin-right:auto}
+  .brand b{color:var(--brass)} .brand small{display:block;font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.12em}
+  .res{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--line);border-radius:4px;padding:4px 10px 4px 4px;font-size:13px;font-variant-numeric:tabular-nums}
+  .res img{width:26px;height:26px;image-rendering:pixelated}
+  .res.lleno{border-color:var(--ember)}
+  .res .cap{font-size:9px;color:var(--muted)}
+  .ambar{color:var(--brass);font-weight:700}
+  .ambar::before{content:"◆ ";color:var(--brass)}
+  button.ghost{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.08em;color:#f4ecda;background:url('assets/img/ui/ribbon_blue.png') center/100% 100% no-repeat;border:none;padding:9px 14px 11px;cursor:pointer;min-width:64px;image-rendering:pixelated;text-shadow:0 1px 2px rgba(10,20,40,.8)}
+  button.ghost:hover{filter:brightness(1.15)} button.ghost:active{filter:brightness(.85)}
+  button.ghost:disabled{filter:grayscale(1) brightness(.6);cursor:not-allowed}
+  /* ---- viewport ---- */
+  .stage{flex:1;position:relative;min-height:0;background:#3a6a8a}
+  #game{position:absolute;inset:0} #game canvas{display:block}
+  .hint{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(18,13,9,.85);border:1px solid var(--line);border-radius:4px;padding:6px 14px;font-size:11px;color:var(--ink);z-index:10;pointer-events:none;opacity:0;transition:.25s}
+  .hint.on{opacity:1}
+  /* ---- panel de selección ---- */
+  .selpanel{position:absolute;right:12px;top:12px;width:210px;background:linear-gradient(180deg,var(--bg2),var(--bg3));border:1px solid var(--line);border-radius:6px;padding:10px;z-index:11;display:none}
+  .selpanel.on{display:block}
+  .selpanel h3{margin:0 0 2px;font-family:var(--display);font-size:14px}
+  .selpanel .lvl{font-size:10px;color:var(--brass);margin-bottom:8px}
+  .selpanel button{display:block;width:100%;margin-bottom:6px;font-size:10px;padding:8px 6px 10px}
+  .selpanel .nota{font-size:9px;color:var(--muted);line-height:1.4}
+  /* ---- barra de construcción ---- */
+  .build{display:flex;gap:8px;padding:8px 12px;background:linear-gradient(0deg,var(--bg3),var(--bg2));border-top:1px solid var(--line);overflow-x:auto;z-index:20}
+  .card{flex:0 0 auto;width:96px;background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:6px;cursor:pointer;text-align:center;transition:.12s}
+  .card:hover{border-color:var(--brass)}
+  .card.sel{border-color:var(--brass);background:rgba(201,162,39,.08)}
+  .card.lock{opacity:.45;cursor:not-allowed}
+  .card img{height:44px;image-rendering:pixelated;margin:2px auto}
+  .card .nom{font-size:10px;font-weight:700;letter-spacing:.04em}
+  .card .costo{font-size:9px;color:var(--muted);margin-top:2px;line-height:1.5}
+  .card .costo b{color:var(--ink)}
+  .card .req{font-size:8.5px;color:var(--ember)}
+  .toast{position:absolute;bottom:96px;left:50%;transform:translateX(-50%);background:rgba(18,13,9,.92);border:1px solid var(--brass-dim);border-radius:4px;padding:8px 16px;font-size:12px;z-index:30;opacity:0;transition:.3s;pointer-events:none}
+  .toast.on{opacity:1}
+  @media(max-width:700px){ .brand small{display:none} .res{font-size:11px} .res img{width:20px;height:20px} }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="hud">
+    <div class="brand">ÁMBAR<b> · Mi Base</b><small>PROTOTIPO — el estado se pierde al recargar</small></div>
+    <div class="res" id="rOro"><img src="assets/img/ts/res_gold.png" alt="oro"><span id="vOro">0</span><span class="cap" id="cOro"></span></div>
+    <div class="res" id="rMad"><img src="assets/img/ts/res_wood.png" alt="madera"><span id="vMad">0</span><span class="cap" id="cMad"></span></div>
+    <div class="res" id="rCom"><img src="assets/img/ts/res_meat.png" alt="comida"><span id="vCom">0</span><span class="cap" id="cCom"></span></div>
+    <div class="res ambar" title="Moneda simulada — placeholder de la economía real (F4)"><span id="vAmbar">0</span> $AMBAR</div>
+    <button class="ghost" id="btnTiempo" title="Acelerar el tiempo del prototipo">⏱ ×1</button>
+  </div>
+  <div class="stage">
+    <div id="game"></div>
+    <div class="hint" id="hint"></div>
+    <div class="selpanel" id="selpanel">
+      <h3 id="selNom">—</h3><div class="lvl" id="selLvl"></div>
+      <button class="ghost" id="btnMover">MOVER</button>
+      <button class="ghost" id="btnMejorar">MEJORAR</button>
+      <button class="ghost" id="btnAcelerar">◆ ACELERAR OBRA</button>
+      <button class="ghost" id="btnSkin">◆ SKIN ROJA</button>
+      <button class="ghost" id="btnCerrar">CERRAR</button>
+      <div class="nota">◆ = gasta $AMBAR (simulado). Acelerar tiene tope por sesión. Nada de esto es pay-to-win: la skin es cosmética.</div>
+    </div>
+    <div class="toast" id="toast"></div>
+  </div>
+  <div class="build" id="buildbar"></div>
+</div>
+<script src="src/base.js"></script>
+</body>
+</html>
