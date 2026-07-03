@@ -87,7 +87,7 @@ function preload(){
   ['res_gold','res_meat','res_wood'].forEach(k=>this.load.image(k,TSB+k+'.png'));
   // unidades y muerte
   for(const c of COLORES) this.load.spritesheet('pawn_'+c,TSB+'pawn_'+c+'.png',{frameWidth:192,frameHeight:192});
-  this.load.spritesheet('dead',TSB+'dead.png',{frameWidth:256,frameHeight:256});
+  this.load.spritesheet('dead',TSB+'dead.png',{frameWidth:128,frameHeight:256});   // 7 frames de 128×256 (896/128)
   // enemigos
   this.load.spritesheet('goblin_torch',TSB+'goblin_torch.png',{frameWidth:192,frameHeight:192});
   this.load.spritesheet('spear_idle',TSB+'spear_idle.png',{frameWidth:256,frameHeight:256});
