@@ -11,12 +11,12 @@ function setWatching(t){$('watch').textContent=t} function setViewers(n){$('view
 function reticleLock(on){reticleEl.classList.toggle('lock',on)} function setClock(s){clockStr=s;$('clock').textContent=s}
 
 /* ===== datos ===== */
-const T=64, COLS=34, ROWS=22, WORLD_W=COLS*T, WORLD_H=ROWS*T;
+const T=64, COLS=48, ROWS=30, WORLD_W=COLS*T, WORLD_H=ROWS*T;
 const GUILDS=[
-  {id:'guardia',name:'Guardia de Hierro',tex:'blue',  color:0x4a90c2, cx:9,  cy:7},
-  {id:'yunque', name:'Orden del Yunque', tex:'red',   color:0xd64545, cx:24, cy:7},
-  {id:'sombra', name:'Los Sin Nombre',   tex:'purple',color:0x9b6fce, cx:9,  cy:15},
-  {id:'sol',    name:'Casa del Sol',      tex:'yellow',color:0xd8b53a, cx:24, cy:15},
+  {id:'guardia',name:'Guardia de Hierro',tex:'blue',  color:0x4a90c2, cx:13,      cy:10},
+  {id:'yunque', name:'Orden del Yunque', tex:'red',   color:0xd64545, cx:COLS-14, cy:10},
+  {id:'sombra', name:'Los Sin Nombre',   tex:'purple',color:0x9b6fce, cx:13,      cy:ROWS-11},
+  {id:'sol',    name:'Casa del Sol',      tex:'yellow',color:0xd8b53a, cx:COLS-14, cy:ROWS-11},
 ];
 const guildById=Object.fromEntries(GUILDS.map(g=>[g.id,g]));
 const RACES=['humano','elfo','enano','orco','no-muerto','bestia'];
@@ -35,8 +35,8 @@ let evAcc=0, evNext=2200, worldMin=6*60, clkAcc=0, viewers=1204, tViewers=1204, 
 const rint=(a,b)=>Math.floor(Math.random()*(b-a+1))+a, pick=a=>a[Math.floor(Math.random()*a.length)];
 
 /* ===== parámetros (tuneables) ===== */
-const NPC_START=88, NPC_MAX=110;             // pobladores (guerreros+aldeanos) inicial / techo
-const N_MONSTERS=6;                          // bichos que merodean de fondo
+const NPC_START=110, NPC_MAX=140;            // pobladores (guerreros+aldeanos) inicial / techo
+const N_MONSTERS=8;                          // bichos que merodean de fondo
 const WSCALE=0.72, PSCALE=0.62;              // escala guerreros (110×98) y pawns/goblins (frames 192)
 
 /* ===== catálogo de texturas Tiny Swords ===== */
@@ -124,6 +124,8 @@ function preload(){
   this.load.spritesheet('sboat',TSB+'sboat.png',{frameWidth:192,frameHeight:192});
   this.load.spritesheet('shark',TSB+'shark.png',{frameWidth:192,frameHeight:192});
   this.load.spritesheet('goblin_tnt',TSB+'goblin_tnt.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('pig_idle',TSB+'pig_idle.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('pig_run', TSB+'pig_run.png', {frameWidth:192,frameHeight:192});
   // efectos
   this.load.spritesheet('fire',TSB+'fire.png',{frameWidth:128,frameHeight:128});
   this.load.spritesheet('explosion',TSB+'explosion.png',{frameWidth:192,frameHeight:192});
@@ -238,6 +240,8 @@ function create(){
   an.create({key:'shark-a',frames:an.generateFrameNumbers('shark',{start:0,end:-1}),frameRate:8,repeat:-1});
   an.create({key:'tnt-idle',frames:an.generateFrameNumbers('goblin_tnt',{start:0,end:6}),frameRate:8,repeat:-1});
   an.create({key:'tnt-run', frames:an.generateFrameNumbers('goblin_tnt',{start:7,end:12}),frameRate:10,repeat:-1});
+  an.create({key:'cerdo-idle',frames:an.generateFrameNumbers('pig_idle',{start:0,end:-1}),frameRate:7,repeat:-1});
+  an.create({key:'cerdo-run', frames:an.generateFrameNumbers('pig_run', {start:0,end:-1}),frameRate:10,repeat:-1});
 
   // ---- mar + foam + suelo (RenderTexture: 1 draw call para todo el piso) ----
   this.add.tileSprite(0,0,WORLD_W,WORLD_H,'water').setOrigin(0,0).setDepth(-30);
@@ -250,20 +254,24 @@ function create(){
   const rt=this.add.renderTexture(0,0,WORLD_W,WORLD_H).setOrigin(0,0).setDepth(-20);
   for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) if(land[y][x]) rt.drawFrame('ground',groundIdx(x,y),x*T,y*T);
 
-  // ---- plaza real de arena + senderos ----
+  // ---- plaza real + CALLES de arena (autotile) barrio→plaza ----
   const px=Math.floor(COLS/2), py=Math.floor(ROWS/2);
-  const plaza=new Set(); const pkey=(x,y)=>x+','+y;
-  for(let y=py-2;y<=py+2;y++)for(let x=px-3;x<=px+3;x++) if(isLand(x,y)) plaza.add(pkey(x,y));
-  const inPlaza=(x,y)=>plaza.has(pkey(x,y));
-  plaza.forEach(k=>{const [x,y]=k.split(',').map(Number); rt.drawFrame('ground',sandIdx(x,y,inPlaza),x*T,y*T);});
-  for(const g of GUILDS){                                   // senderos punteados barrio→plaza
-    let sx=g.cx, sy=g.cy;
-    let guard=0;
-    while((sx!==px||sy!==py)&&guard++<60){
-      if(Math.random()<0.5&&sx!==px) sx+=Math.sign(px-sx); else if(sy!==py) sy+=Math.sign(py-sy); else if(sx!==px) sx+=Math.sign(px-sx);
-      if(isLand(sx,sy)&&!inPlaza(sx,sy)&&Math.random()<0.75) rt.drawFrame('ground',9,sx*T,sy*T-10);
+  const pkey=(x,y)=>x+','+y;
+  const sand=new Set();                                     // plaza ∪ calles (una sola zona para que empalmen)
+  for(let y=py-1;y<=py+2;y++)for(let x=px-3;x<=px+3;x++) if(isLand(x,y)) sand.add(pkey(x,y));
+  const plazaOnly=new Set(sand);
+  const inPlaza=(x,y)=>plazaOnly.has(pkey(x,y));
+  for(const g of GUILDS){                                   // calle en L con serpenteo, 1-2 tiles de ancho
+    let sx=g.cx, sy=g.cy, guard=0;
+    while((sx!==px||sy!==py)&&guard++<120){
+      if(Math.abs(sx-px)>Math.abs(sy-py)) sx+=Math.sign(px-sx);
+      else sy+=Math.sign(py-sy);
+      if(Math.random()<0.22){ const jy=sy+pick([-1,1]); if(isLand(sx,jy)) sand.add(pkey(sx,jy)); }
+      if(isLand(sx,sy)) sand.add(pkey(sx,sy));
     }
   }
+  const inSand=(x,y)=>sand.has(pkey(x,y));
+  sand.forEach(k=>{const [x,y]=k.split(',').map(Number); rt.drawFrame('ground',sandIdx(x,y,inSand),x*T,y*T);});
 
   npcGroup=this.physics.add.group();
   this.physics.add.collider(npcGroup,obstacles);
@@ -275,54 +283,85 @@ function create(){
   placeTorch(px-3,py-2); placeTorch(px+3,py-2);
   placeDecoImg('stall1',px-2,py+2,0.85); placeDecoImg('stall2',px+2,py+2,0.85);
   placeDecoImg('tent1',px+3,py+1,0.85);  placeDecoImg('tent2',px-3,py+1,0.85);
-  placeDecoImg('res_gold',px-1,py+2,0.5); placeDecoImg('res_meat',px+1,py+2,0.5);
+  placeDecoImg('res_gold',px-1,py+2,0.5); placeDecoImg('res_meat',px+1,py+2,0.5); placeDecoImg('res_wood',px,py+2,0.5);
+  placeTorch(px-3,py+2); placeTorch(px+3,py+2);
+  const ch=scene.add.image(px*T+T/2+40,py*T+T/2,'td_chest').setOrigin(0.5,0.9).setScale(2.4); ch.setDepth(ch.y);
 
-  // ---- barrios de facción: caserío orgánico con SU color ----
+  // ---- barrios de facción AMURALLADOS: cerca perimetral con puertas donde pasa la calle ----
+  const QRX=5, QRY=4;                                       // radio del barrio en tiles
   for(const g of GUILDS){
     const q=nudgeToLand(g.cx,g.cy); g.cx=q.x; g.cy=q.y;
+    for(let y=g.cy-QRY;y<=g.cy+QRY;y++)for(let x=g.cx-QRX;x<=g.cx+QRX;x++){   // muralla (autotile del cerco)
+      const t=y===g.cy-QRY, b=y===g.cy+QRY, l=x===g.cx-QRX, r=x===g.cx+QRX;
+      if(!(t||b||l||r)||!isLand(x,y)||inSand(x,y)||blocked[y][x]) continue;   // puertas = tiles de calle
+      const fr = t&&l?0 : t&&r?3 : b&&l?8 : b&&r?11 : t?pick([1,2]) : b?pick([9,10]) : l?4 : 7;
+      scene.add.image(x*T+T/2,y*T+T-6,'fence',fr).setOrigin(0.5,1).setDepth(y*T+T-6);
+      blocked[y][x]=true;
+    }
     placeBuilding('tower_'+g.tex, g.cx, g.cy-1, 0.8, {fw:1,fh:1});
-    banner(g.cx, g.cy, g.color); placeTorch(g.cx+1, g.cy);
+    banner(g.cx, g.cy, g.color); placeTorch(g.cx+1, g.cy); placeTorch(g.cx-QRX+1, g.cy-QRY+1);
     placeBuilding(pick(ESPECIALES)+'_'+g.tex, g.cx+rint(-2,2), g.cy+2, 0.78, {fw:2,fh:1});
     let puestas=0, intentos=0;
-    while(puestas<6&&intentos++<50){
-      const hx=g.cx+rint(-3,3), hy=g.cy+rint(-2,3);
-      if(!isLand(hx,hy)||blocked[hy][hx]||inPlaza(hx,hy)) continue;
-      if(blocked[hy]&&blocked[hy][hx]) continue;
+    while(puestas<8&&intentos++<70){
+      const hx=g.cx+rint(-QRX+1,QRX-1), hy=g.cy+rint(-QRY+1,QRY-1);
+      if(!isLand(hx,hy)||blocked[hy][hx]||inSand(hx,hy)) continue;
       placeBuilding(pick(CASAS)+'_'+g.tex, hx, hy, Phaser.Math.FloatBetween(0.72,0.88), {fw:1,fh:1});
       puestas++;
     }
   }
 
-  // ---- campamento goblin (este) + cueva con oso (oeste) + mina (sur) ----
-  const gc=nudgeToLand(COLS-4,py);
-  placeBuilding('goblin_house',gc.x,gc.y,0.8,{fw:1,fh:1}); placeBuilding('goblin_house',gc.x-1,gc.y+1,0.72,{fw:1,fh:1});
-  for(let i=0;i<7;i++){const fx=gc.x+rint(-2,2),fy=gc.y+rint(-2,2);
-    if(isLand(fx,fy)&&!blocked[fy][fx]&&Math.random()<0.7){scene.add.image(fx*T+T/2,fy*T+T-6,'fence',rint(0,11)).setOrigin(0.5,1).setDepth(fy*T+T-6);}}
-  for(let i=0;i<3;i++) spawnMonster(pick(['torch','spear','shaman']), gc.x+rint(-2,2), gc.y+rint(-2,2));
-  const cv=nudgeToLand(3,py-1);
-  const caveSpr=this.add.sprite(cv.x*T+T/2,cv.y*T+T,'cave').play('cave-a').setOrigin(0.5,1).setScale(0.85).setDepth(cv.y*T+T);
+  // ---- ZONA GOBLIN (NE): bosque oscuro y denso, su hábitat natural ----
+  const gc=nudgeToLand(COLS-7,4);
+  for(let i=0;i<14;i++){ const tx=Phaser.Math.Clamp(gc.x+rint(-4,3),1,COLS-2), ty=Phaser.Math.Clamp(gc.y+rint(-2,5),1,ROWS-2);
+    if(isLand(tx,ty)&&!blocked[ty][tx]&&!inSand(tx,ty)) placeTree(tx,ty); }
+  placeBuilding('goblin_house',gc.x,gc.y,0.8,{fw:1,fh:1}); placeBuilding('goblin_house',gc.x-2,gc.y+2,0.72,{fw:1,fh:1});
+  placeDecoImg('tdeco18',gc.x+1,gc.y+1,0.95); placeDecoImg('tdeco14',gc.x-1,gc.y+1,0.9);   // tótem y huesos
+  for(let i=0;i<6;i++){const fx=gc.x+rint(-3,2),fy=gc.y+rint(-1,3);
+    if(isLand(fx,fy)&&!blocked[fy][fx]&&!inSand(fx,fy)&&Math.random()<0.7){scene.add.image(fx*T+T/2,fy*T+T-6,'fence',pick([1,2,9,10])).setOrigin(0.5,1).setDepth(fy*T+T-6); blocked[fy][fx]=true;}}
+  for(let i=0;i<4;i++) spawnMonster(pick(['torch','spear','shaman','tnt']), gc.x+rint(-3,2), gc.y+rint(-1,3), {tx:gc.x,ty:gc.y,r:4});
+
+  // ---- ZONA SALVAJE (O): cueva, fieras y carroña ----
+  const cv=nudgeToLand(4,py-2);
+  scene.add.sprite(cv.x*T+T/2,cv.y*T+T,'cave').play('cave-a').setOrigin(0.5,1).setScale(0.9).setDepth(cv.y*T+T);
   if(blocked[cv.y]) blocked[cv.y][cv.x]=true;
-  placeDecoImg('tdeco14',cv.x+1,cv.y+1,0.9); placeDecoImg('tdeco15',cv.x-1,cv.y,0.9);   // huesos
-  spawnMonster('bear',cv.x+2,cv.y+1); spawnMonster('snake',cv.x+1,cv.y+2); spawnMonster('spider',cv.x+3,cv.y);
-  const gm=nudgeToLand(px-5,ROWS-4);
-  placeBuilding('goldmine',gm.x,gm.y,0.8,{fw:2,fh:1}); placeDecoImg('res_gold',gm.x+1,gm.y+1,0.5);
+  placeDecoImg('tdeco14',cv.x+1,cv.y+1,0.9); placeDecoImg('tdeco15',cv.x-1,cv.y,0.9);
+  spawnMonster('bear',cv.x+2,cv.y+1,{tx:cv.x,ty:cv.y,r:5}); spawnMonster('snake',cv.x+1,cv.y+2,{tx:cv.x,ty:cv.y,r:4}); spawnMonster('spider',cv.x+3,cv.y,{tx:cv.x,ty:cv.y,r:4});
+  for(let i=0;i<3;i++){ const b=scene.add.image(cv.x*T+rint(-40,220), cv.y*T+rint(-60,60),'td_bat').setScale(2.2).setDepth(88000).setAlpha(0.9);   // murciélagos volando
+    const cxb=b.x, cyb=b.y, rad=rint(50,110); let a0=Math.random()*6.28;
+    scene.tweens.add({targets:{v:0},v:6.28,duration:rint(5000,9000),repeat:-1,
+      onUpdate:(tw)=>{const a=a0+tw.getValue(); b.x=cxb+Math.cos(a)*rad; b.y=cyb+Math.sin(a)*rad*0.5; b.setFlipX(Math.cos(a)<0);}}); }
+
+  // ---- mina (S-O) ----
+  const gm=nudgeToLand(px-8,ROWS-6);
+  placeBuilding('goldmine',gm.x,gm.y,0.8,{fw:2,fh:1}); placeDecoImg('res_gold',gm.x+1,gm.y+1,0.5); placeDecoImg('rock2',gm.x-1,gm.y+1,0.85);
   gmPos={x:gm.x*T+T/2, y:(gm.y+1)*T+T/2};
 
-  // ---- granja: espantapájaros + zapallos + corral de ovejas ----
-  const fa=nudgeToLand(px+5,ROWS-5);
-  placeDecoImg('tdeco16',fa.x,fa.y,1); placeDecoImg('tdeco12',fa.x+1,fa.y+1,0.9); placeDecoImg('tdeco13',fa.x-1,fa.y+1,0.9); placeDecoImg('tdeco12',fa.x+2,fa.y,0.8);
-  for(let i=0;i<4;i++) spawnSheep(fa.x+rint(-1,2), fa.y+rint(1,2));
+  // ---- ZONA GRANJA (S-E): cultivos en filas + corral con cerdos y ovejas ----
+  const fa=nudgeToLand(px+8,ROWS-7);
+  placeDecoImg('tdeco16',fa.x,fa.y-1,1);                                     // espantapájaros
+  for(let ry=0;ry<2;ry++)for(let rx=0;rx<4;rx++){                            // filas de zapallos
+    const zx=fa.x-1+rx, zy=fa.y+ry;
+    if(isLand(zx,zy)&&!blocked[zy][zx]&&!inSand(zx,zy)){ placeDecoImg(pick(['tdeco12','tdeco13']),zx,zy,0.85); blocked[zy][zx]=true; } }
+  for(let y=fa.y+2;y<=fa.y+4;y++)for(let x=fa.x-2;x<=fa.x+2;x++){            // corral (autotile, con puerta)
+    const t=y===fa.y+2, b=y===fa.y+4, l=x===fa.x-2, r=x===fa.x+2;
+    if(!(t||b||l||r)||!isLand(x,y)||blocked[y][x]||(x===fa.x&&t)) continue;
+    const fr = t&&l?0 : t&&r?3 : b&&l?8 : b&&r?11 : t?pick([1,2]) : b?pick([9,10]) : l?4 : 7;
+    scene.add.image(x*T+T/2,y*T+T-6,'fence',fr).setOrigin(0.5,1).setDepth(y*T+T-6); blocked[y][x]=true; }
+  const pen={tx:fa.x,ty:fa.y+3,r:1};
+  spawnSheep(fa.x-1,fa.y+3,pen); spawnSheep(fa.x+1,fa.y+3,pen);
+  spawnPig(fa.x,fa.y+3,pen); spawnPig(fa.x+1,fa.y+4,pen);
+  spawnPig(fa.x-4,fa.y,null); // un cerdo suelto
 
   // ---- bosques animados + arbustos + rocas + decos por todos lados ----
-  for(let c=0;c<5;c++){ const t=randFree(); if(!t) continue;
-    for(let k=rint(3,6);k>0;k--){ const gx=Phaser.Math.Clamp(t.x+rint(-2,2),1,COLS-2), gy=Phaser.Math.Clamp(t.y+rint(-2,2),1,ROWS-2);
-      if(isLand(gx,gy)&&!blocked[gy][gx]&&!inPlaza(gx,gy)) placeTree(gx,gy); } }
-  for(let i=0;i<10;i++){const t=randFree(); if(t&&!inPlaza(t.x,t.y)) placeTree(t.x,t.y);}
-  for(let i=0;i<12;i++){const t=randFree(); if(t){const b='bush'+rint(1,4);
+  for(let c=0;c<8;c++){ const t=randFree(); if(!t) continue;
+    for(let k=rint(3,7);k>0;k--){ const gx=Phaser.Math.Clamp(t.x+rint(-2,2),1,COLS-2), gy=Phaser.Math.Clamp(t.y+rint(-2,2),1,ROWS-2);
+      if(isLand(gx,gy)&&!blocked[gy][gx]&&!inSand(gx,gy)) placeTree(gx,gy); } }
+  for(let i=0;i<16;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)) placeTree(t.x,t.y);}
+  for(let i=0;i<18;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)){const b='bush'+rint(1,4);
     scene.add.sprite(t.x*T+T/2,t.y*T+T-4,b).play({key:b+'-a',startFrame:rint(0,7)}).setOrigin(0.5,1).setScale(0.6).setDepth(t.y*T+T-4);}}
-  for(let i=0;i<10;i++){const t=randFree(); if(t) placeDecoImg('rock'+rint(1,4),t.x,t.y,0.8);}
-  for(let i=0;i<26;i++){const t=randFree(); if(t) placeDecoImg('tdeco'+rint(1,11),t.x,t.y,Phaser.Math.FloatBetween(0.7,1));}
-  for(let i=0;i<4;i++){const t=randFree(); if(t) spawnSheep(t.x,t.y);}
+  for(let i=0;i<14;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)) placeDecoImg('rock'+rint(1,4),t.x,t.y,0.8);}
+  for(let i=0;i<40;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)) placeDecoImg('tdeco'+rint(1,11),t.x,t.y,Phaser.Math.FloatBetween(0.7,1));}
+  for(let i=0;i<5;i++){const t=randFree(); if(t) spawnSheep(t.x,t.y);}
 
   // ---- casillas caminables ----
   for(let y=1;y<ROWS-1;y++)for(let x=1;x<COLS-1;x++) if(isLand(x,y)&&!blocked[y][x]) walkTiles.push({x:x*T+T/2,y:y*T+T/2});
@@ -461,24 +500,58 @@ function spawnWorker(gid,job){                       // leñador/minero/cargador
   n.patrol=[site,home]; n.pIx=0; n.tx=site.x; n.ty=site.y;
   return n;
 }
-function spawnSheep(tx,ty){
+function spawnSheep(tx,ty,home){
   const s=scene.physics.add.sprite(tx*T+T/2,ty*T+T/2,'sheep',0).setOrigin(0.5,0.9).setScale(0.85);
   s.play('sheep-idle'); s.setDepth(s.y); npcGroup.add(s);
-  npcs.push({spr:s,sheep:true,monster:false,tipo:'sheep',spd:14,animI:'sheep-idle',tx:s.x,ty:s.y,idle:0,stuck:0,lx:s.x,ly:s.y,dead:false});
+  npcs.push({spr:s,sheep:true,monster:false,tipo:'sheep',spd:14,animI:'sheep-idle',home:home||null,tx:s.x,ty:s.y,idle:0,stuck:0,lx:s.x,ly:s.y,dead:false});
 }
-function spawnMonster(kind,tx,ty){
+function spawnPig(tx,ty,home){
+  const s=scene.physics.add.sprite(tx*T+T/2,ty*T+T/2,'pig_idle',0).setOrigin(0.5,0.72).setScale(0.55);
+  s.play('cerdo-idle'); s.setDepth(s.y); npcGroup.add(s);
+  npcs.push({spr:s,sheep:true,monster:false,tipo:'pig',spd:18,animI:'cerdo-idle',animR:'cerdo-run',home:home||null,tx:s.x,ty:s.y,idle:0,stuck:0,lx:s.x,ly:s.y,dead:false});
+}
+function spawnMonster(kind,tx,ty,home){
   const d=MONDEF[kind]; if(!d) return null;
   tx=Phaser.Math.Clamp(tx,1,COLS-2); ty=Phaser.Math.Clamp(ty,1,ROWS-2);
   const s=scene.physics.add.sprite(tx*T+T/2,ty*T+T/2,d.ti,0).setOrigin(0.5,0.72).setScale(d.sc);
   const bw=d.fw===256?36:30;
   s.body.setSize(bw,22).setOffset((d.fw-bw)/2, d.fw*0.72-24);
   s.setCollideWorldBounds(true); npcGroup.add(s); s.setDepth(s.y); s.play(d.ai);
-  const n={spr:s,sheep:false,monster:true,tipo:kind,kind,spd:d.spd,animI:d.ai,animR:d.ar,tx:s.x,ty:s.y,idle:0,stuck:0,lx:s.x,ly:s.y,dead:false};
+  const n={spr:s,sheep:false,monster:true,tipo:kind,kind,spd:d.spd,animI:d.ai,animR:d.ar,home:home||null,tx:s.x,ty:s.y,idle:0,stuck:0,lx:s.x,ly:s.y,dead:false};
   retarget(n); npcs.push(n); return n;
 }
+/* ===== pathfinding (BFS por tiles): nadie camina por el agua ===== */
+const walkable=(x,y)=>x>=1&&x<COLS-1&&y>=1&&y<ROWS-1&&isLand(x,y)&&!blocked[y][x];
+function findPath(x0,y0,x1,y1){
+  if(!walkable(x1,y1)||(!walkable(x0,y0))) return null;
+  if(x0===x1&&y0===y1) return [];
+  const prev=new Map(), key=(x,y)=>y*COLS+x, q=[[x0,y0]]; prev.set(key(x0,y0),null);
+  while(q.length){
+    const [cx,cy]=q.shift();
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const nx=cx+dx, ny=cy+dy, k=key(nx,ny);
+      if(prev.has(k)||!walkable(nx,ny)) continue;
+      prev.set(k,key(cx,cy));
+      if(nx===x1&&ny===y1){                                  // reconstruir
+        const path=[]; let cur=k;
+        while(cur!==null){ path.push({x:(cur%COLS)*T+T/2, y:Math.floor(cur/COLS)*T+T/2}); cur=prev.get(cur); }
+        path.reverse(); path.shift(); return path;
+      }
+      q.push([nx,ny]);
+    }
+  }
+  return null;
+}
+function tileOf(px_,py_){ return {x:Phaser.Math.Clamp(Math.floor(px_/T),0,COLS-1), y:Phaser.Math.Clamp(Math.floor(py_/T),0,ROWS-1)}; }
 function retarget(n){
-  if(n.patrol){ n.pIx=1-n.pIx; const p=n.patrol[n.pIx]; n.tx=p.x+rint(-20,20); n.ty=p.y+rint(-14,14); return; }
-  const w=pick(walkTiles); if(w){n.tx=w.x; n.ty=w.y;}
+  const cur=tileOf(n.spr.x,n.spr.y);
+  let dest=null;
+  if(n.patrol){ n.pIx=1-n.pIx; const p=n.patrol[n.pIx]; dest=tileOf(p.x,p.y); }
+  else if(n.home){ for(let i=0;i<12&&!dest;i++){ const dx=n.home.tx+rint(-n.home.r,n.home.r), dy=n.home.ty+rint(-n.home.r,n.home.r); if(walkable(dx,dy)) dest={x:dx,y:dy}; } }
+  if(!dest){ const w=pick(walkTiles); if(!w) return; dest=tileOf(w.x,w.y); }
+  const path=findPath(cur.x,cur.y,dest.x,dest.y);
+  if(path&&path.length){ n.path=path; const p=n.path.shift(); n.tx=p.x+rint(-10,10); n.ty=p.y+rint(-10,10); }
+  else { n.path=null; n.tx=n.spr.x; n.ty=n.spr.y; }
 }
 
 /* ===== cámara ===== */
@@ -600,6 +673,7 @@ const TPL=[
   {tag:'REFUERZO',c:'#8fb4d6',major:false,spawn:true,snd:'door',t:x=>`Un barco atraca en los muelles: nuevos brazos para el ${x.g}.`},
   {tag:'PASTOR',c:'#9fb06a',major:false,t:x=>`Las ovejas de ${x.d} escapan del corral. Alguien maldice en voz alta.`},
   {tag:'LADRÓN',c:'#b8b8b8',major:false,thief:true,snd:'coins',t:x=>`Un ladrón se escurre entre los puestos de ${x.d}. Faltan monedas, sobran sospechas.`},
+  {tag:'FAUNA',c:'#c97b4a',major:false,fauna:true,t:x=>`¡Un oso bajó del monte! El rebaño corre en círculos y el pastor pide ayuda a gritos.`},
   {tag:'GUERRA',c:'#e5533a',major:true,fx:'fire',kind:'ruin',snd:'fire',t:x=>`GUERRA DE FACCIONES. El ${x.g} asalta ${x.d}. El acero canta y las puertas arden.`},
   {tag:'DRAGÓN',c:'#f2703a',major:true,fx:'fire',kind:'ruin',dragon:true,snd:'fire',t:x=>`¡DRAGÓN! Una sombra alada cae sobre ${x.d}. Fuego, ceniza y gritos.`},
   {tag:'INVASIÓN',c:'#7fbf5a',major:true,fx:'clash',kind:'raid',snd:'latch',t:x=>`¡INVASIÓN! Una horda goblin sale de las Profundidades y cae sobre ${x.d}. ¡A las armas!`},
@@ -611,6 +685,10 @@ const TPL=[
   {tag:'TRAICIÓN',c:'#9b6fce',major:true,fx:'clash',kind:'defect',snd:'clash',t:x=>`TRAICIÓN. ${x.a} abandona el ${x.g} y jura lealtad a otro estandarte.`},
 ];
 function livingNpcs(){return npcs.filter(n=>!n.sheep&&!n.monster&&!n.dead);}
+// pool automático: solo vida ambiente + hallazgos/fiestas/bichos. Los eventos destructivos
+// entre gremios (GUERRA/DUELO/MAGNICIDIO/TRAICIÓN/DRAGÓN) se lanzan a mano desde el director.
+const AUTO_POOL=TPL.filter(t=>!t.major).concat(TPL.filter(t=>['HALLAZGO','FIESTA','INVASIÓN','BESTIA'].includes(t.tag)));
+const TPL_BY_TAG=Object.fromEntries(TPL.map(t=>[t.tag,t]));
 
 // La CONSECUENCIA corre SIEMPRE para eventos major (con o sin corte de cámara),
 // así el mundo queda consistente con la crónica. Guards en ruinBuilding/killNpc/defect.
@@ -622,8 +700,8 @@ function applyConsequence(tpl,a,b,focus){
   else if(tpl.treasure)        dropTreasure(a.spr.x,a.spr.y);
 }
 
-function fireEvent(){
-  const tpl=pick(TPL), living=livingNpcs(); if(!living.length)return;
+function fireEvent(force){
+  const tpl=force||pick(AUTO_POOL), living=livingNpcs(); if(!living.length)return;
   const a=pick(living); let b=pick(living),gd=0; while(b===a&&gd++<6) b=pick(living);
   const gsel=pick(GUILDS);
   const ctx={a:a.name,b:b.name,cls:a.cls,race:a.race,g:gsel.name,d:pick(DISTRICTS),i:pick(ITEMS)};
@@ -634,6 +712,16 @@ function fireEvent(){
 
   if(tpl.spawn){ spawnNpc(gsel.id, pick(POPMIX)); return; }
   if(tpl.thief){ const t=randFree(); if(t){ const m=spawnMonster('thief',t.x,t.y); if(m) scene.time.delayedCall(20000,()=>poofMonster(m)); } return; }
+  if(tpl.fauna){                                            // ataque de fauna: un oso corre al rebaño
+    const bears=npcs.filter(n=>n.monster&&n.kind==='bear'&&!n.dead);
+    const flock=npcs.filter(n=>n.sheep&&!n.dead);
+    if(bears.length&&flock.length){ const b2=pick(bears), v=pick(flock);
+      b2.path=null; b2.home=null; b2.tx=v.spr.x; b2.ty=v.spr.y;
+      scene.time.delayedCall(2200,()=>{ if(!v.dead){ v.dead=true; npcs=npcs.filter(x=>x!==v);
+        burst(v.spr.x,v.spr.y-10,0xffffff,12,10); v.spr.destroy(); } });
+    }
+    return;
+  }
 
   if(tpl.kind==='raid'){
     const r=spawnRaid();
@@ -681,8 +769,10 @@ function update(time,delta){
     const dx=n.tx-n.spr.x, dy=n.ty-n.spr.y, d=Math.hypot(dx,dy);
     if(Math.hypot(n.spr.x-n.lx,n.spr.y-n.ly)<0.25) n.stuck+=delta; else n.stuck=0;
     n.lx=n.spr.x; n.ly=n.spr.y;
-    if(d<4||n.stuck>600){
-      n.stuck=0; n.spr.body.setVelocity(0);
+    if(d<6&&n.path&&n.path.length){                        // siguiente waypoint de la ruta
+      const p=n.path.shift(); n.tx=p.x+rint(-10,10); n.ty=p.y+rint(-10,10);
+    } else if(d<6||n.stuck>700){
+      n.stuck=0; n.spr.body.setVelocity(0); n.path=null;
       if(n.idle<=0){ n.idle=rint(400,1800);
         n.spr.play((n.faceUp&&n.animIB)?n.animIB:n.animI,true); n.spr.setFlipX(!!n.faceLeft); }
       else { n.idle-=delta*m; if(n.idle<=0) retarget(n); }
@@ -721,3 +811,6 @@ $('btnSound').addEventListener('click',()=>{
   soundOn=!soundOn; $('btnSound').textContent=soundOn?'SONIDO ✓':'SONIDO';
   if(soundOn&&scene){ const c=scene.sound.context; if(c&&c.state==='suspended') c.resume(); sfx('bell',0.3); }
 });
+// director de eventos: elegí y lanzá cualquier evento a mano
+TPL.forEach(t=>{ const o=document.createElement('option'); o.value=t.tag; o.textContent=(t.major?'★ ':'')+t.tag; $('evSel').appendChild(o); });
+$('btnEvent').addEventListener('click',()=>{ const t=TPL_BY_TAG[$('evSel').value]; if(t&&scene) fireEvent(t); });
