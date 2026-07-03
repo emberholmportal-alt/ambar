@@ -42,8 +42,13 @@ const NODO={
   veta: {nom:'Veta de oro',res:'oro',  reserva:350, tool:'wpick', fw:2,fh:1, verbo:'MINAR'},
 };
 const FAUNA={
-  oveja: {nom:'Oveja',   tex:'sheep',    anim:'sheep-a', hp:24, carne:80,  dmg:0, esc:1.0, oy:0.9,  huye:true},
-  jabali:{nom:'Jabalí',  tex:'pig_idle', anim:'cerdo-i', hp:44, carne:150, dmg:4, esc:0.55,oy:0.72, huye:false},
+  oveja: {nom:'Oveja',   tex:'sheep',     anim:'sheep-a', hp:24, carne:80,  dmg:0,  esc:1.0, oy:0.9,  huye:true},
+  jabali:{nom:'Jabalí',  tex:'pig_idle',  anim:'cerdo-i', hp:44, carne:150, dmg:4,  esc:0.55,oy:0.72, huye:false},
+  oso:   {nom:'Oso',     tex:'bear_idle', anim:'bear-i',  hp:90, carne:300, dmg:11, esc:0.6, oy:0.8,  huye:false, run:'bear-r'},
+};
+const CRITTER={
+  snake: {nom:'serpiente',tex:'snake_idle', anim:'snake-i',  esc:0.5, oy:0.75},
+  spider:{nom:'araña',    tex:'spider_idle',anim:'spider-i', esc:0.42,oy:0.7},
 };
 
 /* ===== misiones ===== */
@@ -67,12 +72,12 @@ const S={ oro:220, madera:260, comida:130, ambar:60,
   elev:Array.from({length:GH},()=>Array(GW).fill(0)),
   cliff:Array.from({length:GH},()=>Array(GW).fill(false)),
   explored:Array.from({length:GH},()=>Array(GW).fill(false)),
-  buildings:[], nodes:[], animals:[], piles:[], ald:[], units:[], nextId:1,
+  buildings:[], nodes:[], animals:[], critters:[], piles:[], ald:[], units:[], nextId:1,
   thNivel:0, aldElegido:null, colocando:null, sel:null,
   qIx:0, stats:{talado:0,minado:0,cazado:0,cosechas:0,raids:0,skins:0,aldCreados:0,entrenados:0},
   raid:{on:false,gob:[],war:[],t:0,cool:180} };
 let scene, ghostG, ghostSpr=null, fogRT=null, homePos={x:0,y:0}, overview=false;
-let baseZoom=1, mmCtx=null;
+let baseZoom=1, mmCtx=null, mmBase=null;
 function sfx(k,v){ try{ scene&&scene.sound.play('s_'+k,{volume:v||0.5}); }catch(e){} }
 
 new Phaser.Game({type:Phaser.AUTO,backgroundColor:'#245063',
@@ -104,6 +109,13 @@ function preload(){
   this.load.spritesheet('archer_blue_r','assets/img/ts/archer_blue_r.png',{frameWidth:192,frameHeight:192});
   this.load.spritesheet('pig_idle',TSB+'pig_idle.png',{frameWidth:192,frameHeight:192});
   this.load.spritesheet('pig_run',TSB+'pig_run.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('bear_idle',TSB+'bear_idle.png',{frameWidth:256,frameHeight:256});
+  this.load.spritesheet('bear_run',TSB+'bear_run.png',{frameWidth:256,frameHeight:256});
+  this.load.spritesheet('snake_idle',TSB+'snake_idle.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('spider_idle',TSB+'spider_idle.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('cave',TSB+'cave.png',{frameWidth:192,frameHeight:192});
+  this.load.image('goblin_house',TSB+'goblin_house.png');
+  this.load.spritesheet('goblin_tnt',TSB+'goblin_tnt.png',{frameWidth:192,frameHeight:192});
   this.load.spritesheet('goblin_torch',TSB+'goblin_torch.png',{frameWidth:192,frameHeight:192});
   this.load.spritesheet('spear_idle',TSB+'spear_idle.png',{frameWidth:256,frameHeight:256});
   this.load.spritesheet('spear_run',TSB+'spear_run.png',{frameWidth:256,frameHeight:256});
@@ -124,6 +136,7 @@ function preload(){
   ['door','bong','coins','creak','bell','clash','fire','latch'].forEach(k=>this.load.audio('s_'+k,'assets/sfx/'+k+'.ogg'));
 }
 function makeDot(s){const g=s.add.graphics({add:false});g.fillStyle(0xffffff,1);g.fillCircle(4,4,4);g.generateTexture('dot',8,8);g.destroy();}
+function makeTri(s){const g=s.add.graphics({add:false});g.fillStyle(0xffffff,1);g.beginPath();g.moveTo(0,0);g.lineTo(12,0);g.lineTo(6,9);g.closePath();g.fillPath();g.generateTexture('tri',12,9);g.destroy();}
 function makeFogBrush(s){
   const d=FOGR*2, tex=s.textures.createCanvas('fogbrush',d,d), ctx=tex.getContext();
   const g=ctx.createRadialGradient(FOGR,FOGR,FOGR*0.35,FOGR,FOGR,FOGR);
@@ -202,7 +215,7 @@ function eIdx(x,y){
 }
 
 function create(){
-  scene=this; makeDot(this); makeFogBrush(this);
+  scene=this; makeDot(this); makeTri(this); makeFogBrush(this);
   buildMap();
   const an=this.anims;
   an.create({key:'foam-a',frames:an.generateFrameNumbers('foam',{start:0,end:7}),frameRate:7,repeat:-1});
@@ -222,6 +235,12 @@ function create(){
   an.create({key:'arq-r',frames:an.generateFrameNumbers('archer_blue_r',{start:0,end:-1}),frameRate:10,repeat:-1});
   an.create({key:'cerdo-i',frames:an.generateFrameNumbers('pig_idle',{start:0,end:-1}),frameRate:7,repeat:-1});
   an.create({key:'cerdo-r',frames:an.generateFrameNumbers('pig_run',{start:0,end:-1}),frameRate:10,repeat:-1});
+  an.create({key:'bear-i',frames:an.generateFrameNumbers('bear_idle',{start:0,end:7}),frameRate:7,repeat:-1});
+  an.create({key:'bear-r',frames:an.generateFrameNumbers('bear_run',{start:0,end:4}),frameRate:9,repeat:-1});
+  an.create({key:'snake-i',frames:an.generateFrameNumbers('snake_idle',{start:0,end:7}),frameRate:6,repeat:-1});
+  an.create({key:'spider-i',frames:an.generateFrameNumbers('spider_idle',{start:0,end:7}),frameRate:8,repeat:-1});
+  an.create({key:'gtnt-i',frames:an.generateFrameNumbers('goblin_tnt',{start:0,end:6}),frameRate:8,repeat:-1});
+  an.create({key:'gtnt-r',frames:an.generateFrameNumbers('goblin_tnt',{start:7,end:13}),frameRate:10,repeat:-1});
   an.create({key:'gt-r',frames:an.generateFrameNumbers('goblin_torch',{start:7,end:12}),frameRate:10,repeat:-1});
   an.create({key:'gt-i',frames:an.generateFrameNumbers('goblin_torch',{start:0,end:6}),frameRate:8,repeat:-1});
   an.create({key:'sp-r',frames:an.generateFrameNumbers('spear_run',{start:0,end:5}),frameRate:10,repeat:-1});
@@ -253,6 +272,8 @@ function create(){
     const l=isIn(x-1,y)&&S.cliff[y][x-1], r=isIn(x+1,y)&&S.cliff[y][x+1];
     rt.drawFrame('elev', l&&r?13 : r?12 : l?14 : 15, (BX+x)*T,(BY+y)*T);
   }
+  // snapshot del terreno real → base del minimapa (no procedural)
+  try{ rt.snapshotArea(BX*T,BY*T,GW*T,GH*T,img=>{ mmBase=img; }); }catch(e){}
 
   // mar vivo
   for(let i=0;i<10;i++){
@@ -275,16 +296,19 @@ function create(){
 
   ghostG=this.add.graphics().setDepth(95000);
 
-  // ---- NIEBLA DE GUERRA ----
-  fogRT=this.add.renderTexture(0,0,WORLD_W,WORLD_H).setOrigin(0,0).setDepth(80000);
-  fogRT.fill(0x05090c,0.93);
+  // ---- NIEBLA DE GUERRA (cubre TODO el mapa, incluido el mar) ----
+  fogRT=this.add.renderTexture(-MAR,-MAR,WORLD_W+MAR*2,WORLD_H+MAR*2).setOrigin(0,0).setDepth(80000);
+  fogRT.fill(0x05090c,0.95);
 
   // ---- recursos naturales dispersos ----
-  scatterNodos('arbol',22);
+  scatterNodos('arbol',26);
   scatterNodos('veta',4);
-  scatterFauna('oveja',6);
+  scatterFauna('oveja',7);
   scatterFauna('jabali',4);
-  scatterEyeCandy(16);
+  scatterFauna('oso',2);
+  scatterCritter('snake',3);
+  scatterCritter('spider',2);
+  scatterEyeCandy(30);
 
   // ---- ARRANQUE: una casita al sur + 3 aldeanos ----
   let hx=Math.floor(GW/2)-1, hy=GH-5, tr=0;
@@ -293,6 +317,7 @@ function create(){
   homePos={x:(BX+hx+1)*T, y:(BY+hy)*T};
   revelar(homePos.x,homePos.y,6);
   for(let i=0;i<3;i++){ const a=spawnAldeano(home.x+rint(-46,46),home.y+rint(8,26),true); if(a) revelar(a.spr.x,a.spr.y,5); }
+  scatterScenery();
 
   this.input.on('pointermove',p=>{ if(S.colocando) drawGhost(p); });
   this.input.on('pointerdown',(p,over)=>{
@@ -356,6 +381,16 @@ function marcaOrden(x,y){
   const r=scene.add.circle(x,y,6,0xffe9a0,0).setStrokeStyle(2,0xffe9a0,0.95).setDepth(99995);
   scene.tweens.add({targets:r,radius:22,alpha:0,duration:520,ease:'Quad.easeOut',onComplete:()=>r.destroy()});
 }
+function addMark(ent,color,off){        // triangulito titilante sobre la cabeza
+  ent.markOff=off;
+  ent.markBg=scene.add.image(ent.spr.x,ent.spr.y-off,'tri').setTint(0x120d09).setDepth(98499).setScale(1.55); // contorno
+  ent.mark=scene.add.image(ent.spr.x,ent.spr.y-off,'tri').setTint(color).setDepth(98500).setScale(1.3);
+  ent.markTw=scene.tweens.add({targets:[ent.mark,ent.markBg],alpha:0.4,duration:480,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+}
+function killMark(ent){ if(ent.markTw){ent.markTw.remove();ent.markTw=null;} if(ent.mark){ent.mark.destroy();ent.mark=null;} if(ent.markBg){ent.markBg.destroy();ent.markBg=null;} }
+function moveMark(ent){ if(ent.mark){ const y=ent.spr.y-ent.markOff;
+  ent.mark.x=ent.spr.x; ent.mark.y=y; ent.mark.setDepth(ent.spr.y+3);
+  ent.markBg.x=ent.spr.x; ent.markBg.y=y+1; ent.markBg.setDepth(ent.spr.y+2); } }
 function burstAt(x,y,color){
   for(let i=0;i<10;i++){ const p=scene.add.image(x,y,'dot').setTint(color).setDepth(99999).setScale(Phaser.Math.FloatBetween(0.5,1.2));
     scene.tweens.add({targets:p,x:x+rint(-26,26),y:y-rint(4,30),alpha:0,scale:0.1,duration:rint(400,900),ease:'Quad.easeOut',onComplete:()=>p.destroy()}); }
@@ -364,7 +399,7 @@ function burstAt(x,y,color){
 /* ===== niebla ===== */
 function revelar(px,py,rTiles){
   if(!fogRT) return;
-  fogRT.erase('fogbrush', px-FOGR, py-FOGR);
+  fogRT.erase('fogbrush', px+MAR-FOGR, py+MAR-FOGR);   // RT arranca en (-MAR,-MAR)
   const t=tileOfPx(px,py);
   const R=rTiles||3;
   for(let dy=-R;dy<=R;dy++)for(let dx=-R;dx<=R;dx++){
@@ -395,6 +430,7 @@ function findPath(x0,y0,x1,y1){
   return null;
 }
 const tileOfPx=(px,py)=>({x:Phaser.Math.Clamp(Math.floor(px/T)-BX,0,GW-1), y:Phaser.Math.Clamp(Math.floor(py/T)-BY,0,GH-1)});
+const landAtPx=(px,py)=>{ const tx=Math.floor(px/T)-BX, ty=Math.floor(py/T)-BY; return walkable(tx,ty); };  // estricto: nada de agua/afuera
 function adjWalkable(tx,ty){
   for(let r=1;r<=3;r++)for(let oy=-r;oy<=r;oy++)for(let ox=-r;ox<=r;ox++){
     const x=tx+ox, y=ty+oy;
@@ -412,6 +448,7 @@ function spawnAldeano(x,y,inicial){
     tx:x, ty:y, wT:rint(2,6), task:null, tarT:0, tool:null, lastTile:'', atkT:0};
   s.setInteractive({useHandCursor:true});
   s.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'aldeano',ref:a}); });
+  addMark(a,0xffe36b,64);
   S.ald.push(a); refreshHUD(); return a;
 }
 const aldLibre=()=>S.ald.find(a=>a.estado==='libre'||a.estado==='paseo');
@@ -445,6 +482,7 @@ function parar(a){
 }
 function despedir(a){
   if(a.dustEv)a.dustEv.remove(); if(a.tween)a.tween.remove();
+  killMark(a);
   S.ald=S.ald.filter(x=>x!==a);
   scene.tweens.add({targets:a.spr,alpha:0,y:'-=14',duration:600,onComplete:()=>a.spr.destroy()});
   sfx('door',0.4); toast('Aldeano despedido: cupo liberado.');
@@ -455,6 +493,7 @@ function dañarAldeano(a,dmg){
   a.spr.setTint(0xff6a5a); scene.time.delayedCall(120,()=>a.spr&&a.spr.clearTint&&a.spr.clearTint());
   if(a.hp<=0){
     if(a.dustEv)a.dustEv.remove(); if(a.tween)a.tween.remove();
+    killMark(a);
     S.ald=S.ald.filter(x=>x!==a);
     const d=scene.add.sprite(a.spr.x,a.spr.y,'dead').play('dead-a').setOrigin(0.5,0.72).setScale(0.5).setDepth(a.spr.y);
     d.once('animationcomplete',()=>scene.tweens.add({targets:d,alpha:0,duration:1500,onComplete:()=>d.destroy()}));
@@ -556,7 +595,7 @@ function scatterFauna(tipo,n){
     let tx=0,ty=0,tr=0,ok=false;
     do{ tx=rint(1,GW-2); ty=rint(1,GH-2); tr++; ok=walkable(tx,ty)&&S.grid[ty][tx]===null; }while(!ok&&tr<60);
     if(!ok) continue;
-    const x=(BX+tx)*T+T/2, y=(BY+ty+1)*T;
+    const x=(BX+tx)*T+T/2, y=(BY+ty+1)*T-12;   // pies dentro del tile (no en el borde con agua)
     const s=scene.add.sprite(x,y,cfg.tex).setOrigin(0.5,cfg.oy).setScale(cfg.esc).setDepth(y);
     s.play(cfg.anim);
     const m={id:'m'+S.nextId++, tipo, spr:s, hp:cfg.hp, maxhp:cfg.hp, carne:cfg.carne, dmg:cfg.dmg,
@@ -565,6 +604,30 @@ function scatterFauna(tipo,n){
     s.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'animal',ref:m}); });
     S.animals.push(m);
   }
+}
+function scatterCritter(tipo,n){
+  const cfg=CRITTER[tipo];
+  for(let i=0;i<n;i++){
+    let tx=0,ty=0,tr=0,ok=false;
+    do{ tx=rint(1,GW-2); ty=rint(1,GH-2); tr++; ok=walkable(tx,ty)&&S.grid[ty][tx]===null; }while(!ok&&tr<60);
+    if(!ok) continue;
+    const x=(BX+tx)*T+T/2, y=(BY+ty+1)*T-14;
+    const s=scene.add.sprite(x,y,cfg.tex).setOrigin(0.5,cfg.oy).setScale(cfg.esc).setDepth(y).play(cfg.anim);
+    S.critters.push({spr:s, dir:Math.random()*6.28, wT:rint(2,6), mv:false, esc:cfg.esc});
+  }
+}
+function scatterScenery(){                 // cueva + choza goblin como paisaje (bloquean su tile)
+  const poner=(tex,frame,esc,oy)=>{
+    for(let tr=0;tr<80;tr++){ const tx=rint(1,GW-2), ty=rint(1,GH-2);
+      if(!walkable(tx,ty)||S.grid[ty][tx]!==null||Math.hypot((BX+tx)*T-homePos.x/1,(BY+ty)*T-homePos.y)<T*4) continue;
+      const x=(BX+tx)*T+T/2, y=(BY+ty+1)*T;
+      const spr=frame==null?scene.add.image(x,y,tex):scene.add.sprite(x,y,tex,frame);
+      spr.setOrigin(0.5,oy).setScale(esc).setDepth(y);
+      S.grid[ty][tx]='s'+S.nextId++;
+      return; }
+  };
+  poner('cave',0,0.8,0.85);
+  poner('goblin_house',null,0.7,0.92);
 }
 function matarAnimal(m){
   if(m.dead) return; m.dead=true;
@@ -700,6 +763,7 @@ function entrenar(tipoU,b){
   const un={id:'u'+S.nextId++, tipo:tipoU, spr:s, home:{x:s.x,y:s.y}, target:null, cd:0, dead:false, wT:rint(3,8), moveT:null};
   s.setInteractive({useHandCursor:true});
   s.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'militar',ref:un}); });
+  addMark(un,0x8ec8ff,tipoU==='guerrero'?78:66);
   S.units.push(un); S.stats.entrenados++;
   dustAt(s.x,s.y,2); sfx('clash',0.4); toast('⚔️ '+u.nom+' entrenado y en guardia.');
   refreshHUD();
@@ -711,7 +775,7 @@ function moverMilitar(u,wx,wy){
   if(!S.raid.on) u.spr.play(u.tipo==='guerrero'?'war-r':'arq-r',true);
 }
 function despedirMilitar(u){
-  u.dead=true; S.units=S.units.filter(x=>x!==u);
+  u.dead=true; killMark(u); S.units=S.units.filter(x=>x!==u);
   scene.tweens.add({targets:u.spr,alpha:0,y:'-=14',duration:600,onComplete:()=>u.spr.destroy()});
   sfx('door',0.4); toast('Unidad despedida: cupo liberado.');
   if(S.sel&&S.sel.ref===u) deseleccionar(); refreshHUD();
@@ -961,6 +1025,7 @@ function despacharBote(boat,ok){
 }
 
 /* ===== asalto goblin ===== */
+const gAnim=(tipo,m)=>tipo==='torch'?'gt-'+m:tipo==='spear'?'sp-'+m:'gtnt-'+m;
 function startRaid(){
   if(S.raid.on) return;
   S.raid.on=true; S.raid.t=0; S.raid.gob=[]; S.raid.war=[];
@@ -972,10 +1037,10 @@ function startRaid(){
     const lado=pick(['o','e','s']);
     const gx=lado==='o'?(BX-2)*T:lado==='e'?(BX+GW+2)*T:(BX+rint(1,GW-1))*T;
     const gy=lado==='s'?(BY+GH+2)*T:(BY+rint(1,GH-1))*T;
-    const tipo=Math.random()<0.6?'torch':'spear';
-    const s=scene.add.sprite(gx,gy,tipo==='torch'?'goblin_torch':'spear_run').setOrigin(0.5,0.72)
-      .setScale(tipo==='torch'?0.62:0.52).setDepth(gy);
-    s.play(tipo==='torch'?'gt-r':'sp-r');
+    const tipo=pick(['torch','torch','spear','tnt']);
+    const tex=tipo==='torch'?'goblin_torch':tipo==='spear'?'spear_run':'goblin_tnt';
+    const s=scene.add.sprite(gx,gy,tex).setOrigin(0.5,0.72).setScale(tipo==='spear'?0.52:0.62).setDepth(gy);
+    s.play(gAnim(tipo,'r'));
     S.raid.gob.push({spr:s,tipo,target:null,atkT:0,dead:false});
   }
   S.units.forEach(u=>{ u.spr.play(u.tipo==='guerrero'?'war-r':'arq-r',true); });
@@ -1018,12 +1083,13 @@ function raidTick(dtReal){
     if(d>34){
       const sp=44*dtReal, ang=Math.atan2(g.target.y-20-g.spr.y,g.target.x-g.spr.x);
       g.spr.x+=Math.cos(ang)*sp; g.spr.y+=Math.sin(ang)*sp; g.spr.setFlipX(Math.cos(ang)<0); g.spr.setDepth(g.spr.y);
+      if(g.spr.anims.currentAnim&&g.spr.anims.currentAnim.key!==gAnim(g.tipo,'r')) g.spr.play(gAnim(g.tipo,'r'),true);
     } else {
       g.atkT+=dtReal;
-      if(g.atkT>1.1){ g.atkT=0; g.target.hp-=12;
-        g.spr.play(g.tipo==='torch'?'gt-i':'sp-i',true);
+      if(g.atkT>1.1){ g.atkT=0; g.target.hp-=(g.tipo==='tnt'?18:12);
+        g.spr.play(gAnim(g.tipo,'i'),true);
         scene.tweens.add({targets:g.target.sprs[0],x:'+=3',duration:50,yoyo:true,repeat:1});
-        burstAt(g.target.x,g.target.y-24,0xe5533a);
+        burstAt(g.target.x,g.target.y-24,g.tipo==='tnt'?0xffb03a:0xe5533a);
         if(g.target.hp<=0){ g.target.danado=true;
           const w=S.ald.find(a=>a.bId===g.target.id&&a.estado==='peon'); if(w) parar(w);
           refreshBuilding(g.target); sfx('fire',0.4);
@@ -1065,7 +1131,7 @@ function pelear(lista,vivos,dtReal,esUnidad){
         sfx('clash',0.2); u.target=null; }
     } else {
       sfx('clash',0.3); burstAt(u.spr.x,u.spr.y-16,0xffffff); killGoblin(u.target); u.target=null;
-      if(Math.random()<(esUnidad?0.2:0.25)){ u.dead=true; if(esUnidad) S.units=S.units.filter(x=>x!==u);
+      if(Math.random()<(esUnidad?0.2:0.25)){ u.dead=true; killMark(u); if(esUnidad) S.units=S.units.filter(x=>x!==u);
         const d2=scene.add.sprite(u.spr.x,u.spr.y,'dead').play('dead-a').setOrigin(0.5,0.72).setScale(0.5).setDepth(u.spr.y);
         d2.once('animationcomplete',()=>scene.tweens.add({targets:d2,alpha:0,duration:1500,onComplete:()=>d2.destroy()}));
         u.spr.destroy(); refreshHUD(); }
@@ -1112,14 +1178,11 @@ function drawMinimap(){
   if(!mmCtx) return;
   const cw=220/GW, ch=150/GH;
   mmCtx.clearRect(0,0,220,150);
-  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
-    let col;
-    if(!S.explored[y][x]) col='#05090c';
-    else if(!S.land[y][x]) col='#1c4a5a';
-    else if(S.elev[y][x]) col='#7a6a4a';
-    else col='#3f6b3a';
-    mmCtx.fillStyle=col; mmCtx.fillRect(x*cw,y*ch,cw+0.6,ch+0.6);
-  }
+  mmCtx.fillStyle='#173845'; mmCtx.fillRect(0,0,220,150);           // mar de fondo
+  if(mmBase){ try{ mmCtx.drawImage(mmBase,0,0,220,150); }catch(e){} } // terreno REAL (snapshot)
+  mmCtx.fillStyle='rgba(6,10,13,0.86)';                             // sombra sobre lo no explorado
+  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++)
+    if(!S.explored[y][x]) mmCtx.fillRect(x*cw,y*ch,cw+0.7,ch+0.7);
   const dot=(wx,wy,col,sz)=>{ mmCtx.fillStyle=col;
     mmCtx.fillRect((wx-BX*T)/(GW*T)*220-sz/2,(wy-BY*T)/(GH*T)*150-sz/2,sz,sz); };
   for(const n of S.nodes){ if(S.explored[n.ty][n.tx]) dot(n.spr.x,n.spr.y,n.kind==='arbol'?'#1e4d28':'#e5c542',2.4); }
@@ -1199,7 +1262,9 @@ function update(time,delta){
     // niebla: revelar al moverse
     const tk=Math.floor(a.spr.x/T)+','+Math.floor(a.spr.y/T);
     if(tk!==a.lastTile){ a.lastTile=tk; revelar(a.spr.x,a.spr.y,4); }
+    moveMark(a);
   }
+  for(const u of S.units) moveMark(u);
 
   updateAnimals(dtReal,dt);
 
@@ -1257,21 +1322,28 @@ function updateAnimals(dtReal,dt){
     const cazador=m.hunter&&S.ald.includes(m.hunter)&&m.hunter.estado==='cazando'?m.hunter:null;
     if(cazador){
       const d=Phaser.Math.Distance.Between(m.spr.x,m.spr.y,cazador.spr.x,cazador.spr.y);
-      if(cfg.huye){ // oveja: escapa
+      if(cfg.huye){ // oveja: escapa (nunca al agua)
         if(d<120){ const ang=Math.atan2(m.spr.y-cazador.spr.y,m.spr.x-cazador.spr.x);
           const nx=m.spr.x+Math.cos(ang)*40*dtReal, ny=m.spr.y+Math.sin(ang)*40*dtReal;
-          const t=tileOfPx(nx,ny); if(walkable(t.x,t.y)){ m.spr.x=nx; m.spr.y=ny; m.spr.setFlipX(Math.cos(ang)<0); m.spr.setDepth(m.spr.y); } }
-      } else if(cfg.dmg){ // jabalí: contraataca
-        if(d<34){ m.atkT+=dtReal; if(m.atkT>1.1){ m.atkT=0; dañarAldeano(cazador,cfg.dmg); m.spr.play('cerdo-i',true); } }
+          if(landAtPx(nx,ny)){ m.spr.x=nx; m.spr.y=ny; m.spr.setFlipX(Math.cos(ang)<0); m.spr.setDepth(m.spr.y); } }
+      } else if(cfg.dmg){ // jabalí/oso: contraatacan
+        if(d<38){ m.atkT+=dtReal; if(m.atkT>1.1){ m.atkT=0; dañarAldeano(cazador,cfg.dmg); m.spr.play(cfg.anim,true); } }
       }
       continue;
     }
-    // deambular tranquilo
+    // deambular tranquilo (estrictamente en tierra)
     m.wT-=dtReal;
-    if(m.wT<=0){ m.wT=rint(3,8); m.dir=Math.random()*6.28; m.mv=Math.random()<0.6; if(m.spr.play) m.spr.play(m.mv?cfg.anim:cfg.anim,true); }
-    if(m.mv){ const sp=(cfg.huye?18:14)*dtReal, nx=m.spr.x+Math.cos(m.dir)*sp, ny=m.spr.y+Math.sin(m.dir)*sp;
-      const t=tileOfPx(nx,ny);
-      if(walkable(t.x,t.y)&&Math.hypot(t.x-m.homeT.x,t.y-m.homeT.y)<4){ m.spr.x=nx; m.spr.y=ny; m.spr.setFlipX(Math.cos(m.dir)<0); m.spr.setDepth(m.spr.y); }
-      else m.dir+=1.6; }
+    if(m.wT<=0){ m.wT=rint(3,8); m.dir=Math.random()*6.28; m.mv=Math.random()<0.55;
+      if(cfg.run&&m.spr.play) m.spr.play(m.mv?cfg.run:cfg.anim,true); }
+    if(m.mv){ const sp=(cfg.huye?18:13)*dtReal, nx=m.spr.x+Math.cos(m.dir)*sp, ny=m.spr.y+Math.sin(m.dir)*sp;
+      const t={x:Math.floor(nx/T)-BX,y:Math.floor(ny/T)-BY};
+      if(landAtPx(nx,ny)&&Math.hypot(t.x-m.homeT.x,t.y-m.homeT.y)<4){ m.spr.x=nx; m.spr.y=ny; m.spr.setFlipX(Math.cos(m.dir)<0); m.spr.setDepth(m.spr.y); }
+      else { m.dir+=1.7; m.mv=Math.random()<0.6; } }
+  }
+  for(const c of S.critters){
+    c.wT-=dtReal;
+    if(c.wT<=0){ c.wT=rint(2,6); c.dir=Math.random()*6.28; c.mv=Math.random()<0.6; }
+    if(c.mv){ const sp=20*dtReal, nx=c.spr.x+Math.cos(c.dir)*sp, ny=c.spr.y+Math.sin(c.dir)*sp;
+      if(landAtPx(nx,ny)){ c.spr.x=nx; c.spr.y=ny; c.spr.setFlipX(Math.cos(c.dir)<0); c.spr.setDepth(c.spr.y); } else c.dir+=1.9; }
   }
 }
