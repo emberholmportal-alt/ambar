@@ -27,6 +27,7 @@ const ITEMS=['un grimorio prohibido','reliquias de la Vieja Corona','oro maldito
 const DISTRICTS=['el Barrio de la Forja','el Mercado Alto','los Muelles','la Necrópolis','la Plaza del Rey','el Jardín Colgante'];
 
 let scene, obstacles, npcGroup, npcs=[], buildings=[], walkTiles=[], blocked=[], land=[];
+let treeSpots=[], gmPos=null;                 // sitios de trabajo (bosque y mina)
 let cameraBusy=false, baseZoom=1, baseCX=WORLD_W/2, baseCY=WORLD_H/2;
 let paused=false, speed=1, nightRect=null, soundOn=false;
 function sfx(key,vol){ if(soundOn&&scene) scene.sound.play('s_'+key,{volume:vol||0.5}); }
@@ -54,6 +55,7 @@ const MONDEF={
   snake: {ti:'snake_idle',  ai:'snake-idle', ar:'snake-run',  sc:PSCALE, fw:192, spd:38},
   spider:{ti:'spider_idle', ai:'spider-idle',ar:'spider-run', sc:PSCALE, fw:192, spd:48},
   pigrider:{ti:'pigrider_idle',ai:'pig-idle',ar:'pig-run',    sc:0.52,   fw:256, spd:58},
+  tnt:   {ti:'goblin_tnt',  ai:'tnt-idle',   ar:'tnt-run',    sc:PSCALE, fw:192, spd:44},
 };
 const ROAMERS=['torch','spear','gnoll','bear','snake','spider'];
 
@@ -107,6 +109,21 @@ function preload(){
   this.load.spritesheet('pigrider_run', TSB+'pigrider_run.png', {frameWidth:256,frameHeight:256});
   for(let i=1;i<=4;i++){ this.load.image('cloud'+i,TSB+'cloud'+i+'.png'); this.load.spritesheet('wrock'+i,TSB+'wrock'+i+'.png',{frameWidth:128,frameHeight:128}); }
   this.load.spritesheet('duck',TSB+'duck.png',{frameWidth:32,frameHeight:32});
+  // trabajadores (leñador/minero/cargador), arqueros y monjes por color
+  for(const c of COLORES){
+    for(const j of ['waxe','wpick','wgold']){
+      this.load.spritesheet(j+'_'+c+'_i',TSB+j+'_'+c+'_i.png',{frameWidth:192,frameHeight:192});
+      this.load.spritesheet(j+'_'+c+'_r',TSB+j+'_'+c+'_r.png',{frameWidth:192,frameHeight:192});
+    }
+    this.load.spritesheet('archer_'+c+'_i',TSB+'archer_'+c+'_i.png',{frameWidth:192,frameHeight:192});
+    this.load.spritesheet('archer_'+c+'_r',TSB+'archer_'+c+'_r.png',{frameWidth:192,frameHeight:192});
+    this.load.spritesheet('monk_'+c+'_i',TSB+'monk_'+c+'_i.png',{frameWidth:192,frameHeight:192});
+    this.load.spritesheet('monk_'+c+'_r',TSB+'monk_'+c+'_r.png',{frameWidth:192,frameHeight:192});
+  }
+  this.load.spritesheet('boat',TSB+'boat.png',{frameWidth:256,frameHeight:256});
+  this.load.spritesheet('sboat',TSB+'sboat.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('shark',TSB+'shark.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('goblin_tnt',TSB+'goblin_tnt.png',{frameWidth:192,frameHeight:192});
   // efectos
   this.load.spritesheet('fire',TSB+'fire.png',{frameWidth:128,frameHeight:128});
   this.load.spritesheet('explosion',TSB+'explosion.png',{frameWidth:192,frameHeight:192});
@@ -210,6 +227,17 @@ function create(){
   an.create({key:'pig-run', frames:an.generateFrameNumbers('pigrider_run',{start:0,end:3}),frameRate:10,repeat:-1});
   for(let i=1;i<=4;i++) an.create({key:'wrock'+i+'-a',frames:an.generateFrameNumbers('wrock'+i,{start:0,end:7}),frameRate:5,repeat:-1});
   an.create({key:'duck-a',frames:an.generateFrameNumbers('duck',{start:0,end:2}),frameRate:4,repeat:-1});
+  for(const c of COLORES){                                       // end:-1 = todos los frames de la tira
+    for(const j of ['waxe','wpick','wgold','archer','monk']){
+      an.create({key:j+'_'+c+'-i',frames:an.generateFrameNumbers(j+'_'+c+'_i',{start:0,end:-1}),frameRate:7,repeat:-1});
+      an.create({key:j+'_'+c+'-r',frames:an.generateFrameNumbers(j+'_'+c+'_r',{start:0,end:-1}),frameRate:10,repeat:-1});
+    }
+  }
+  an.create({key:'boat-a', frames:an.generateFrameNumbers('boat', {start:0,end:-1}),frameRate:6,repeat:-1});
+  an.create({key:'sboat-a',frames:an.generateFrameNumbers('sboat',{start:0,end:-1}),frameRate:6,repeat:-1});
+  an.create({key:'shark-a',frames:an.generateFrameNumbers('shark',{start:0,end:-1}),frameRate:8,repeat:-1});
+  an.create({key:'tnt-idle',frames:an.generateFrameNumbers('goblin_tnt',{start:0,end:6}),frameRate:8,repeat:-1});
+  an.create({key:'tnt-run', frames:an.generateFrameNumbers('goblin_tnt',{start:7,end:12}),frameRate:10,repeat:-1});
 
   // ---- mar + foam + suelo (RenderTexture: 1 draw call para todo el piso) ----
   this.add.tileSprite(0,0,WORLD_W,WORLD_H,'water').setOrigin(0,0).setDepth(-30);
@@ -278,6 +306,7 @@ function create(){
   spawnMonster('bear',cv.x+2,cv.y+1); spawnMonster('snake',cv.x+1,cv.y+2); spawnMonster('spider',cv.x+3,cv.y);
   const gm=nudgeToLand(px-5,ROWS-4);
   placeBuilding('goldmine',gm.x,gm.y,0.8,{fw:2,fh:1}); placeDecoImg('res_gold',gm.x+1,gm.y+1,0.5);
+  gmPos={x:gm.x*T+T/2, y:(gm.y+1)*T+T/2};
 
   // ---- granja: espantapájaros + zapallos + corral de ovejas ----
   const fa=nudgeToLand(px+5,ROWS-5);
@@ -298,9 +327,33 @@ function create(){
   // ---- casillas caminables ----
   for(let y=1;y<ROWS-1;y++)for(let x=1;x<COLS-1;x++) if(isLand(x,y)&&!blocked[y][x]) walkTiles.push({x:x*T+T/2,y:y*T+T/2});
 
-  // ---- población: mitad guerreros, mitad aldeanos ----
-  for(let i=0;i<NPC_START;i++) spawnNpc(null, Math.random()<0.5?'pawn':'warrior');
+  // ---- población: guerreros, aldeanos, arqueros y monjes ----
+  for(let i=0;i<NPC_START;i++) spawnNpc(null, pick(POPMIX));
+  for(const g of GUILDS){ spawnWorker(g.id,'waxe'); spawnWorker(g.id,'wpick'); }   // leñador y minero por facción
+  spawnWorker(pick(GUILDS).id,'wgold'); spawnWorker(pick(GUILDS).id,'wgold');      // cargadores de oro
   for(let i=0;i<N_MONSTERS;i++){ const t=randFree(); if(t) spawnMonster(pick(ROAMERS),t.x,t.y); }
+
+  // ---- barcos y tiburón navegando el mar abierto ----
+  const openSea=[];
+  for(let y=1;y<ROWS-1;y++)for(let x=1;x<COLS-1;x++){
+    if(land[y][x]) continue;
+    let near=false;
+    for(let oy=-1;oy<=1&&!near;oy++)for(let ox=-1;ox<=1;ox++) if(isLand(x+ox,y+oy)){near=true;break;}
+    if(!near) openSea.push({x:x*T+T/2,y:y*T+T/2});
+  }
+  function cruise(key,anim,sc,spdPx){
+    if(openSea.length<4) return;
+    const s=scene.add.sprite(pick(openSea).x,pick(openSea).y,key).play(anim).setScale(sc).setDepth(-23);
+    (function leg(){
+      const to=pick(openSea);
+      const d=Math.hypot(to.x-s.x,to.y-s.y), dur=Math.max(2000,d/spdPx*1000);
+      s.setFlipX(to.x<s.x);
+      scene.tweens.add({targets:s,x:to.x,y:to.y,duration:dur,ease:'Sine.easeInOut',onComplete:leg});
+    })();
+  }
+  cruise('boat','boat-a',0.7,26);
+  cruise('sboat','sboat-a',0.75,20);
+  cruise('shark','shark-a',0.7,34);
 
   // ---- mar vivo: rocas animadas + patito · cielo: nubes a la deriva ----
   let puestasW=0, intW=0;
@@ -353,6 +406,7 @@ function placeTree(tx,ty){
   const x=tx*T+T/2, y=ty*T+T;
   scene.add.sprite(x,y,'tree').play({key:'tree-a',startFrame:rint(0,3)}).setOrigin(0.5,0.92).setScale(Phaser.Math.FloatBetween(0.55,0.72)).setDepth(y);
   if(blocked[ty]) blocked[ty][tx]=true;
+  treeSpots.push({x:x, y:y+T*0.6});
 }
 function banner(tx,ty,color){
   const x=tx*T+T/2, y=ty*T+T/2;
@@ -383,14 +437,29 @@ function spawnNpc(gid,tipo){
     n.animI='warrior_'+g.tex+'-idleF'; n.animR='warrior_'+g.tex+'-runF'; n.animRB='warrior_'+g.tex+'-runB'; n.animIB='warrior_'+g.tex+'-idleB';
     n.spd=40;
   } else {
-    n.spr=scene.physics.add.sprite(sx*T+T/2,sy*T+T/2,'pawn_'+g.tex,0).setOrigin(0.5,0.72).setScale(PSCALE);
+    // unidades con frame 192: aldeano, arquero, monje
+    const texKey = tipo==='archer'?'archer_'+g.tex+'_i' : tipo==='monk'?'monk_'+g.tex+'_i' : 'pawn_'+g.tex;
+    n.spr=scene.physics.add.sprite(sx*T+T/2,sy*T+T/2,texKey,0).setOrigin(0.5,0.72).setScale(PSCALE);
     n.spr.body.setSize(30,20).setOffset(81,118);
-    n.animI='pawn_'+g.tex+'-idle'; n.animR='pawn_'+g.tex+'-run';
-    n.spd=34;
+    if(tipo==='archer'){ n.animI='archer_'+g.tex+'-i'; n.animR='archer_'+g.tex+'-r'; n.spd=44; }
+    else if(tipo==='monk'){ n.animI='monk_'+g.tex+'-i'; n.animR='monk_'+g.tex+'-r'; n.spd=30; }
+    else { n.animI='pawn_'+g.tex+'-idle'; n.animR='pawn_'+g.tex+'-run'; n.spd=34; }
   }
   n.spr.setCollideWorldBounds(true); npcGroup.add(n.spr); n.spr.setDepth(n.spr.y);
   n.spr.play(n.animI);
   n.lx=n.spr.x; n.ly=n.spr.y; retarget(n); npcs.push(n); return n;
+}
+const POPMIX=['warrior','warrior','warrior','pawn','pawn','pawn','archer','monk'];
+function spawnWorker(gid,job){                       // leñador/minero/cargador que patrulla sitio ↔ barrio
+  const g=guildById[gid]||pick(GUILDS);
+  const site = job==='waxe' ? (pick(treeSpots)||gmPos) : gmPos;
+  if(!site) return null;
+  const home={x:g.cx*T+T/2, y:g.cy*T+T/2};
+  const n=spawnNpc(g.id,'pawn'); if(!n) return null;
+  n.tipo=job; n.animI=job+'_'+g.tex+'-i'; n.animR=job+'_'+g.tex+'-r';
+  n.spr.setTexture(job+'_'+g.tex+'_i',0); n.spr.play(n.animI);
+  n.patrol=[site,home]; n.pIx=0; n.tx=site.x; n.ty=site.y;
+  return n;
 }
 function spawnSheep(tx,ty){
   const s=scene.physics.add.sprite(tx*T+T/2,ty*T+T/2,'sheep',0).setOrigin(0.5,0.9).setScale(0.85);
@@ -407,7 +476,10 @@ function spawnMonster(kind,tx,ty){
   const n={spr:s,sheep:false,monster:true,tipo:kind,kind,spd:d.spd,animI:d.ai,animR:d.ar,tx:s.x,ty:s.y,idle:0,stuck:0,lx:s.x,ly:s.y,dead:false};
   retarget(n); npcs.push(n); return n;
 }
-function retarget(n){const w=pick(walkTiles); if(w){n.tx=w.x; n.ty=w.y;}}
+function retarget(n){
+  if(n.patrol){ n.pIx=1-n.pIx; const p=n.patrol[n.pIx]; n.tx=p.x+rint(-20,20); n.ty=p.y+rint(-14,14); return; }
+  const w=pick(walkTiles); if(w){n.tx=w.x; n.ty=w.y;}
+}
 
 /* ===== cámara ===== */
 function fitCamera(){if(!scene)return;const cam=scene.cameras.main,vw=scene.scale.width,vh=scene.scale.height;
@@ -491,7 +563,7 @@ function poofMonster(n){
 function spawnRaid(){
   const g=pick(GUILDS), mm=[];
   for(let i=rint(3,5);i>0;i--){
-    const m=spawnMonster(pick(['torch','torch','spear','shaman','pigrider']), g.cx+rint(-3,3), g.cy+rint(-3,3));
+    const m=spawnMonster(pick(['torch','torch','spear','shaman','pigrider','tnt']), g.cx+rint(-3,3), g.cy+rint(-3,3));
     if(m) mm.push(m);
   }
   return {cx:g.cx*T+T/2, cy:g.cy*T+T/2, mm};
@@ -560,7 +632,7 @@ function fireEvent(){
   const text=tpl.t(ctx); pushChronicle(tpl.tag,tpl.c,text,tpl.major,av);
   if(tpl.snd) sfx(tpl.snd, tpl.major?0.55:0.35);
 
-  if(tpl.spawn){ spawnNpc(gsel.id, Math.random()<0.5?'pawn':'warrior'); return; }
+  if(tpl.spawn){ spawnNpc(gsel.id, pick(POPMIX)); return; }
   if(tpl.thief){ const t=randFree(); if(t){ const m=spawnMonster('thief',t.x,t.y); if(m) scene.time.delayedCall(20000,()=>poofMonster(m)); } return; }
 
   if(tpl.kind==='raid'){
