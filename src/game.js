@@ -87,7 +87,7 @@ function preload(){
   ['res_gold','res_meat','res_wood'].forEach(k=>this.load.image(k,TSB+k+'.png'));
   // unidades y muerte
   for(const c of COLORES) this.load.spritesheet('pawn_'+c,TSB+'pawn_'+c+'.png',{frameWidth:192,frameHeight:192});
-  this.load.spritesheet('dead',TSB+'dead.png',{frameWidth:256,frameHeight:256});
+  this.load.spritesheet('dead',TSB+'dead.png',{frameWidth:128,frameHeight:256});   // 7 frames de 128×256 (896/128)
   // enemigos
   this.load.spritesheet('goblin_torch',TSB+'goblin_torch.png',{frameWidth:192,frameHeight:192});
   this.load.spritesheet('spear_idle',TSB+'spear_idle.png',{frameWidth:256,frameHeight:256});
@@ -129,10 +129,9 @@ function preload(){
   // efectos
   this.load.spritesheet('fire',TSB+'fire.png',{frameWidth:128,frameHeight:128});
   this.load.spritesheet('explosion',TSB+'explosion.png',{frameWidth:192,frameHeight:192});
-  // mercado (Kenney, se mezclan bien) + tesoros/antorcha (Tiny Dungeon) + dragón + partículas
-  ['stall1','stall2','tent1','tent2'].forEach(k=>this.load.image(k,'assets/img/kenney_'+k+'.png'));
-  ['chest','mimic','torch','demon','bat'].forEach(k=>this.load.image('td_'+k,'assets/img/td_'+k+'.png'));
-  ['flame','smoke','magic','star'].forEach(k=>this.load.image('p_'+k,'assets/img/p_'+k+'.png'));
+  // partículas Tiny Swords (Particle FX del Free Pack)
+  this.load.spritesheet('dust1',TSB+'dust1.png',{frameWidth:64,frameHeight:64});
+  this.load.spritesheet('dust2',TSB+'dust2.png',{frameWidth:64,frameHeight:64});
   ['fire','clash','coins','latch','bell','door','bong','creak'].forEach(k=>this.load.audio('s_'+k,'assets/sfx/'+k+'.ogg'));
 }
 function makeDot(s){const g=s.add.graphics({add:false});g.fillStyle(0xffffff,1);g.fillCircle(4,4,4);g.generateTexture('dot',8,8);g.destroy();}
@@ -242,6 +241,8 @@ function create(){
   an.create({key:'tnt-run', frames:an.generateFrameNumbers('goblin_tnt',{start:7,end:12}),frameRate:10,repeat:-1});
   an.create({key:'cerdo-idle',frames:an.generateFrameNumbers('pig_idle',{start:0,end:-1}),frameRate:7,repeat:-1});
   an.create({key:'cerdo-run', frames:an.generateFrameNumbers('pig_run', {start:0,end:-1}),frameRate:10,repeat:-1});
+  an.create({key:'dust1-a',frames:an.generateFrameNumbers('dust1',{start:0,end:-1}),frameRate:11,repeat:0});
+  an.create({key:'dust2-a',frames:an.generateFrameNumbers('dust2',{start:0,end:-1}),frameRate:11,repeat:0});
 
   // ---- mar + foam + suelo (RenderTexture: 1 draw call para todo el piso) ----
   this.add.tileSprite(0,0,WORLD_W,WORLD_H,'water').setOrigin(0,0).setDepth(-30);
@@ -281,11 +282,11 @@ function create(){
   placeBuilding('castle_black',px,py-2,0.9,{fw:4,fh:2});
   banner(px,py,0xc9a227);
   placeTorch(px-3,py-2); placeTorch(px+3,py-2);
-  placeDecoImg('stall1',px-2,py+2,0.85); placeDecoImg('stall2',px+2,py+2,0.85);
-  placeDecoImg('tent1',px+3,py+1,0.85);  placeDecoImg('tent2',px-3,py+1,0.85);
+  // mercado 100% Tiny Swords: pilas de recursos + puestos de cosecha
   placeDecoImg('res_gold',px-1,py+2,0.5); placeDecoImg('res_meat',px+1,py+2,0.5); placeDecoImg('res_wood',px,py+2,0.5);
+  placeDecoImg('tdeco12',px-2,py+2,0.9);  placeDecoImg('tdeco13',px+2,py+2,0.9);   // zapallos a la venta
+  placeDecoImg('tdeco17',px-3,py+1,0.9);  placeDecoImg('tdeco6',px+3,py+1,0.85);   // cartel y piedra
   placeTorch(px-3,py+2); placeTorch(px+3,py+2);
-  const ch=scene.add.image(px*T+T/2+40,py*T+T/2,'td_chest').setOrigin(0.5,0.9).setScale(2.4); ch.setDepth(ch.y);
 
   // ---- barrios de facción AMURALLADOS: cerca perimetral con puertas donde pasa la calle ----
   const QRX=5, QRY=4;                                       // radio del barrio en tiles
@@ -326,10 +327,7 @@ function create(){
   if(blocked[cv.y]) blocked[cv.y][cv.x]=true;
   placeDecoImg('tdeco14',cv.x+1,cv.y+1,0.9); placeDecoImg('tdeco15',cv.x-1,cv.y,0.9);
   spawnMonster('bear',cv.x+2,cv.y+1,{tx:cv.x,ty:cv.y,r:5}); spawnMonster('snake',cv.x+1,cv.y+2,{tx:cv.x,ty:cv.y,r:4}); spawnMonster('spider',cv.x+3,cv.y,{tx:cv.x,ty:cv.y,r:4});
-  for(let i=0;i<3;i++){ const b=scene.add.image(cv.x*T+rint(-40,220), cv.y*T+rint(-60,60),'td_bat').setScale(2.2).setDepth(88000).setAlpha(0.9);   // murciélagos volando
-    const cxb=b.x, cyb=b.y, rad=rint(50,110); let a0=Math.random()*6.28;
-    scene.tweens.add({targets:{v:0},v:6.28,duration:rint(5000,9000),repeat:-1,
-      onUpdate:(tw)=>{const a=a0+tw.getValue(); b.x=cxb+Math.cos(a)*rad; b.y=cyb+Math.sin(a)*rad*0.5; b.setFlipX(Math.cos(a)<0);}}); }
+  // (los murciélagos volaban acá: eran Tiny Dungeon → purgados; "criatura voladora" queda en la lista de huecos de VISUAL.md)
 
   // ---- mina (S-O) ----
   const gm=nudgeToLand(px-8,ROWS-6);
@@ -470,10 +468,10 @@ function banner(tx,ty,color){
   const fl=scene.add.triangle(x+2,y-16,0,0,20,6,0,14,color).setOrigin(0,0).setDepth(y+40);
   fl.setStrokeStyle(1,0x120d09,0.6);
 }
-function placeTorch(tx,ty){
+function placeTorch(tx,ty){                            // brasero: llama animada de Tiny Swords + glow
   const x=tx*T+T/2, y=ty*T+T-4;
-  const glow=scene.add.circle(x,y-26,22,0xffb060,0.26).setDepth(y-1);
-  scene.add.image(x,y,'td_torch').setOrigin(0.5,1).setScale(2.4).setDepth(y);
+  const glow=scene.add.circle(x,y-20,22,0xffb060,0.26).setDepth(y-1);
+  scene.add.sprite(x,y,'fire').play({key:'fire-a',startFrame:rint(0,6)}).setOrigin(0.5,1).setScale(0.34).setDepth(y);
   scene.tweens.add({targets:glow,alpha:{from:0.16,to:0.34},scaleX:{from:0.9,to:1.2},scaleY:{from:0.9,to:1.2},duration:560,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
 }
 function makeName(){const b=pick(NAME_B);return b?`${pick(NAME_A)} ${b}`:pick(NAME_A);}
@@ -603,24 +601,24 @@ function burst(x,y,color,count,rise,dp){for(let i=0;i<count;i++){const p=scene.a
   scene.tweens.add({targets:p,x:x+rint(-28,28),y:y-rise-rint(0,26),alpha:0,scale:0.1,duration:rint(500,1200),ease:'Quad.easeOut',onComplete:()=>p.destroy()});}}
 function ring(x,y,color){const c=scene.add.circle(x,y,6).setStrokeStyle(2,color,1).setDepth(99998);
   scene.tweens.add({targets:c,radius:52,alpha:0,duration:900,ease:'Cubic.easeOut',onUpdate:()=>c.setStrokeStyle(2,color,c.alpha),onComplete:()=>c.destroy()});}
-function puff(key,x,y,tint,count,scMax,rise,dur){
+function dustPuff(x,y,count,tint){                    // humo/polvo Tiny Swords (Particle FX)
   for(let i=0;i<count;i++){
-    const p=scene.add.image(x+rint(-10,10),y+rint(-6,6),key).setDepth(99999)
-      .setScale(Phaser.Math.FloatBetween(0.03,scMax)).setAlpha(0.9).setAngle(rint(0,359));
+    const k=pick(['dust1','dust2']);
+    const p=scene.add.sprite(x+rint(-14,14),y+rint(-8,4),k).setDepth(99999)
+      .setScale(Phaser.Math.FloatBetween(0.8,1.4)).setAlpha(0.85);
     if(tint) p.setTint(tint);
-    scene.tweens.add({targets:p,x:p.x+rint(-24,24),y:p.y-rise-rint(0,28),alpha:0,
-      scale:p.scale*Phaser.Math.FloatBetween(1.6,2.4),angle:p.angle+rint(-40,40),
-      duration:dur+rint(-150,250),ease:'Quad.easeOut',onComplete:()=>p.destroy()});
+    p.play({key:k+'-a',delay:i*90});
+    scene.tweens.add({targets:p,y:p.y-rint(16,40),duration:800,ease:'Sine.easeOut'});
+    p.once('animationcomplete',()=>p.destroy());
   }
 }
 function boom(x,y){ const e=scene.add.sprite(x,y,'explosion').setDepth(99999).setScale(0.9);
   e.play('explosion-a'); e.once('animationcomplete',()=>e.destroy()); }
 function playFx(kind,x,y){const rm=matchMedia('(prefers-reduced-motion:reduce)').matches;
-  if(kind==='fire'){ boom(x,y); puff('p_smoke',x,y-18,0x554f48,5,0.11,42,1400); if(!rm)scene.cameras.main.shake(340,0.007); }
-  else if(kind==='clash'){ ring(x,y,0xffffff); puff('p_star',x,y-8,0xffe9b0,5,0.07,14,520);
-    burst(x,y,0xd64545,8,8); scene.cameras.main.flash(120,229,220,180); }
-  else if(kind==='ring'){ ring(x,y,0xc9a227); puff('p_magic',x,y-8,0xc9a227,6,0.07,16,800); }
-  else if(kind==='confetti'){ [0xd64545,0x4a90c2,0x5fa55a,0x9b6fce,0xc9a227].forEach(c=>puff('p_star',x,y-6,c,3,0.05,20,900)); }}
+  if(kind==='fire'){ boom(x,y); dustPuff(x,y-18,4,0x8a8078); if(!rm)scene.cameras.main.shake(340,0.007); }
+  else if(kind==='clash'){ ring(x,y,0xffffff); dustPuff(x,y-6,2,0); burst(x,y,0xd64545,10,8); scene.cameras.main.flash(120,229,220,180); }
+  else if(kind==='ring'){ ring(x,y,0xc9a227); burst(x,y-6,0xc9a227,12,12); }
+  else if(kind==='confetti'){ [0xd64545,0x4a90c2,0x5fa55a,0x9b6fce,0xc9a227].forEach(c=>burst(x,y-6,c,6,16)); }}
 
 /* ===== consecuencias persistentes ===== */
 function ruinBuilding(b){
@@ -628,9 +626,8 @@ function ruinBuilding(b){
   b.spr.setTint(0x5a4438);
   scene.add.ellipse(b.x,b.y-4,b.spr.displayWidth*0.6,24,0x120b06,0.5).setDepth(b.y-1);
   const f=scene.add.sprite(b.x,b.y-8,'fire').play('fire-a').setOrigin(0.5,1).setScale(0.85).setDepth(b.y+1);   // fuego animado persistente
-  const smoke=scene.time.addEvent({delay:640,loop:true,callback:()=>{
-    if(paused)return; const p=scene.add.image(b.x+rint(-8,8),b.y-46,'p_smoke').setTint(0x555049).setAlpha(0.42).setDepth(99990).setScale(0.06).setAngle(rint(0,359));
-    scene.tweens.add({targets:p,y:p.y-52,x:p.x+rint(-12,12),alpha:0,scale:0.15,angle:p.angle+rint(-30,30),duration:2400,ease:'Sine.easeOut',onComplete:()=>p.destroy()});
+  const smoke=scene.time.addEvent({delay:900,loop:true,callback:()=>{
+    if(paused)return; dustPuff(b.x+rint(-8,8), b.y-44, 1, 0x6e6660);
   }});
   b.smoke=smoke; b.fireSpr=f;
 }
@@ -672,13 +669,9 @@ function spawnRaid(){
   return {cx:g.cx*T+T/2, cy:g.cy*T+T/2, mm};
 }
 function spawnDragon(x,y){
-  // "una sombra alada": silueta oscura que cruza en picada + sombra en el suelo
-  const sh=scene.add.ellipse(x-260,y,90,28,0x0a0a14,0.35).setDepth(y-1);
-  const d=scene.add.image(x-260,y-150,'td_bat').setOrigin(0.5,0.5).setScale(7).setTint(0x141024).setAlpha(0.92).setDepth(99995);
-  scene.tweens.add({targets:d,x:x,y:y-60,duration:700,ease:'Quad.easeIn',onComplete:()=>{
-    scene.tweens.add({targets:d,x:x+300,y:y-190,alpha:0,duration:900,ease:'Quad.easeOut',onComplete:()=>d.destroy()});
-  }});
-  scene.tweens.add({targets:sh,x:x+300,scaleX:{from:0.6,to:1.4},alpha:{from:0.35,to:0},duration:1600,ease:'Sine.easeIn',onComplete:()=>sh.destroy()});
+  // "una sombra alada" que barre el suelo (sin sprite: no hay dragón en el pack — hueco documentado en VISUAL.md)
+  const sh=scene.add.ellipse(x-320,y,130,40,0x0a0a14,0.42).setDepth(y-1);
+  scene.tweens.add({targets:sh,x:x+320,scaleX:{from:0.5,to:1.7},alpha:{from:0.42,to:0},duration:1500,ease:'Sine.easeIn',onComplete:()=>sh.destroy()});
 }
 function spawnBeast(){                          // el minotauro cruza la isla
   const fromLeft=Math.random()<0.5;
@@ -689,10 +682,9 @@ function spawnBeast(){                          // el minotauro cruza la isla
     onUpdate:()=>m.setDepth(m.y),onComplete:()=>m.destroy()});
   return {x:fromLeft?T*6:WORLD_W-T*6, y:sy};
 }
-function dropTreasure(x,y){
-  const kind=Math.random()<0.25?'mimic':'chest';
-  const c=scene.add.image(x,y,'td_'+kind).setOrigin(0.5,0.9).setScale(0.1).setDepth(y);
-  scene.tweens.add({targets:c,scale:2.8,duration:420,ease:'Back.easeOut'});
+function dropTreasure(x,y){                            // pila de oro Tiny Swords que brota del suelo
+  const c=scene.add.image(x,y,'res_gold').setOrigin(0.5,0.85).setScale(0.08).setDepth(y);
+  scene.tweens.add({targets:c,scale:0.55,duration:420,ease:'Back.easeOut'});
   ring(x,y-8,0xc9a227); burst(x,y-8,0xc9a227,10,8);
 }
 

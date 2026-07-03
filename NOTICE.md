@@ -4,15 +4,7 @@
 - **Phaser 3** — MIT License. https://phaser.io
 
 ## Assets gráficos
-- **Kenney Medieval RTS** por **Kenney** — https://kenney.nl/assets/medieval-rts
-  Terreno (pasto/agua), edificios (casas, torres, castillo) y naturaleza (árboles, rocas, arbustos, troncos).
-  Licencia: **CC0 1.0** (dominio público). Uso, modificación y redistribución libres, sin atribución obligatoria.
-- **Kenney Tiny Dungeon** por **Kenney** — https://kenney.nl/assets/tiny-dungeon
-  Criaturas (esqueleto, orco, demonio, fantasma, araña, slime, murciélago, mago) y tesoros (cofres, mimic, antorchas, pociones).
-  Licencia: **CC0 1.0** (dominio público). Uso, modificación y redistribución libres, sin atribución obligatoria.
-- **Kenney Particle Pack** — https://kenney.nl/assets/particle-pack
-  Texturas de partículas (llama, humo, magia, estrella) para los efectos de eventos.
-  Licencia: **CC0 1.0**.
+
 - **Kenney Audio** (RPG Audio, Impact Sounds, Interface Sounds, Retro Sounds 2) — https://kenney.nl/assets?q=audio
   Sonidos de eventos en `assets/sfx/` (explosión, acero, monedas, campana, puerta, portón, festejo, crujido).
   Licencia: **CC0 1.0**.
