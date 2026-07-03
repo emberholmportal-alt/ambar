@@ -1,13 +1,4 @@
-/* ÁMBAR · motor del stream (Phaser 3) */
-/* ===== assets embebidos ===== */
-const A_W={blue:"assets/img/warrior_blue.png",red:"assets/img/warrior_red.png",purple:"assets/img/warrior_purple.png",yellow:"assets/img/warrior_yellow.png"};
-// terreno, edificios y naturaleza: Kenney Medieval RTS (CC0, 64×64). Guerreros y ovejas siguen en Tiny Swords (animados).
-const A_GRASS="assets/img/kenney_grass.png", A_WATER="assets/img/kenney_water.png";
-const A_HOUSE="assets/img/kenney_house.png", A_HOUSE2="assets/img/kenney_house2.png", A_HOUSE3="assets/img/kenney_house3.png";
-const A_TOWER="assets/img/kenney_tower.png";
-const A_TREE="assets/img/kenney_tree.png", A_GOLD="assets/img/kenney_castle.png";
-const A_SHEEP="assets/img/sheep.png";
-const A_DECO=["assets/img/kenney_deco1.png","assets/img/kenney_deco2.png","assets/img/kenney_deco3.png","assets/img/kenney_deco4.png","assets/img/kenney_deco5.png","assets/img/kenney_deco6.png"];
+/* ÁMBAR · motor del stream (Phaser 3) — mundo v3: isla orgánica Tiny Swords */
 
 /* ===== chrome ===== */
 const $=id=>document.getElementById(id); const feedEl=$('feed'),reticleEl=$('reticle');
@@ -20,17 +11,11 @@ function reticleLock(on){reticleEl.classList.toggle('lock',on)} function setCloc
 
 /* ===== datos ===== */
 const T=64, COLS=34, ROWS=22, WORLD_W=COLS*T, WORLD_H=ROWS*T;
-const IX0=2, IY0=2, IX1=COLS-3, IY1=ROWS-3;              // isla (tiles)
-const WSCALE=0.72;
-const BSCALE=1.28;                                      // multiplicador de escala de edificios (assets Kenney 64×64)
-const HOUSES=['house','house2','house3','house4','house5','house6','house7'];   // variantes de casa
-const TREES=['tree','tree2','tree3','tree4'];                                   // variantes de árbol
-const roadSet=new Set(); const rk=(x,y)=>x+','+y;                               // tiles de calle (caminables, no edificables)
 const GUILDS=[
-  {id:'guardia',name:'Guardia de Hierro',tex:'blue',  color:0x4a90c2, cx:9, cy:7},
-  {id:'yunque', name:'Orden del Yunque', tex:'red',   color:0xd64545, cx:COLS-10, cy:7},
-  {id:'sombra', name:'Los Sin Nombre',   tex:'purple',color:0x9b6fce, cx:9, cy:ROWS-8},
-  {id:'sol',    name:'Casa del Sol',      tex:'yellow',color:0xd8b53a, cx:COLS-10, cy:ROWS-8},
+  {id:'guardia',name:'Guardia de Hierro',tex:'blue',  color:0x4a90c2, cx:9,  cy:7},
+  {id:'yunque', name:'Orden del Yunque', tex:'red',   color:0xd64545, cx:24, cy:7},
+  {id:'sombra', name:'Los Sin Nombre',   tex:'purple',color:0x9b6fce, cx:9,  cy:15},
+  {id:'sol',    name:'Casa del Sol',      tex:'yellow',color:0xd8b53a, cx:24, cy:15},
 ];
 const guildById=Object.fromEntries(GUILDS.map(g=>[g.id,g]));
 const RACES=['humano','elfo','enano','orco','no-muerto','bestia'];
@@ -40,18 +25,32 @@ const NAME_B=['','','','el Tuerto','de la Sombra','Manohierro','la Pálida','el 
 const ITEMS=['un grimorio prohibido','reliquias de la Vieja Corona','oro maldito','una espada rúnica','un huevo de dragón','barriles de cerveza enana','mapas de las Profundidades','una máscara de hueso'];
 const DISTRICTS=['el Barrio de la Forja','el Mercado Alto','los Muelles','la Necrópolis','la Plaza del Rey','el Jardín Colgante'];
 
-let scene, obstacles, npcGroup, npcs=[], buildings=[], walkTiles=[], blocked=[];
+let scene, obstacles, npcGroup, npcs=[], buildings=[], walkTiles=[], blocked=[], land=[];
 let cameraBusy=false, baseZoom=1, baseCX=WORLD_W/2, baseCY=WORLD_H/2;
 let paused=false, speed=1, nightRect=null, soundOn=false;
 function sfx(key,vol){ if(soundOn&&scene) scene.sound.play('s_'+key,{volume:vol||0.5}); }
 let evAcc=0, evNext=2200, worldMin=6*60, clkAcc=0, viewers=1204, tViewers=1204, vAcc=0;
 const rint=(a,b)=>Math.floor(Math.random()*(b-a+1))+a, pick=a=>a[Math.floor(Math.random()*a.length)];
 
-/* ===== parámetros de densidad (tuneables) ===== */
-const NPC_START=84, NPC_MAX=100;         // pobladores inicial / techo (estable en 24/7)
-const N_TREES=22, N_DECO=26, N_SHEEP=8;  // vegetación y rebaño sueltos (la ciudad ya llena buena parte)
-const MONSTERS=['skeleton','orc','demon','ghost','spider','slime','bat','wizard'];  // criaturas D&D (Tiny Dungeon, CC0 16×16)
-const MSCALE=3.2, N_MONSTERS=5;          // escala de criaturas / cuántas vagan de fondo
+/* ===== parámetros (tuneables) ===== */
+const NPC_START=88, NPC_MAX=110;             // pobladores (guerreros+aldeanos) inicial / techo
+const N_MONSTERS=6;                          // bichos que merodean de fondo
+const WSCALE=0.72, PSCALE=0.62;              // escala guerreros (110×98) y pawns/goblins (frames 192)
+
+/* ===== catálogo de texturas Tiny Swords ===== */
+const TSB='assets/img/ts/';
+const COLORES=['blue','red','purple','yellow'];
+const CASAS=['house1','house2','house3'];
+const ESPECIALES=['barracks','archery','monastery'];
+// monstruos: tex idle/run separados o mismo sheet; fw = tamaño de frame
+const MONDEF={
+  torch: {ti:'goblin_torch',ai:'torch-idle', ar:'torch-run',  sc:PSCALE, fw:192, spd:46},
+  spear: {ti:'spear_idle',  ai:'spear-idle', ar:'spear-run',  sc:0.52,   fw:256, spd:40},
+  shaman:{ti:'shaman_idle', ai:'shaman-idle',ar:'shaman-run', sc:PSCALE, fw:192, spd:36},
+  gnoll: {ti:'gnoll_idle',  ai:'gnoll-idle', ar:'gnoll-walk', sc:PSCALE, fw:192, spd:44},
+  bear:  {ti:'bear_idle',   ai:'bear-idle',  ar:'bear-run',   sc:0.55,   fw:256, spd:52},
+};
+const ROAMERS=['torch','spear','gnoll','bear'];
 
 new Phaser.Game({type:Phaser.AUTO,backgroundColor:'#123041',
   scale:{mode:Phaser.Scale.RESIZE,parent:'game',width:'100%',height:'100%'},
@@ -60,136 +59,253 @@ new Phaser.Game({type:Phaser.AUTO,backgroundColor:'#123041',
   scene:{preload,create,update}});
 
 function preload(){
-  for(const k in A_W) this.load.spritesheet('warrior_'+k, A_W[k], {frameWidth:110,frameHeight:98});
-  this.load.image('grass',A_GRASS); this.load.image('water',A_WATER);
-  this.load.image('road','assets/img/kenney_road.png'); this.load.image('dirt','assets/img/kenney_dirt.png');
-  ['','2','3','4','5','6','7'].forEach(n=>this.load.image('house'+n,'assets/img/kenney_house'+n+'.png'));
-  this.load.image('tower',A_TOWER); this.load.image('gold',A_GOLD);
-  ['hall','barn','shop','stall1','stall2','tent1','tent2','windmill'].forEach(k=>this.load.image(k,'assets/img/kenney_'+k+'.png'));
-  ['tree','tree2','tree3','tree4'].forEach(k=>this.load.image(k,'assets/img/kenney_'+k+'.png'));
-  this.load.spritesheet('sheep',A_SHEEP,{frameWidth:64,frameHeight:64});
-  A_DECO.forEach((d,i)=>this.load.image('deco'+i,d));
-  ['skeleton','orc','demon','ghost','spider','slime','bat','wizard','chest','mimic','torch','potion']
-    .forEach(k=>this.load.image('td_'+k,'assets/img/td_'+k+'.png'));   // criaturas y tesoros D&D
-  ['flame','smoke','magic','star'].forEach(k=>this.load.image('p_'+k,'assets/img/p_'+k+'.png'));   // partículas (Kenney Particle Pack)
-  ['fire','clash','coins','latch','bell','door','bong','creak'].forEach(k=>this.load.audio('s_'+k,'assets/sfx/'+k+'.ogg'));   // sonidos (Kenney Audio)
+  const W={blue:"assets/img/warrior_blue.png",red:"assets/img/warrior_red.png",purple:"assets/img/warrior_purple.png",yellow:"assets/img/warrior_yellow.png"};
+  for(const k in W) this.load.spritesheet('warrior_'+k, W[k], {frameWidth:110,frameHeight:98});
+  this.load.spritesheet('sheep','assets/img/sheep.png',{frameWidth:64,frameHeight:64});
+  // terreno
+  this.load.spritesheet('ground',TSB+'ground.png',{frameWidth:64,frameHeight:64});
+  this.load.image('water',TSB+'water.png');
+  this.load.spritesheet('foam',TSB+'foam.png',{frameWidth:192,frameHeight:192});
+  // edificios por facción + castillo real
+  for(const c of COLORES) for(const b of [...CASAS,'tower',...ESPECIALES]) this.load.image(b+'_'+c,TSB+b+'_'+c+'.png');
+  this.load.image('castle_black',TSB+'castle_black.png');
+  this.load.image('goldmine',TSB+'goldmine.png');
+  this.load.image('goblin_house',TSB+'goblin_house.png');
+  this.load.spritesheet('fence',TSB+'fence.png',{frameWidth:64,frameHeight:64});
+  this.load.spritesheet('cave',TSB+'cave.png',{frameWidth:192,frameHeight:192});
+  // naturaleza y props
+  this.load.spritesheet('tree',TSB+'tree_anim.png',{frameWidth:192,frameHeight:192});
+  for(let i=1;i<=4;i++){ this.load.spritesheet('bush'+i,TSB+'bush'+i+'.png',{frameWidth:128,frameHeight:128}); this.load.image('rock'+i,TSB+'rock'+i+'.png'); }
+  for(let i=1;i<=18;i++) this.load.image('tdeco'+i,TSB+'deco'+String(i).padStart(2,'0')+'.png');
+  ['res_gold','res_meat','res_wood'].forEach(k=>this.load.image(k,TSB+k+'.png'));
+  // unidades y muerte
+  for(const c of COLORES) this.load.spritesheet('pawn_'+c,TSB+'pawn_'+c+'.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('dead',TSB+'dead.png',{frameWidth:256,frameHeight:256});
+  // enemigos
+  this.load.spritesheet('goblin_torch',TSB+'goblin_torch.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('spear_idle',TSB+'spear_idle.png',{frameWidth:256,frameHeight:256});
+  this.load.spritesheet('spear_run', TSB+'spear_run.png', {frameWidth:256,frameHeight:256});
+  this.load.spritesheet('shaman_idle',TSB+'shaman_idle.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('shaman_run', TSB+'shaman_run.png', {frameWidth:192,frameHeight:192});
+  this.load.spritesheet('gnoll_idle',TSB+'gnoll_idle.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('gnoll_walk',TSB+'gnoll_walk.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('bear_idle',TSB+'bear_idle.png',{frameWidth:256,frameHeight:256});
+  this.load.spritesheet('bear_run', TSB+'bear_run.png', {frameWidth:256,frameHeight:256});
+  this.load.spritesheet('minotaur_walk',TSB+'minotaur_walk.png',{frameWidth:320,frameHeight:320});
+  // efectos
+  this.load.spritesheet('fire',TSB+'fire.png',{frameWidth:128,frameHeight:128});
+  this.load.spritesheet('explosion',TSB+'explosion.png',{frameWidth:192,frameHeight:192});
+  // mercado (Kenney, se mezclan bien) + tesoros/antorcha (Tiny Dungeon) + dragón + partículas
+  ['stall1','stall2','tent1','tent2'].forEach(k=>this.load.image(k,'assets/img/kenney_'+k+'.png'));
+  ['chest','mimic','torch','demon'].forEach(k=>this.load.image('td_'+k,'assets/img/td_'+k+'.png'));
+  ['flame','smoke','magic','star'].forEach(k=>this.load.image('p_'+k,'assets/img/p_'+k+'.png'));
+  ['fire','clash','coins','latch','bell','door','bong','creak'].forEach(k=>this.load.audio('s_'+k,'assets/sfx/'+k+'.ogg'));
 }
 function makeDot(s){const g=s.add.graphics({add:false});g.fillStyle(0xffffff,1);g.fillCircle(4,4,4);g.generateTexture('dot',8,8);g.destroy();}
 
+/* ===== isla orgánica ===== */
+function buildIsland(){
+  const cx=COLS/2-0.5, cy=ROWS/2-0.5, p1=Math.random()*6.28, p2=Math.random()*6.28, p3=Math.random()*6.28;
+  for(let y=0;y<ROWS;y++){ land[y]=[]; blocked[y]=[];
+    for(let x=0;x<COLS;x++){
+      const dx=(x-cx)/(COLS*0.435), dy=(y-cy)/(ROWS*0.415);
+      const ang=Math.atan2(dy,dx), r=Math.hypot(dx,dy);
+      const wob=0.10*Math.sin(ang*3+p1)+0.07*Math.sin(ang*5+p2)+0.05*Math.sin(ang*7+p3);
+      land[y][x] = r < 0.97+wob;
+    }
+  }
+  for(let it=0;it<2;it++){                              // suavizado: sin lagunitas ni penínsulas de 1 tile
+    for(let y=1;y<ROWS-1;y++)for(let x=1;x<COLS-1;x++){
+      let v=0; for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++) if(!(ox===0&&oy===0)&&land[y+oy][x+ox]) v++;
+      if(!land[y][x]&&v>=6) land[y][x]=true;
+      else if(land[y][x]&&v<=2) land[y][x]=false;
+    }
+  }
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) blocked[y][x]=!land[y][x];
+}
+const isLand=(x,y)=> y>=0&&y<ROWS&&x>=0&&x<COLS&&land[y][x];
+// autotile 3×3 del bloque de pasto (cols 0-2; col 3 y fila 3 son variantes aisladas) — índice = fila*10+col
+function groundIdx(x,y){
+  const n=isLand(x,y-1), s=isLand(x,y+1), w=isLand(x-1,y), e=isLand(x+1,y);
+  if(n&&s&&w&&e) return 11;                       // centro pleno
+  if(!n&&!w&&s&&e) return 0;  if(!n&&!e&&s&&w) return 2;
+  if(!s&&!w&&n&&e) return 20; if(!s&&!e&&n&&w) return 22;
+  if(!n&&s) return 1; if(!s&&n) return 21;
+  if(!w&&e) return 10; if(!e&&w) return 12;
+  return 11;
+}
+function sandIdx(x,y,inZone){ // autotile 3×3 del bloque de arena (cols 5-7)
+  const n=inZone(x,y-1), s=inZone(x,y+1), w=inZone(x-1,y), e=inZone(x+1,y);
+  if(n&&s&&w&&e) return 16;
+  if(!n&&!w&&s&&e) return 5;  if(!n&&!e&&s&&w) return 7;
+  if(!s&&!w&&n&&e) return 25; if(!s&&!e&&n&&w) return 27;
+  if(!n&&s) return 6; if(!s&&n) return 26;
+  if(!w&&e) return 15; if(!e&&w) return 17;
+  return 16;
+}
+function nudgeToLand(x,y){ let gx=x,gy=y,tr=0;
+  while(tr++<20 && !isLand(gx,gy)){ gx+=Math.sign(COLS/2-gx)||0; gy+=Math.sign(ROWS/2-gy)||0; }
+  return {x:gx,y:gy};
+}
+function randFree(){for(let i=0;i<80;i++){const x=rint(1,COLS-2),y=rint(1,ROWS-2); if(isLand(x,y)&&!blocked[y][x]) return{x,y};}return null;}
+
 function create(){
   scene=this; makeDot(this);
-  for(let y=0;y<ROWS;y++){blocked[y]=[];for(let x=0;x<COLS;x++) blocked[y][x]=false;}
-
-  // mar + isla
-  this.add.tileSprite(0,0,WORLD_W,WORLD_H,'water').setOrigin(0,0).setDepth(-20);
-  const iw=(IX1-IX0+1)*T, ih=(IY1-IY0+1)*T;
-  this.add.tileSprite(IX0*T,IY0*T,iw,ih,'grass').setOrigin(0,0).setDepth(-10);
-
+  buildIsland();
   obstacles=this.physics.add.staticGroup();
 
-  // animaciones por color
-  for(const k in A_W){
-    const t='warrior_'+k, an=this.anims;
+  // ---- animaciones ----
+  const an=this.anims;
+  for(const k of COLORES){
+    const t='warrior_'+k;
     an.create({key:t+'-idleF',frames:an.generateFrameNumbers(t,{start:0,end:5}),frameRate:6,repeat:-1});
     an.create({key:t+'-idleB',frames:an.generateFrameNumbers(t,{start:6,end:11}),frameRate:6,repeat:-1});
     an.create({key:t+'-runF', frames:an.generateFrameNumbers(t,{start:12,end:17}),frameRate:11,repeat:-1});
     an.create({key:t+'-runB', frames:an.generateFrameNumbers(t,{start:18,end:23}),frameRate:11,repeat:-1});
+    const p='pawn_'+k;
+    an.create({key:p+'-idle',frames:an.generateFrameNumbers(p,{start:0,end:5}),frameRate:6,repeat:-1});
+    an.create({key:p+'-run', frames:an.generateFrameNumbers(p,{start:6,end:11}),frameRate:10,repeat:-1});
   }
-  this.anims.create({key:'sheep-idle',frames:this.anims.generateFrameNumbers('sheep',{start:0,end:1}),frameRate:3,repeat:-1});
+  an.create({key:'sheep-idle',frames:an.generateFrameNumbers('sheep',{start:0,end:1}),frameRate:3,repeat:-1});
+  an.create({key:'foam-a',frames:an.generateFrameNumbers('foam',{start:0,end:7}),frameRate:7,repeat:-1});
+  an.create({key:'tree-a',frames:an.generateFrameNumbers('tree',{start:0,end:3}),frameRate:4,repeat:-1});
+  for(let i=1;i<=4;i++) an.create({key:'bush'+i+'-a',frames:an.generateFrameNumbers('bush'+i,{start:0,end:7}),frameRate:6,repeat:-1});
+  an.create({key:'cave-a',frames:an.generateFrameNumbers('cave',{start:0,end:7}),frameRate:6,repeat:-1});
+  an.create({key:'fire-a',frames:an.generateFrameNumbers('fire',{start:0,end:6}),frameRate:10,repeat:-1});
+  an.create({key:'explosion-a',frames:an.generateFrameNumbers('explosion',{start:0,end:8}),frameRate:14,repeat:0});
+  an.create({key:'dead-a',frames:an.generateFrameNumbers('dead',{start:0,end:6}),frameRate:9,repeat:0});
+  an.create({key:'torch-idle',frames:an.generateFrameNumbers('goblin_torch',{start:0,end:6}),frameRate:8,repeat:-1});
+  an.create({key:'torch-run', frames:an.generateFrameNumbers('goblin_torch',{start:7,end:12}),frameRate:10,repeat:-1});
+  an.create({key:'spear-idle',frames:an.generateFrameNumbers('spear_idle',{start:0,end:7}),frameRate:8,repeat:-1});
+  an.create({key:'spear-run', frames:an.generateFrameNumbers('spear_run',{start:0,end:5}),frameRate:10,repeat:-1});
+  an.create({key:'shaman-idle',frames:an.generateFrameNumbers('shaman_idle',{start:0,end:7}),frameRate:8,repeat:-1});
+  an.create({key:'shaman-run', frames:an.generateFrameNumbers('shaman_run',{start:0,end:3}),frameRate:8,repeat:-1});
+  an.create({key:'gnoll-idle',frames:an.generateFrameNumbers('gnoll_idle',{start:0,end:5}),frameRate:8,repeat:-1});
+  an.create({key:'gnoll-walk',frames:an.generateFrameNumbers('gnoll_walk',{start:0,end:7}),frameRate:10,repeat:-1});
+  an.create({key:'bear-idle',frames:an.generateFrameNumbers('bear_idle',{start:0,end:7}),frameRate:7,repeat:-1});
+  an.create({key:'bear-run', frames:an.generateFrameNumbers('bear_run',{start:0,end:4}),frameRate:10,repeat:-1});
+  an.create({key:'mino-walk',frames:an.generateFrameNumbers('minotaur_walk',{start:0,end:7}),frameRate:9,repeat:-1});
 
-  // marcar agua como bloqueada (fuera de isla)
-  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) if(x<IX0||x>IX1||y<IY0||y>IY1) blocked[y][x]=true;
+  // ---- mar + foam + suelo (RenderTexture: 1 draw call para todo el piso) ----
+  this.add.tileSprite(0,0,WORLD_W,WORLD_H,'water').setOrigin(0,0).setDepth(-30);
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
+    if(!land[y][x]) continue;
+    let coast=false;
+    for(let oy=-1;oy<=1&&!coast;oy++)for(let ox=-1;ox<=1;ox++) if(!isLand(x+ox,y+oy)){coast=true;break;}
+    if(coast) this.add.sprite(x*T+T/2,y*T+T/2,'foam').play({key:'foam-a',startFrame:rint(0,7)}).setDepth(-25);
+  }
+  const rt=this.add.renderTexture(0,0,WORLD_W,WORLD_H).setOrigin(0,0).setDepth(-20);
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) if(land[y][x]) rt.drawFrame('ground',groundIdx(x,y),x*T,y*T);
 
-  // ── red de calles empedradas + plaza central ────────────────────────
+  // ---- plaza real de arena + senderos ----
   const px=Math.floor(COLS/2), py=Math.floor(ROWS/2);
-  const AVEN=[9,17,24], CALL=[7,11,15];                   // avenidas (V) y calles (H)
-  for(const rx of AVEN) for(let y=IY0;y<=IY1;y++) paveRoad(rx,y);
-  for(const ry of CALL) for(let x=IX0;x<=IX1;x++) paveRoad(x,ry);
-  for(let y=py-2;y<=py+2;y++)for(let x=px-2;x<=px+2;x++) paveRoad(x,y);   // plaza empedrada
-
-  // ── plaza mayor: palacio + salón + mercado bullicioso ───────────────
-  placeBuilding('gold', px, py, 1.05);                    // palacio central (ex-goldmine)
-  placeBuilding('hall', px-3, py-1, 0.92);
-  placeBuilding('shop', px+3, py-1, 0.92);
-  placeDeco('stall1', px-2, py+2, 0.82,false); placeDeco('stall2', px+2, py+2, 0.82,false);
-  placeDeco('tent1',  px+3, py+2, 0.82,false); placeDeco('tent2',  px-3, py+2, 0.82,false);
-  banner(px, py-2, 0xc9a227);
-  placeTorch(px-2, py-2); placeTorch(px+2, py-2);   // braseros de la plaza (brillan de noche)
-
-  // ── cuatro barrios de facción (bloques densos) ──────────────────────
-  fillQuarter(3, 3, 15, 9,  6, 5,  guildById.guardia.color);
-  fillQuarter(19,3, 30, 9,  28,5,  guildById.yunque.color);
-  fillQuarter(3, 13,15,18,  6, 16, guildById.sombra.color);
-  fillQuarter(19,13,30,18,  28,16, guildById.sol.color);
-
-  // molinos en las afueras
-  placeDeco('windmill', 4, 11, 1.0, false); placeDeco('windmill', 29, 11, 1.0, false);
-
-  // ── naturaleza en los huecos (arboledas mixtas + rebaños) ───────────
-  for(let c=0;c<5;c++){ const t=randFree(); if(!t) continue;
-    for(let k=rint(2,5);k>0;k--){ const gx=Phaser.Math.Clamp(t.x+rint(-1,1),IX0,IX1), gy=Phaser.Math.Clamp(t.y+rint(-1,1),IY0,IY1);
-      if(!blocked[gy][gx]&&!roadSet.has(rk(gx,gy))) placeDeco(pick(TREES),gx,gy,Phaser.Math.FloatBetween(0.78,1.02),true); } }
-  for(let i=0;i<N_TREES;i++){const t=randFree(); if(t) placeDeco(pick(TREES),t.x,t.y,Phaser.Math.FloatBetween(0.8,1.05),true);}
-  for(let i=0;i<N_DECO;i++){const t=randFree(); if(t) placeDeco('deco'+rint(0,5),t.x,t.y,Phaser.Math.FloatBetween(0.8,1.0),false);}
-  const pasto=randFree();
-  if(pasto) for(let k=0;k<4;k++){ const gx=Phaser.Math.Clamp(pasto.x+rint(-1,1),IX0,IX1), gy=Phaser.Math.Clamp(pasto.y+rint(-1,1),IY0,IY1); if(!blocked[gy][gx]&&!roadSet.has(rk(gx,gy))) spawnSheep(gx,gy); }
-  for(let i=0;i<N_SHEEP;i++){const t=randFree(); if(t) spawnSheep(t.x,t.y);}
-
-  // casillas caminables
-  for(let y=IY0;y<=IY1;y++)for(let x=IX0;x<=IX1;x++) if(!blocked[y][x]) walkTiles.push({x:x*T+T/2,y:y*T+T/2});
+  const plaza=new Set(); const pkey=(x,y)=>x+','+y;
+  for(let y=py-2;y<=py+2;y++)for(let x=px-3;x<=px+3;x++) if(isLand(x,y)) plaza.add(pkey(x,y));
+  const inPlaza=(x,y)=>plaza.has(pkey(x,y));
+  plaza.forEach(k=>{const [x,y]=k.split(',').map(Number); rt.drawFrame('ground',sandIdx(x,y,inPlaza),x*T,y*T);});
+  for(const g of GUILDS){                                   // senderos punteados barrio→plaza
+    let sx=g.cx, sy=g.cy;
+    let guard=0;
+    while((sx!==px||sy!==py)&&guard++<60){
+      if(Math.random()<0.5&&sx!==px) sx+=Math.sign(px-sx); else if(sy!==py) sy+=Math.sign(py-sy); else if(sx!==px) sx+=Math.sign(px-sx);
+      if(isLand(sx,sy)&&!inPlaza(sx,sy)&&Math.random()<0.75) rt.drawFrame('ground',9,sx*T,sy*T-10);
+    }
+  }
 
   npcGroup=this.physics.add.group();
   this.physics.add.collider(npcGroup,obstacles);
-  this.physics.world.setBounds(IX0*T,IY0*T,iw,ih);
-  for(let i=0;i<NPC_START;i++) spawnNpc();
-  for(let i=0;i<N_MONSTERS;i++){ const t=randFree(); if(t) spawnMonster(pick(MONSTERS),t.x,t.y); }   // bichos que merodean
+  this.physics.world.setBounds(T,T,WORLD_W-2*T,WORLD_H-2*T);
 
-  // ciclo día/noche (overlay fijo a cámara)
+  // ---- castillo real + mercado en la plaza ----
+  placeBuilding('castle_black',px,py-2,0.9,{fw:4,fh:2});
+  banner(px,py,0xc9a227);
+  placeTorch(px-3,py-2); placeTorch(px+3,py-2);
+  placeDecoImg('stall1',px-2,py+2,0.85); placeDecoImg('stall2',px+2,py+2,0.85);
+  placeDecoImg('tent1',px+3,py+1,0.85);  placeDecoImg('tent2',px-3,py+1,0.85);
+  placeDecoImg('res_gold',px-1,py+2,0.5); placeDecoImg('res_meat',px+1,py+2,0.5);
+
+  // ---- barrios de facción: caserío orgánico con SU color ----
+  for(const g of GUILDS){
+    const q=nudgeToLand(g.cx,g.cy); g.cx=q.x; g.cy=q.y;
+    placeBuilding('tower_'+g.tex, g.cx, g.cy-1, 0.8, {fw:1,fh:1});
+    banner(g.cx, g.cy, g.color); placeTorch(g.cx+1, g.cy);
+    placeBuilding(pick(ESPECIALES)+'_'+g.tex, g.cx+rint(-2,2), g.cy+2, 0.78, {fw:2,fh:1});
+    let puestas=0, intentos=0;
+    while(puestas<6&&intentos++<50){
+      const hx=g.cx+rint(-3,3), hy=g.cy+rint(-2,3);
+      if(!isLand(hx,hy)||blocked[hy][hx]||inPlaza(hx,hy)) continue;
+      if(blocked[hy]&&blocked[hy][hx]) continue;
+      placeBuilding(pick(CASAS)+'_'+g.tex, hx, hy, Phaser.Math.FloatBetween(0.72,0.88), {fw:1,fh:1});
+      puestas++;
+    }
+  }
+
+  // ---- campamento goblin (este) + cueva con oso (oeste) + mina (sur) ----
+  const gc=nudgeToLand(COLS-4,py);
+  placeBuilding('goblin_house',gc.x,gc.y,0.8,{fw:1,fh:1}); placeBuilding('goblin_house',gc.x-1,gc.y+1,0.72,{fw:1,fh:1});
+  for(let i=0;i<7;i++){const fx=gc.x+rint(-2,2),fy=gc.y+rint(-2,2);
+    if(isLand(fx,fy)&&!blocked[fy][fx]&&Math.random()<0.7){scene.add.image(fx*T+T/2,fy*T+T-6,'fence',rint(0,11)).setOrigin(0.5,1).setDepth(fy*T+T-6);}}
+  for(let i=0;i<3;i++) spawnMonster(pick(['torch','spear','shaman']), gc.x+rint(-2,2), gc.y+rint(-2,2));
+  const cv=nudgeToLand(3,py-1);
+  const caveSpr=this.add.sprite(cv.x*T+T/2,cv.y*T+T,'cave').play('cave-a').setOrigin(0.5,1).setScale(0.85).setDepth(cv.y*T+T);
+  if(blocked[cv.y]) blocked[cv.y][cv.x]=true;
+  placeDecoImg('tdeco14',cv.x+1,cv.y+1,0.9); placeDecoImg('tdeco15',cv.x-1,cv.y,0.9);   // huesos
+  spawnMonster('bear',cv.x+2,cv.y+1);
+  const gm=nudgeToLand(px-5,ROWS-4);
+  placeBuilding('goldmine',gm.x,gm.y,0.8,{fw:2,fh:1}); placeDecoImg('res_gold',gm.x+1,gm.y+1,0.5);
+
+  // ---- granja: espantapájaros + zapallos + corral de ovejas ----
+  const fa=nudgeToLand(px+5,ROWS-5);
+  placeDecoImg('tdeco16',fa.x,fa.y,1); placeDecoImg('tdeco12',fa.x+1,fa.y+1,0.9); placeDecoImg('tdeco13',fa.x-1,fa.y+1,0.9); placeDecoImg('tdeco12',fa.x+2,fa.y,0.8);
+  for(let i=0;i<4;i++) spawnSheep(fa.x+rint(-1,2), fa.y+rint(1,2));
+
+  // ---- bosques animados + arbustos + rocas + decos por todos lados ----
+  for(let c=0;c<5;c++){ const t=randFree(); if(!t) continue;
+    for(let k=rint(3,6);k>0;k--){ const gx=Phaser.Math.Clamp(t.x+rint(-2,2),1,COLS-2), gy=Phaser.Math.Clamp(t.y+rint(-2,2),1,ROWS-2);
+      if(isLand(gx,gy)&&!blocked[gy][gx]&&!inPlaza(gx,gy)) placeTree(gx,gy); } }
+  for(let i=0;i<10;i++){const t=randFree(); if(t&&!inPlaza(t.x,t.y)) placeTree(t.x,t.y);}
+  for(let i=0;i<12;i++){const t=randFree(); if(t){const b='bush'+rint(1,4);
+    scene.add.sprite(t.x*T+T/2,t.y*T+T-4,b).play({key:b+'-a',startFrame:rint(0,7)}).setOrigin(0.5,1).setScale(0.6).setDepth(t.y*T+T-4);}}
+  for(let i=0;i<10;i++){const t=randFree(); if(t) placeDecoImg('rock'+rint(1,4),t.x,t.y,0.8);}
+  for(let i=0;i<26;i++){const t=randFree(); if(t) placeDecoImg('tdeco'+rint(1,11),t.x,t.y,Phaser.Math.FloatBetween(0.7,1));}
+  for(let i=0;i<4;i++){const t=randFree(); if(t) spawnSheep(t.x,t.y);}
+
+  // ---- casillas caminables ----
+  for(let y=1;y<ROWS-1;y++)for(let x=1;x<COLS-1;x++) if(isLand(x,y)&&!blocked[y][x]) walkTiles.push({x:x*T+T/2,y:y*T+T/2});
+
+  // ---- población: mitad guerreros, mitad aldeanos ----
+  for(let i=0;i<NPC_START;i++) spawnNpc(null, Math.random()<0.5?'pawn':'warrior');
+  for(let i=0;i<N_MONSTERS;i++){ const t=randFree(); if(t) spawnMonster(pick(ROAMERS),t.x,t.y); }
+
   nightRect=this.add.rectangle(0,0,10,10,0x0a1436,0).setOrigin(0,0).setScrollFactor(0).setDepth(90000);
-
   this.cameras.main.setBounds(0,0,WORLD_W,WORLD_H);
   fitCamera(); this.scale.on('resize',fitCamera);
   seedFeed();
 }
 
 /* ===== colocación ===== */
-function dispSize(key,sc){const s=scene.textures.get(key).getSourceImage();return [s.width*sc,s.height*sc];}
-function paveRoad(x,y){ if(x<IX0||x>IX1||y<IY0||y>IY1) return;
-  roadSet.add(rk(x,y)); scene.add.image(x*T,y*T,'road').setOrigin(0,0).setDepth(-9); }
-function fillQuarter(x0,y0,x1,y1,kx,ky,color){
-  placeBuilding('tower', kx, ky, 1.0);                    // fortaleza del barrio
-  banner(kx, ky+1, color);
-  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
-    if((x+y)%2!==0) continue;                             // deja callecitas internas
-    if(blocked[y]&&blocked[y][x]) continue;
-    if(roadSet.has(rk(x,y))) continue;
-    if(Math.random()<0.26) continue;                      // algún vacío
-    const r=Math.random();
-    const key = r<0.72?pick(HOUSES) : r<0.87?'shop' : 'barn';
-    placeBuilding(key, x, y, Phaser.Math.FloatBetween(0.82,0.96));
-  }
-}
-function placeBuilding(key,tx,ty,sc,district){
-  const tex = key==='house' ? pick(HOUSES) : key;   // variedad de casas
-  const s = sc*BSCALE;
-  const x=tx*T+T/2, y=ty*T+T;                     // base sobre el tile
-  const spr=scene.add.image(x,y,tex).setOrigin(0.5,1).setScale(s).setDepth(y);
-  const [w,h]=dispSize(tex,s);
-  const foot=scene.add.rectangle(x,y-10,w*0.55,20).setOrigin(0.5,0.5).setVisible(false);
+function placeBuilding(key,tx,ty,sc,opt){
+  opt=opt||{fw:1,fh:1};
+  const x=tx*T+T/2, y=ty*T+T;
+  const spr=scene.add.image(x,y,key).setOrigin(0.5,1).setScale(sc).setDepth(y);
+  const src=scene.textures.get(key).getSourceImage();
+  const foot=scene.add.rectangle(x,y-12,src.width*sc*0.5,22).setOrigin(0.5,0.5).setVisible(false);
   scene.physics.add.existing(foot,true); obstacles.add(foot);
-  if(blocked[ty]) blocked[ty][tx]=true;                 // huella 1×1 (assets Kenney 64×64, ocupan ~1 tile)
-  buildings.push({spr,x,y,tx,ty,district:district||null,ruined:false});
+  for(let ox=0;ox<opt.fw;ox++)for(let oy=0;oy<opt.fh;oy++){
+    const gx=tx-Math.floor(opt.fw/2)+ox, gy=ty-oy;
+    if(blocked[gy]&&gx>=0&&gx<COLS) blocked[gy][gx]=true;
+  }
+  buildings.push({spr,x,y,tx,ty,ruined:false});
   return spr;
 }
-function placeDeco(key,tx,ty,sc,block){
-  const x=tx*T+T/2, y=ty*T+T;
+function placeDecoImg(key,tx,ty,sc){
+  const x=tx*T+T/2, y=ty*T+T-4;
   scene.add.image(x,y,key).setOrigin(0.5,1).setScale(sc).setDepth(y);
-  if(block && blocked[ty]) blocked[ty][tx]=true;
 }
-function spawnSheep(tx,ty){
-  const s=scene.physics.add.sprite(tx*T+T/2,ty*T+T/2,'sheep',0).setOrigin(0.5,0.9).setScale(0.85);
-  s.play('sheep-idle'); s.setDepth(s.y);
-  npcs.push({spr:s,sheep:true,tx:s.x,ty:s.y,idle:0,stuck:0,lx:s.x,ly:s.y});
+function placeTree(tx,ty){
+  const x=tx*T+T/2, y=ty*T+T;
+  scene.add.sprite(x,y,'tree').play({key:'tree-a',startFrame:rint(0,3)}).setOrigin(0.5,0.92).setScale(Phaser.Math.FloatBetween(0.55,0.72)).setDepth(y);
+  if(blocked[ty]) blocked[ty][tx]=true;
 }
 function banner(tx,ty,color){
   const x=tx*T+T/2, y=ty*T+T/2;
@@ -197,61 +313,53 @@ function banner(tx,ty,color){
   const fl=scene.add.triangle(x+2,y-16,0,0,20,6,0,14,color).setOrigin(0,0).setDepth(y+40);
   fl.setStrokeStyle(1,0x120d09,0.6);
 }
-/* ===== criaturas D&D ===== */
-function spawnMonster(kind,tx,ty){
-  const s=scene.physics.add.sprite(tx*T+T/2,ty*T+T/2,'td_'+kind).setOrigin(0.5,0.85).setScale(MSCALE);
-  s.setCollideWorldBounds(true); npcGroup.add(s); s.setDepth(s.y);
-  const n={spr:s,sheep:false,monster:true,kind,tx:s.x,ty:s.y,idle:0,stuck:0,lx:s.x,ly:s.y,dead:false};
-  retarget(n); npcs.push(n); return n;
-}
-function poofMonster(n){
-  if(!n||n.dead)return; n.dead=true; npcs=npcs.filter(x=>x!==n);
-  ring(n.spr.x,n.spr.y-12,0xb060d0); burst(n.spr.x,n.spr.y-14,0x9b6fce,10,10);
-  n.spr.destroy();
-}
-function spawnRaid(){                                  // horda de monstruos junto a un barrio
-  const g=pick(GUILDS), kinds=['orc','skeleton','demon','spider','slime','bat'], mm=[];
-  for(let i=rint(3,5);i>0;i--){
-    const sx=Phaser.Math.Clamp(g.cx+rint(-3,3),IX0,IX1), sy=Phaser.Math.Clamp(g.cy+rint(-3,3),IY0,IY1);
-    const m=spawnMonster(pick(kinds),sx,sy); if(m) mm.push(m);
-  }
-  return {cx:g.cx*T+T/2, cy:g.cy*T+T/2, mm};
-}
-function spawnDragon(x,y){                             // el dragón cae sobre el barrio y se va
-  const d=scene.add.image(x,y-140,'td_demon').setOrigin(0.5,0.5).setScale(4.6).setFlipX(true).setDepth(99995);
-  scene.tweens.add({targets:d,y:y-46,duration:620,ease:'Quad.easeIn',
-    onComplete:()=>scene.tweens.add({targets:d,y:y-170,alpha:0,duration:800,ease:'Quad.easeOut',onComplete:()=>d.destroy()})});
-}
-function dropTreasure(x,y){                            // cofre (o mimic traicionero) que queda en el mundo
-  const kind=Math.random()<0.25?'mimic':'chest';
-  const c=scene.add.image(x,y,'td_'+kind).setOrigin(0.5,0.9).setScale(0.1).setDepth(y);
-  scene.tweens.add({targets:c,scale:2.8,duration:420,ease:'Back.easeOut'});
-  ring(x,y-8,0xc9a227); burst(x,y-8,0xc9a227,10,8);
-}
-function placeTorch(tx,ty){                            // antorcha con glow parpadeante
+function placeTorch(tx,ty){
   const x=tx*T+T/2, y=ty*T+T-4;
   const glow=scene.add.circle(x,y-26,22,0xffb060,0.26).setDepth(y-1);
   scene.add.image(x,y,'td_torch').setOrigin(0.5,1).setScale(2.4).setDepth(y);
-  scene.tweens.add({targets:glow,alpha:{from:0.16,to:0.34},scaleX:{from:0.9,to:1.2},scaleY:{from:0.9,to:1.2},
-    duration:560,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+  scene.tweens.add({targets:glow,alpha:{from:0.16,to:0.34},scaleX:{from:0.9,to:1.2},scaleY:{from:0.9,to:1.2},duration:560,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
 }
-function randFree(){for(let i=0;i<60;i++){const x=rint(IX0,IX1),y=rint(IY0,IY1); if(!blocked[y][x]&&!roadSet.has(rk(x,y))) return{x,y};}return null;}
 function makeName(){const b=pick(NAME_B);return b?`${pick(NAME_A)} ${b}`:pick(NAME_A);}
 
-function spawnNpc(gid){
-  if(livingNpcs().length>=NPC_MAX) return null;   // techo de población (estable en 24/7)
+/* ===== spawns ===== */
+function spawnNpc(gid,tipo){
+  if(livingNpcs().length>=NPC_MAX) return null;
   const g=gid?guildById[gid]:pick(GUILDS);
-  // aparecer cerca del distrito
-  let sx=g.cx+rint(-3,3), sy=g.cy+rint(-2,3);
-  sx=Phaser.Math.Clamp(sx,IX0,IX1); sy=Phaser.Math.Clamp(sy,IY0,IY1);
-  const spr=scene.physics.add.sprite(sx*T+T/2,sy*T+T/2,'warrior_'+g.tex,0).setOrigin(0.5,0.95).setScale(WSCALE);
-  spr.body.setSize(26,20).setOffset(42,68);
-  spr.setCollideWorldBounds(true); npcGroup.add(spr); spr.setDepth(spr.y);
-  const n={spr,sheep:false,guild:g.id,tex:g.tex,name:makeName(),race:pick(RACES),cls:pick(CLASSES),
-    tx:spr.x,ty:spr.y,faceUp:false,faceLeft:false,idle:0,stuck:0,lx:spr.x,ly:spr.y,label:null,dead:false};
+  tipo=tipo||'warrior';
+  let sx=Phaser.Math.Clamp(g.cx+rint(-3,3),1,COLS-2), sy=Phaser.Math.Clamp(g.cy+rint(-2,3),1,ROWS-2);
+  const n={sheep:false,monster:false,guild:g.id,tex:g.tex,tipo,name:makeName(),race:pick(RACES),cls:pick(CLASSES),
+    faceUp:false,faceLeft:false,idle:0,stuck:0,label:null,dead:false};
+  if(tipo==='warrior'){
+    n.spr=scene.physics.add.sprite(sx*T+T/2,sy*T+T/2,'warrior_'+g.tex,0).setOrigin(0.5,0.95).setScale(WSCALE);
+    n.spr.body.setSize(26,20).setOffset(42,68);
+    n.animI='warrior_'+g.tex+'-idleF'; n.animR='warrior_'+g.tex+'-runF'; n.animRB='warrior_'+g.tex+'-runB'; n.animIB='warrior_'+g.tex+'-idleB';
+    n.spd=40;
+  } else {
+    n.spr=scene.physics.add.sprite(sx*T+T/2,sy*T+T/2,'pawn_'+g.tex,0).setOrigin(0.5,0.72).setScale(PSCALE);
+    n.spr.body.setSize(30,20).setOffset(81,118);
+    n.animI='pawn_'+g.tex+'-idle'; n.animR='pawn_'+g.tex+'-run';
+    n.spd=34;
+  }
+  n.spr.setCollideWorldBounds(true); npcGroup.add(n.spr); n.spr.setDepth(n.spr.y);
+  n.spr.play(n.animI);
+  n.lx=n.spr.x; n.ly=n.spr.y; retarget(n); npcs.push(n); return n;
+}
+function spawnSheep(tx,ty){
+  const s=scene.physics.add.sprite(tx*T+T/2,ty*T+T/2,'sheep',0).setOrigin(0.5,0.9).setScale(0.85);
+  s.play('sheep-idle'); s.setDepth(s.y); npcGroup.add(s);
+  npcs.push({spr:s,sheep:true,monster:false,tipo:'sheep',spd:14,animI:'sheep-idle',tx:s.x,ty:s.y,idle:0,stuck:0,lx:s.x,ly:s.y,dead:false});
+}
+function spawnMonster(kind,tx,ty){
+  const d=MONDEF[kind]; if(!d) return null;
+  tx=Phaser.Math.Clamp(tx,1,COLS-2); ty=Phaser.Math.Clamp(ty,1,ROWS-2);
+  const s=scene.physics.add.sprite(tx*T+T/2,ty*T+T/2,d.ti,0).setOrigin(0.5,0.72).setScale(d.sc);
+  const bw=d.fw===256?36:30;
+  s.body.setSize(bw,22).setOffset((d.fw-bw)/2, d.fw*0.72-24);
+  s.setCollideWorldBounds(true); npcGroup.add(s); s.setDepth(s.y); s.play(d.ai);
+  const n={spr:s,sheep:false,monster:true,tipo:kind,kind,spd:d.spd,animI:d.ai,animR:d.ar,tx:s.x,ty:s.y,idle:0,stuck:0,lx:s.x,ly:s.y,dead:false};
   retarget(n); npcs.push(n); return n;
 }
-function retarget(n){const w=pick(walkTiles); n.tx=w.x; n.ty=w.y;}
+function retarget(n){const w=pick(walkTiles); if(w){n.tx=w.x; n.ty=w.y;}}
 
 /* ===== cámara ===== */
 function fitCamera(){if(!scene)return;const cam=scene.cameras.main,vw=scene.scale.width,vh=scene.scale.height;
@@ -272,7 +380,6 @@ function burst(x,y,color,count,rise,dp){for(let i=0;i<count;i++){const p=scene.a
   scene.tweens.add({targets:p,x:x+rint(-28,28),y:y-rise-rint(0,26),alpha:0,scale:0.1,duration:rint(500,1200),ease:'Quad.easeOut',onComplete:()=>p.destroy()});}}
 function ring(x,y,color){const c=scene.add.circle(x,y,6).setStrokeStyle(2,color,1).setDepth(99998);
   scene.tweens.add({targets:c,radius:52,alpha:0,duration:900,ease:'Cubic.easeOut',onUpdate:()=>c.setStrokeStyle(2,color,c.alpha),onComplete:()=>c.destroy()});}
-// puff: partícula real (Particle Pack 512px, escala chica) que sube y se disipa
 function puff(key,x,y,tint,count,scMax,rise,dur){
   for(let i=0;i<count;i++){
     const p=scene.add.image(x+rint(-10,10),y+rint(-6,6),key).setDepth(99999)
@@ -283,9 +390,10 @@ function puff(key,x,y,tint,count,scMax,rise,dur){
       duration:dur+rint(-150,250),ease:'Quad.easeOut',onComplete:()=>p.destroy()});
   }
 }
+function boom(x,y){ const e=scene.add.sprite(x,y,'explosion').setDepth(99999).setScale(0.9);
+  e.play('explosion-a'); e.once('animationcomplete',()=>e.destroy()); }
 function playFx(kind,x,y){const rm=matchMedia('(prefers-reduced-motion:reduce)').matches;
-  if(kind==='fire'){ puff('p_flame',x,y-6,0,7,0.09,26,700); puff('p_smoke',x,y-18,0x554f48,5,0.11,42,1400);
-    burst(x,y,0xf2a03a,8,18); if(!rm)scene.cameras.main.shake(340,0.007); }
+  if(kind==='fire'){ boom(x,y); puff('p_smoke',x,y-18,0x554f48,5,0.11,42,1400); if(!rm)scene.cameras.main.shake(340,0.007); }
   else if(kind==='clash'){ ring(x,y,0xffffff); puff('p_star',x,y-8,0xffe9b0,5,0.07,14,520);
     burst(x,y,0xd64545,8,8); scene.cameras.main.flash(120,229,220,180); }
   else if(kind==='ring'){ ring(x,y,0xc9a227); puff('p_magic',x,y-8,0xc9a227,6,0.07,16,800); }
@@ -294,37 +402,71 @@ function playFx(kind,x,y){const rm=matchMedia('(prefers-reduced-motion:reduce)')
 /* ===== consecuencias persistentes ===== */
 function ruinBuilding(b){
   if(!b||b.ruined)return; b.ruined=true;
-  b.spr.setTint(0x3a2418);
-  // parche chamuscado en el suelo
-  scene.add.ellipse(b.x,b.y-4,dispSize('house',0.95)[0]*0.7,26,0x120b06,0.55).setDepth(b.y-1);
-  // humo persistente (textura real de humo)
+  b.spr.setTint(0x5a4438);
+  scene.add.ellipse(b.x,b.y-4,b.spr.displayWidth*0.6,24,0x120b06,0.5).setDepth(b.y-1);
+  const f=scene.add.sprite(b.x,b.y-8,'fire').play('fire-a').setOrigin(0.5,1).setScale(0.85).setDepth(b.y+1);   // fuego animado persistente
   const smoke=scene.time.addEvent({delay:640,loop:true,callback:()=>{
-    if(paused)return; const p=scene.add.image(b.x+rint(-8,8),b.y-40,'p_smoke').setTint(0x555049).setAlpha(0.42).setDepth(99990).setScale(0.06).setAngle(rint(0,359));
+    if(paused)return; const p=scene.add.image(b.x+rint(-8,8),b.y-46,'p_smoke').setTint(0x555049).setAlpha(0.42).setDepth(99990).setScale(0.06).setAngle(rint(0,359));
     scene.tweens.add({targets:p,y:p.y-52,x:p.x+rint(-12,12),alpha:0,scale:0.15,angle:p.angle+rint(-30,30),duration:2400,ease:'Sine.easeOut',onComplete:()=>p.destroy()});
   }});
-  b.smoke=smoke;
+  b.smoke=smoke; b.fireSpr=f;
 }
 function grave(x,y){
   const g=scene.add.graphics().setDepth(y);
   g.fillStyle(0x6b6459,1); g.fillRoundedRect(x-7,y-18,14,18,{tl:7,tr:7,bl:0,br:0});
-  g.fillStyle(0x4a4640,1); g.fillRect(x-2,y-14,4,10); g.fillRect(x-6,y-11,12,4);   // cruz
+  g.fillStyle(0x4a4640,1); g.fillRect(x-2,y-14,4,10); g.fillRect(x-6,y-11,12,4);
   g.fillStyle(0x2c3320,0.5); g.fillEllipse(x,y,20,6);
 }
 function killNpc(n){
   if(!n||n.dead||n.sheep||n.monster)return; n.dead=true;
   npcs=npcs.filter(x=>x!==n);
   const gx=n.spr.x,gy=n.spr.y;
-  n.spr.body.setVelocity(0); n.spr.anims.stop();
-  scene.tweens.add({targets:n.spr,alpha:0,angle:80,y:n.spr.y+6,duration:700,ease:'Quad.easeIn',
-    onComplete:()=>{n.spr.destroy(); grave(gx,gy);}});
+  n.spr.body.setVelocity(0); n.spr.destroy();
+  const d=scene.add.sprite(gx,gy,'dead').play('dead-a').setOrigin(0.5,0.72).setScale(0.55).setDepth(gy);   // animación de muerte
+  d.once('animationcomplete',()=>{d.destroy(); grave(gx,gy);});
 }
 function defect(n){
   if(!n||n.dead||n.sheep||n.monster)return;
   const others=GUILDS.filter(g=>g.id!==n.guild); const g=pick(others);
   n.guild=g.id; n.tex=g.tex;
-  n.spr.setTexture('warrior_'+g.tex, n.spr.frame.name);
+  if(n.tipo==='warrior'){ n.spr.setTexture('warrior_'+g.tex, n.spr.frame.name);
+    n.animI='warrior_'+g.tex+'-idleF'; n.animR='warrior_'+g.tex+'-runF'; n.animRB='warrior_'+g.tex+'-runB'; n.animIB='warrior_'+g.tex+'-idleB'; }
+  else { n.spr.setTexture('pawn_'+g.tex, n.spr.frame.name); n.animI='pawn_'+g.tex+'-idle'; n.animR='pawn_'+g.tex+'-run'; }
   scene.cameras.main.flash(90,255,255,255);
   burst(n.spr.x,n.spr.y-30,g.color,10,10);
+}
+function poofMonster(n){
+  if(!n||n.dead)return; n.dead=true; npcs=npcs.filter(x=>x!==n);
+  ring(n.spr.x,n.spr.y-12,0xb060d0); burst(n.spr.x,n.spr.y-14,0x9b6fce,10,10);
+  n.spr.destroy();
+}
+function spawnRaid(){
+  const g=pick(GUILDS), mm=[];
+  for(let i=rint(3,5);i>0;i--){
+    const m=spawnMonster(pick(['torch','torch','spear','shaman']), g.cx+rint(-3,3), g.cy+rint(-3,3));
+    if(m) mm.push(m);
+  }
+  return {cx:g.cx*T+T/2, cy:g.cy*T+T/2, mm};
+}
+function spawnDragon(x,y){
+  const d=scene.add.image(x,y-140,'td_demon').setOrigin(0.5,0.5).setScale(4.6).setFlipX(true).setDepth(99995);
+  scene.tweens.add({targets:d,y:y-46,duration:620,ease:'Quad.easeIn',
+    onComplete:()=>scene.tweens.add({targets:d,y:y-170,alpha:0,duration:800,ease:'Quad.easeOut',onComplete:()=>d.destroy()})});
+}
+function spawnBeast(){                          // el minotauro cruza la isla
+  const fromLeft=Math.random()<0.5;
+  const sy=rint(6,ROWS-7)*T;
+  const m=scene.add.sprite(fromLeft?-100:WORLD_W+100, sy,'minotaur_walk').play('mino-walk').setOrigin(0.5,0.72).setScale(0.75).setDepth(sy);
+  m.setFlipX(!fromLeft);
+  scene.tweens.add({targets:m,x:fromLeft?WORLD_W+120:-120,duration:14000,ease:'Linear',
+    onUpdate:()=>m.setDepth(m.y),onComplete:()=>m.destroy()});
+  return {x:fromLeft?T*6:WORLD_W-T*6, y:sy};
+}
+function dropTreasure(x,y){
+  const kind=Math.random()<0.25?'mimic':'chest';
+  const c=scene.add.image(x,y,'td_'+kind).setOrigin(0.5,0.9).setScale(0.1).setDepth(y);
+  scene.tweens.add({targets:c,scale:2.8,duration:420,ease:'Back.easeOut'});
+  ring(x,y-8,0xc9a227); burst(x,y-8,0xc9a227,10,8);
 }
 
 /* ===== motor narrativo ===== */
@@ -339,7 +481,8 @@ const TPL=[
   {tag:'PASTOR',c:'#9fb06a',major:false,t:x=>`Las ovejas de ${x.d} escapan del corral. Alguien maldice en voz alta.`},
   {tag:'GUERRA',c:'#e5533a',major:true,fx:'fire',kind:'ruin',snd:'fire',t:x=>`GUERRA DE FACCIONES. El ${x.g} asalta ${x.d}. El acero canta y las puertas arden.`},
   {tag:'DRAGÓN',c:'#f2703a',major:true,fx:'fire',kind:'ruin',dragon:true,snd:'fire',t:x=>`¡DRAGÓN! Una sombra alada cae sobre ${x.d}. Fuego, ceniza y gritos.`},
-  {tag:'INVASIÓN',c:'#7fbf5a',major:true,fx:'clash',kind:'raid',snd:'latch',t:x=>`¡INVASIÓN! Una horda sale de las Profundidades y cae sobre ${x.d}. ¡A las armas!`},
+  {tag:'INVASIÓN',c:'#7fbf5a',major:true,fx:'clash',kind:'raid',snd:'latch',t:x=>`¡INVASIÓN! Una horda goblin sale de las Profundidades y cae sobre ${x.d}. ¡A las armas!`},
+  {tag:'BESTIA',c:'#c97b4a',major:true,fx:'clash',kind:'beast',snd:'latch',t:x=>`UNA BESTIA ancestral cruza la isla. El suelo tiembla bajo sus pezuñas.`},
   {tag:'DUELO',c:'#ff6b6b',major:true,fx:'clash',kind:'kill',snd:'clash',t:x=>`DUELO A MUERTE: ${x.a} contra ${x.b}. Solo uno queda en pie sobre la hierba.`},
   {tag:'MAGNICIDIO',c:'#9aa0a6',major:true,fx:'clash',kind:'kill',snd:'clash',t:x=>`MAGNICIDIO. ${x.a} cae sin vida en ${x.d}. El ${x.g} lo niega todo.`},
   {tag:'HALLAZGO',c:'#c9a227',major:true,fx:'ring',kind:'none',treasure:true,snd:'coins',t:x=>`HALLAZGO. ${x.a} desentierra ${x.i} en las ruinas bajo ${x.d}. Todos lo quieren.`},
@@ -348,10 +491,8 @@ const TPL=[
 ];
 function livingNpcs(){return npcs.filter(n=>!n.sheep&&!n.monster&&!n.dead);}
 
-// Ejecuta SOLO la consecuencia de un evento major + su FX en el lugar.
-// Corre SIEMPRE (haya o no corte de cámara) para que el mundo quede
-// consistente con lo que narra la crónica. Los guards de idempotencia
-// viven en ruinBuilding/killNpc/defect.
+// La CONSECUENCIA corre SIEMPRE para eventos major (con o sin corte de cámara),
+// así el mundo queda consistente con la crónica. Guards en ruinBuilding/killNpc/defect.
 function applyConsequence(tpl,a,b,focus){
   if(focus){ playFx(tpl.fx,focus.x,focus.y-30); if(tpl.dragon) spawnDragon(focus.x,focus.y-30); ruinBuilding(focus); return; }
   playFx(tpl.fx,a.spr.x,a.spr.y);
@@ -368,9 +509,8 @@ function fireEvent(){
   const text=tpl.t(ctx); pushChronicle(tpl.tag,tpl.c,text,tpl.major);
   if(tpl.snd) sfx(tpl.snd, tpl.major?0.55:0.35);
 
-  if(tpl.spawn){ spawnNpc(gsel.id); return; }
+  if(tpl.spawn){ spawnNpc(gsel.id, Math.random()<0.5?'pawn':'warrior'); return; }
 
-  // INVASIÓN: horda de monstruos junto a un barrio; los defensores la repelen tras unos segundos
   if(tpl.kind==='raid'){
     const r=spawnRaid();
     if(!cameraBusy){ setWatching(text); tViewers+=rint(150,480); cutToPos(r.cx,r.cy); }
@@ -379,19 +519,20 @@ function fireEvent(){
     scene.time.delayedCall(6500,()=>r.mm.forEach(poofMonster));
     return;
   }
+  if(tpl.kind==='beast'){
+    const p=spawnBeast();
+    if(!cameraBusy){ setWatching(text); tViewers+=rint(200,560); cutToPos(p.x,p.y); }
+    return;
+  }
   if(!tpl.major) return;
 
-  // foco del evento: para 'ruin' un edificio en pie; si no, el NPC protagonista
   const focus = tpl.kind==='ruin' ? (pick(buildings.filter(x=>!x.ruined))||pick(buildings)) : null;
-
   if(!cameraBusy){
-    // cámara libre: corte cinematográfico + consecuencia sincronizada con la llegada
     setWatching(text); tViewers+=rint(150,480);
     cutToPos(focus?focus.x:a.spr.x, focus?focus.y-20:a.spr.y-30);
     if(!focus) showLabel(a);
     scene.time.delayedCall(700,()=>applyConsequence(tpl,a,b,focus));
   } else {
-    // cámara ocupada: el evento pasa igual, fuera de cámara, ya mismo
     applyConsequence(tpl,a,b,focus);
   }
 }
@@ -399,10 +540,10 @@ function fireEvent(){
 /* ===== día/noche ===== */
 function timeTint(min){
   const h=(min/60)%24;
-  if(h>=7&&h<18) return [0x0a1436,0];                         // día
-  if(h>=5&&h<7)  return [0xe08a3c,0.16*(1-(h-5)/2)+0.04];     // amanecer
-  if(h>=18&&h<20)return [0xe0662c,0.06+0.20*((h-18)/2)];      // atardecer
-  return [0x0a1436, 0.52];                                    // noche
+  if(h>=7&&h<18) return [0x0a1436,0];
+  if(h>=5&&h<7)  return [0xe08a3c,0.16*(1-(h-5)/2)+0.04];
+  if(h>=18&&h<20)return [0xe0662c,0.06+0.20*((h-18)/2)];
+  return [0x0a1436, 0.52];
 }
 
 /* ===== loop ===== */
@@ -410,22 +551,21 @@ function update(time,delta){
   const m=speed;
   for(const n of npcs){
     if(n.dead) continue;
-    if(paused){ n.spr.body&&n.spr.body.setVelocity(0); n.spr.anims&&n.spr.anims.stop(); continue; }
-    const isW=!n.sheep&&!n.monster;                    // guerrero (animado) vs oveja/monstruo (estático)
-    const spd=(n.sheep?14:n.monster?30:40)*m;
+    if(paused){ n.spr.body&&n.spr.body.setVelocity(0); n.spr.anims&&n.spr.anims.pause(); continue; }
+    if(n.spr.anims&&n.spr.anims.isPaused) n.spr.anims.resume();
+    const spd=n.spd*m;
     const dx=n.tx-n.spr.x, dy=n.ty-n.spr.y, d=Math.hypot(dx,dy);
     if(Math.hypot(n.spr.x-n.lx,n.spr.y-n.ly)<0.25) n.stuck+=delta; else n.stuck=0;
     n.lx=n.spr.x; n.ly=n.spr.y;
     if(d<4||n.stuck>600){
       n.stuck=0; n.spr.body.setVelocity(0);
       if(n.idle<=0){ n.idle=rint(400,1800);
-        if(isW){ n.spr.anims.stop(); n.spr.setFrame(n.faceUp?6:0); n.spr.setFlipX(n.faceLeft); } }
+        n.spr.play((n.faceUp&&n.animIB)?n.animIB:n.animI,true); n.spr.setFlipX(!!n.faceLeft); }
       else { n.idle-=delta*m; if(n.idle<=0) retarget(n); }
     } else {
       const inv=spd/d; n.spr.body.setVelocity(dx*inv,dy*inv);
-      if(isW){ n.faceLeft=dx<0; n.faceUp=(Math.abs(dy)>Math.abs(dx))&&dy<0;
-        n.spr.play('warrior_'+n.tex+(n.faceUp?'-runB':'-runF'),true); n.spr.setFlipX(n.faceLeft); }
-      else if(n.monster){ n.spr.setFlipX(dx<0); }
+      n.faceLeft=dx<0; n.faceUp=(Math.abs(dy)>Math.abs(dx))&&dy<0;
+      if(n.animR){ n.spr.play((n.faceUp&&n.animRB)?n.animRB:n.animR,true); n.spr.setFlipX(n.faceLeft); }
     }
     n.spr.setDepth(n.spr.y);
     if(n.label){ n.label.x=n.spr.x; n.label.y=n.spr.y-52; }
@@ -453,7 +593,7 @@ function seedFeed(){
 }
 $('btnPause').addEventListener('click',()=>{paused=!paused;$('btnPause').textContent=paused?'SEGUIR':'PAUSA';});
 $('btnSpeed').addEventListener('click',()=>{speed=speed===1?2:speed===2?4:1;$('btnSpeed').textContent=speed+'×';});
-$('btnSound').addEventListener('click',()=>{                 // el click desbloquea el AudioContext (política de autoplay)
+$('btnSound').addEventListener('click',()=>{
   soundOn=!soundOn; $('btnSound').textContent=soundOn?'SONIDO ✓':'SONIDO';
   if(soundOn&&scene){ const c=scene.sound.context; if(c&&c.state==='suspended') c.resume(); sfx('bell',0.3); }
 });
