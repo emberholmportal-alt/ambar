@@ -30,7 +30,7 @@
   button.ghost:hover{filter:brightness(1.15)} button.ghost:active{filter:brightness(.85)}
   button.ghost:disabled{filter:grayscale(1) brightness(.6);cursor:not-allowed}
   /* ---- viewport ---- */
-  .stage{flex:1;position:relative;min-height:0;background:#3a6a8a}
+  .stage{flex:1;position:relative;min-height:0;background:#47a5b5}
   #game{position:absolute;inset:0} #game canvas{display:block}
   .hint{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(18,13,9,.85);border:1px solid var(--line);border-radius:4px;padding:6px 14px;font-size:11px;color:var(--ink);z-index:10;pointer-events:none;opacity:0;transition:.25s}
   .hint.on{opacity:1}
@@ -72,6 +72,7 @@
     <div class="res" id="rOro"><img src="assets/img/ts/res_gold.png" alt="oro"><span id="vOro">0</span><span class="cap" id="cOro"></span></div>
     <div class="res" id="rMad"><img src="assets/img/ts/res_wood.png" alt="madera"><span id="vMad">0</span><span class="cap" id="cMad"></span></div>
     <div class="res" id="rCom"><img src="assets/img/ts/res_meat.png" alt="comida"><span id="vCom">0</span><span class="cap" id="cCom"></span></div>
+    <div class="res" title="Aldeanos libres / total — cada obra y cada puesto de trabajo necesita uno">👤 <span id="vAld">0/0</span></div>
     <div class="res ambar" title="Moneda simulada — placeholder de la economía real (F4)"><span id="vAmbar">0</span> $AMBAR</div>
     <button class="ghost" id="btnCaravana" title="Trae +250 del recurso que menos tengas">◆ CARAVANA (8)</button>
     <button class="ghost" id="btnMercen" style="display:none" title="Refuerzos durante el asalto">◆ MERCENARIOS (10)</button>
