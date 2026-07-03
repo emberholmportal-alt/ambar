@@ -42,7 +42,8 @@ const DISTRICTS=['el Barrio de la Forja','el Mercado Alto','los Muelles','la Nec
 
 let scene, obstacles, npcGroup, npcs=[], buildings=[], walkTiles=[], blocked=[];
 let cameraBusy=false, baseZoom=1, baseCX=WORLD_W/2, baseCY=WORLD_H/2;
-let paused=false, speed=1, nightRect=null;
+let paused=false, speed=1, nightRect=null, soundOn=false;
+function sfx(key,vol){ if(soundOn&&scene) scene.sound.play('s_'+key,{volume:vol||0.5}); }
 let evAcc=0, evNext=2200, worldMin=6*60, clkAcc=0, viewers=1204, tViewers=1204, vAcc=0;
 const rint=(a,b)=>Math.floor(Math.random()*(b-a+1))+a, pick=a=>a[Math.floor(Math.random()*a.length)];
 
@@ -70,6 +71,8 @@ function preload(){
   A_DECO.forEach((d,i)=>this.load.image('deco'+i,d));
   ['skeleton','orc','demon','ghost','spider','slime','bat','wizard','chest','mimic','torch','potion']
     .forEach(k=>this.load.image('td_'+k,'assets/img/td_'+k+'.png'));   // criaturas y tesoros D&D
+  ['flame','smoke','magic','star'].forEach(k=>this.load.image('p_'+k,'assets/img/p_'+k+'.png'));   // partículas (Kenney Particle Pack)
+  ['fire','clash','coins','latch','bell','door','bong','creak'].forEach(k=>this.load.audio('s_'+k,'assets/sfx/'+k+'.ogg'));   // sonidos (Kenney Audio)
 }
 function makeDot(s){const g=s.add.graphics({add:false});g.fillStyle(0xffffff,1);g.fillCircle(4,4,4);g.generateTexture('dot',8,8);g.destroy();}
 
@@ -269,11 +272,24 @@ function burst(x,y,color,count,rise,dp){for(let i=0;i<count;i++){const p=scene.a
   scene.tweens.add({targets:p,x:x+rint(-28,28),y:y-rise-rint(0,26),alpha:0,scale:0.1,duration:rint(500,1200),ease:'Quad.easeOut',onComplete:()=>p.destroy()});}}
 function ring(x,y,color){const c=scene.add.circle(x,y,6).setStrokeStyle(2,color,1).setDepth(99998);
   scene.tweens.add({targets:c,radius:52,alpha:0,duration:900,ease:'Cubic.easeOut',onUpdate:()=>c.setStrokeStyle(2,color,c.alpha),onComplete:()=>c.destroy()});}
+// puff: partícula real (Particle Pack 512px, escala chica) que sube y se disipa
+function puff(key,x,y,tint,count,scMax,rise,dur){
+  for(let i=0;i<count;i++){
+    const p=scene.add.image(x+rint(-10,10),y+rint(-6,6),key).setDepth(99999)
+      .setScale(Phaser.Math.FloatBetween(0.03,scMax)).setAlpha(0.9).setAngle(rint(0,359));
+    if(tint) p.setTint(tint);
+    scene.tweens.add({targets:p,x:p.x+rint(-24,24),y:p.y-rise-rint(0,28),alpha:0,
+      scale:p.scale*Phaser.Math.FloatBetween(1.6,2.4),angle:p.angle+rint(-40,40),
+      duration:dur+rint(-150,250),ease:'Quad.easeOut',onComplete:()=>p.destroy()});
+  }
+}
 function playFx(kind,x,y){const rm=matchMedia('(prefers-reduced-motion:reduce)').matches;
-  if(kind==='fire'){burst(x,y,0xe5533a,20,14);burst(x,y,0xf2a03a,14,18);if(!rm)scene.cameras.main.shake(340,0.007);}
-  else if(kind==='clash'){ring(x,y,0xffffff);burst(x,y,0xd64545,12,8);scene.cameras.main.flash(120,229,220,180);}
-  else if(kind==='ring'){ring(x,y,0xc9a227);burst(x,y,0xc9a227,10,6);}
-  else if(kind==='confetti'){[0xd64545,0x4a90c2,0x5fa55a,0x9b6fce,0xc9a227].forEach(c=>burst(x,y,c,7,16));}}
+  if(kind==='fire'){ puff('p_flame',x,y-6,0,7,0.09,26,700); puff('p_smoke',x,y-18,0x554f48,5,0.11,42,1400);
+    burst(x,y,0xf2a03a,8,18); if(!rm)scene.cameras.main.shake(340,0.007); }
+  else if(kind==='clash'){ ring(x,y,0xffffff); puff('p_star',x,y-8,0xffe9b0,5,0.07,14,520);
+    burst(x,y,0xd64545,8,8); scene.cameras.main.flash(120,229,220,180); }
+  else if(kind==='ring'){ ring(x,y,0xc9a227); puff('p_magic',x,y-8,0xc9a227,6,0.07,16,800); }
+  else if(kind==='confetti'){ [0xd64545,0x4a90c2,0x5fa55a,0x9b6fce,0xc9a227].forEach(c=>puff('p_star',x,y-6,c,3,0.05,20,900)); }}
 
 /* ===== consecuencias persistentes ===== */
 function ruinBuilding(b){
@@ -281,10 +297,10 @@ function ruinBuilding(b){
   b.spr.setTint(0x3a2418);
   // parche chamuscado en el suelo
   scene.add.ellipse(b.x,b.y-4,dispSize('house',0.95)[0]*0.7,26,0x120b06,0.55).setDepth(b.y-1);
-  // humo persistente
-  const smoke=scene.time.addEvent({delay:520,loop:true,callback:()=>{
-    if(paused)return; const p=scene.add.image(b.x+rint(-8,8),b.y-40,'dot').setTint(0x555049).setAlpha(0.5).setDepth(99990).setScale(1.2);
-    scene.tweens.add({targets:p,y:p.y-46,x:p.x+rint(-10,10),alpha:0,scale:2.2,duration:2200,ease:'Sine.easeOut',onComplete:()=>p.destroy()});
+  // humo persistente (textura real de humo)
+  const smoke=scene.time.addEvent({delay:640,loop:true,callback:()=>{
+    if(paused)return; const p=scene.add.image(b.x+rint(-8,8),b.y-40,'p_smoke').setTint(0x555049).setAlpha(0.42).setDepth(99990).setScale(0.06).setAngle(rint(0,359));
+    scene.tweens.add({targets:p,y:p.y-52,x:p.x+rint(-12,12),alpha:0,scale:0.15,angle:p.angle+rint(-30,30),duration:2400,ease:'Sine.easeOut',onComplete:()=>p.destroy()});
   }});
   b.smoke=smoke;
 }
@@ -318,17 +334,17 @@ const TPL=[
   {tag:'TABERNA',c:'#d99a5a',major:false,t:x=>`${x.a} y ${x.b} se van a los gritos en la taberna de ${x.d}. Corre la cerveza, no la sangre… todavía.`},
   {tag:'GREMIO',c:'#8fb4d6',major:false,t:x=>`El ${x.g} recluta a ${x.a}. Juramento sellado con hierro y silencio.`},
   {tag:'RUMOR',c:'#a99a7a',major:false,t:x=>`Corre el rumor: ${x.a} le debe ${x.i} al ${x.g} y ya no responde a nadie.`},
-  {tag:'NOCHE',c:'#8c7f68',major:false,t:x=>`Repican las campanas: la vigilia cambia de guardia en ${x.d}.`},
-  {tag:'REFUERZO',c:'#8fb4d6',major:false,spawn:true,t:x=>`Un barco atraca en los muelles: nuevos brazos para el ${x.g}.`},
+  {tag:'NOCHE',c:'#8c7f68',major:false,snd:'bell',t:x=>`Repican las campanas: la vigilia cambia de guardia en ${x.d}.`},
+  {tag:'REFUERZO',c:'#8fb4d6',major:false,spawn:true,snd:'door',t:x=>`Un barco atraca en los muelles: nuevos brazos para el ${x.g}.`},
   {tag:'PASTOR',c:'#9fb06a',major:false,t:x=>`Las ovejas de ${x.d} escapan del corral. Alguien maldice en voz alta.`},
-  {tag:'GUERRA',c:'#e5533a',major:true,fx:'fire',kind:'ruin',t:x=>`GUERRA DE FACCIONES. El ${x.g} asalta ${x.d}. El acero canta y las puertas arden.`},
-  {tag:'DRAGÓN',c:'#f2703a',major:true,fx:'fire',kind:'ruin',dragon:true,t:x=>`¡DRAGÓN! Una sombra alada cae sobre ${x.d}. Fuego, ceniza y gritos.`},
-  {tag:'INVASIÓN',c:'#7fbf5a',major:true,fx:'clash',kind:'raid',t:x=>`¡INVASIÓN! Una horda sale de las Profundidades y cae sobre ${x.d}. ¡A las armas!`},
-  {tag:'DUELO',c:'#ff6b6b',major:true,fx:'clash',kind:'kill',t:x=>`DUELO A MUERTE: ${x.a} contra ${x.b}. Solo uno queda en pie sobre la hierba.`},
-  {tag:'MAGNICIDIO',c:'#9aa0a6',major:true,fx:'clash',kind:'kill',t:x=>`MAGNICIDIO. ${x.a} cae sin vida en ${x.d}. El ${x.g} lo niega todo.`},
-  {tag:'HALLAZGO',c:'#c9a227',major:true,fx:'ring',kind:'none',treasure:true,t:x=>`HALLAZGO. ${x.a} desentierra ${x.i} en las ruinas bajo ${x.d}. Todos lo quieren.`},
-  {tag:'FIESTA',c:'#c9a227',major:true,fx:'confetti',kind:'none',t:x=>`FESTÍN en ${x.d}: música, antorchas y vino. Hasta el ${x.g} baja las armas.`},
-  {tag:'TRAICIÓN',c:'#9b6fce',major:true,fx:'clash',kind:'defect',t:x=>`TRAICIÓN. ${x.a} abandona el ${x.g} y jura lealtad a otro estandarte.`},
+  {tag:'GUERRA',c:'#e5533a',major:true,fx:'fire',kind:'ruin',snd:'fire',t:x=>`GUERRA DE FACCIONES. El ${x.g} asalta ${x.d}. El acero canta y las puertas arden.`},
+  {tag:'DRAGÓN',c:'#f2703a',major:true,fx:'fire',kind:'ruin',dragon:true,snd:'fire',t:x=>`¡DRAGÓN! Una sombra alada cae sobre ${x.d}. Fuego, ceniza y gritos.`},
+  {tag:'INVASIÓN',c:'#7fbf5a',major:true,fx:'clash',kind:'raid',snd:'latch',t:x=>`¡INVASIÓN! Una horda sale de las Profundidades y cae sobre ${x.d}. ¡A las armas!`},
+  {tag:'DUELO',c:'#ff6b6b',major:true,fx:'clash',kind:'kill',snd:'clash',t:x=>`DUELO A MUERTE: ${x.a} contra ${x.b}. Solo uno queda en pie sobre la hierba.`},
+  {tag:'MAGNICIDIO',c:'#9aa0a6',major:true,fx:'clash',kind:'kill',snd:'clash',t:x=>`MAGNICIDIO. ${x.a} cae sin vida en ${x.d}. El ${x.g} lo niega todo.`},
+  {tag:'HALLAZGO',c:'#c9a227',major:true,fx:'ring',kind:'none',treasure:true,snd:'coins',t:x=>`HALLAZGO. ${x.a} desentierra ${x.i} en las ruinas bajo ${x.d}. Todos lo quieren.`},
+  {tag:'FIESTA',c:'#c9a227',major:true,fx:'confetti',kind:'none',snd:'bong',t:x=>`FESTÍN en ${x.d}: música, antorchas y vino. Hasta el ${x.g} baja las armas.`},
+  {tag:'TRAICIÓN',c:'#9b6fce',major:true,fx:'clash',kind:'defect',snd:'clash',t:x=>`TRAICIÓN. ${x.a} abandona el ${x.g} y jura lealtad a otro estandarte.`},
 ];
 function livingNpcs(){return npcs.filter(n=>!n.sheep&&!n.monster&&!n.dead);}
 
@@ -350,6 +366,7 @@ function fireEvent(){
   const gsel=pick(GUILDS);
   const ctx={a:a.name,b:b.name,cls:a.cls,race:a.race,g:gsel.name,d:pick(DISTRICTS),i:pick(ITEMS)};
   const text=tpl.t(ctx); pushChronicle(tpl.tag,tpl.c,text,tpl.major);
+  if(tpl.snd) sfx(tpl.snd, tpl.major?0.55:0.35);
 
   if(tpl.spawn){ spawnNpc(gsel.id); return; }
 
@@ -436,3 +453,7 @@ function seedFeed(){
 }
 $('btnPause').addEventListener('click',()=>{paused=!paused;$('btnPause').textContent=paused?'SEGUIR':'PAUSA';});
 $('btnSpeed').addEventListener('click',()=>{speed=speed===1?2:speed===2?4:1;$('btnSpeed').textContent=speed+'×';});
+$('btnSound').addEventListener('click',()=>{                 // el click desbloquea el AudioContext (política de autoplay)
+  soundOn=!soundOn; $('btnSound').textContent=soundOn?'SONIDO ✓':'SONIDO';
+  if(soundOn&&scene){ const c=scene.sound.context; if(c&&c.state==='suspended') c.resume(); sfx('bell',0.3); }
+});
