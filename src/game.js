@@ -29,7 +29,7 @@ const DISTRICTS=['el Barrio de la Forja','el Mercado Alto','los Muelles','la Nec
 let scene, obstacles, npcGroup, npcs=[], buildings=[], walkTiles=[], blocked=[], land=[];
 let treeSpots=[], gmPos=null;                 // sitios de trabajo (bosque y mina)
 let cameraBusy=false, baseZoom=1, baseCX=WORLD_W/2, baseCY=WORLD_H/2;
-let paused=false, speed=1, nightRect=null, soundOn=false;
+let paused=false, speed=1, nightRect=null, soundOn=false, manualView=false;
 function sfx(key,vol){ if(soundOn&&scene) scene.sound.play('s_'+key,{volume:vol||0.5}); }
 let evAcc=0, evNext=2200, worldMin=6*60, clkAcc=0, viewers=1204, tViewers=1204, vAcc=0;
 const rint=(a,b)=>Math.floor(Math.random()*(b-a+1))+a, pick=a=>a[Math.floor(Math.random()*a.length)];
@@ -131,7 +131,7 @@ function preload(){
   this.load.spritesheet('explosion',TSB+'explosion.png',{frameWidth:192,frameHeight:192});
   // mercado (Kenney, se mezclan bien) + tesoros/antorcha (Tiny Dungeon) + dragón + partículas
   ['stall1','stall2','tent1','tent2'].forEach(k=>this.load.image(k,'assets/img/kenney_'+k+'.png'));
-  ['chest','mimic','torch','demon'].forEach(k=>this.load.image('td_'+k,'assets/img/td_'+k+'.png'));
+  ['chest','mimic','torch','demon','bat'].forEach(k=>this.load.image('td_'+k,'assets/img/td_'+k+'.png'));
   ['flame','smoke','magic','star'].forEach(k=>this.load.image('p_'+k,'assets/img/p_'+k+'.png'));
   ['fire','clash','coins','latch','bell','door','bong','creak'].forEach(k=>this.load.audio('s_'+k,'assets/sfx/'+k+'.ogg'));
 }
@@ -419,6 +419,23 @@ function create(){
   nightRect=this.add.rectangle(0,0,10,10,0x0a1436,0).setOrigin(0,0).setScrollFactor(0).setDepth(90000);
   this.cameras.main.setBounds(0,0,WORLD_W,WORLD_H);
   fitCamera(); this.scale.on('resize',fitCamera);
+
+  // ---- lupa: rueda = zoom hacia el puntero · arrastrar = mover · doble click = vista general ----
+  this.input.on('wheel',(p,objs,dx,dy)=>{
+    const cam=this.cameras.main;
+    manualView=true; reticleLock(false);
+    const z=Phaser.Math.Clamp(cam.zoom*(dy>0?0.87:1.15), baseZoom*0.85, 3.4);
+    cam.setZoom(z);
+    const wp=cam.getWorldPoint(p.x,p.y);
+    cam.centerOn(Phaser.Math.Linear(cam.midPoint.x,wp.x,0.3), Phaser.Math.Linear(cam.midPoint.y,wp.y,0.3));
+  });
+  this.input.on('pointermove',p=>{
+    if(!manualView||!p.isDown) return;
+    const cam=this.cameras.main;
+    cam.scrollX-=(p.x-p.prevPosition.x)/cam.zoom;
+    cam.scrollY-=(p.y-p.prevPosition.y)/cam.zoom;
+  });
+  this.game.canvas.addEventListener('dblclick',()=>{ manualView=false; cameraBusy=false; fitCamera(); });
   seedFeed();
 }
 
@@ -466,7 +483,8 @@ function spawnNpc(gid,tipo){
   if(livingNpcs().length>=NPC_MAX) return null;
   const g=gid?guildById[gid]:pick(GUILDS);
   tipo=tipo||'warrior';
-  let sx=Phaser.Math.Clamp(g.cx+rint(-3,3),1,COLS-2), sy=Phaser.Math.Clamp(g.cy+rint(-2,3),1,ROWS-2);
+  const sp0=nearWalkable(Phaser.Math.Clamp(g.cx+rint(-3,3),1,COLS-2), Phaser.Math.Clamp(g.cy+rint(-2,3),1,ROWS-2));
+  const sx=sp0.x, sy=sp0.y;
   const n={sheep:false,monster:false,guild:g.id,tex:g.tex,tipo,name:makeName(),race:pick(RACES),cls:pick(CLASSES),
     av:'h'+String(rint(1,25)).padStart(2,'0'),
     faceUp:false,faceLeft:false,idle:0,stuck:0,label:null,dead:false};
@@ -501,18 +519,21 @@ function spawnWorker(gid,job){                       // leñador/minero/cargador
   return n;
 }
 function spawnSheep(tx,ty,home){
+  const sp0=nearWalkable(tx,ty); tx=sp0.x; ty=sp0.y;
   const s=scene.physics.add.sprite(tx*T+T/2,ty*T+T/2,'sheep',0).setOrigin(0.5,0.9).setScale(0.85);
   s.play('sheep-idle'); s.setDepth(s.y); npcGroup.add(s);
   npcs.push({spr:s,sheep:true,monster:false,tipo:'sheep',spd:14,animI:'sheep-idle',home:home||null,tx:s.x,ty:s.y,idle:0,stuck:0,lx:s.x,ly:s.y,dead:false});
 }
 function spawnPig(tx,ty,home){
+  const sp0=nearWalkable(tx,ty); tx=sp0.x; ty=sp0.y;
   const s=scene.physics.add.sprite(tx*T+T/2,ty*T+T/2,'pig_idle',0).setOrigin(0.5,0.72).setScale(0.55);
   s.play('cerdo-idle'); s.setDepth(s.y); npcGroup.add(s);
   npcs.push({spr:s,sheep:true,monster:false,tipo:'pig',spd:18,animI:'cerdo-idle',animR:'cerdo-run',home:home||null,tx:s.x,ty:s.y,idle:0,stuck:0,lx:s.x,ly:s.y,dead:false});
 }
 function spawnMonster(kind,tx,ty,home){
   const d=MONDEF[kind]; if(!d) return null;
-  tx=Phaser.Math.Clamp(tx,1,COLS-2); ty=Phaser.Math.Clamp(ty,1,ROWS-2);
+  const sp0=nearWalkable(Phaser.Math.Clamp(tx,1,COLS-2), Phaser.Math.Clamp(ty,1,ROWS-2));
+  tx=sp0.x; ty=sp0.y;
   const s=scene.physics.add.sprite(tx*T+T/2,ty*T+T/2,d.ti,0).setOrigin(0.5,0.72).setScale(d.sc);
   const bw=d.fw===256?36:30;
   s.body.setSize(bw,22).setOffset((d.fw-bw)/2, d.fw*0.72-24);
@@ -543,6 +564,14 @@ function findPath(x0,y0,x1,y1){
   return null;
 }
 function tileOf(px_,py_){ return {x:Phaser.Math.Clamp(Math.floor(px_/T),0,COLS-1), y:Phaser.Math.Clamp(Math.floor(py_/T),0,ROWS-1)}; }
+function nearWalkable(tx,ty){                       // tile caminable más cercano (espiral) — nadie nace en el agua
+  if(walkable(tx,ty)) return {x:tx,y:ty};
+  for(let r=1;r<=6;r++)for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
+    if(Math.max(Math.abs(dx),Math.abs(dy))!==r) continue;
+    if(walkable(tx+dx,ty+dy)) return {x:tx+dx,y:ty+dy};
+  }
+  const w=pick(walkTiles); return w?tileOf(w.x,w.y):{x:tx,y:ty};
+}
 function retarget(n){
   const cur=tileOf(n.spr.x,n.spr.y);
   let dest=null;
@@ -558,8 +587,9 @@ function retarget(n){
 function fitCamera(){if(!scene)return;const cam=scene.cameras.main,vw=scene.scale.width,vh=scene.scale.height;
   baseZoom=Math.min(vw/WORLD_W,vh/WORLD_H)*0.98;
   if(nightRect) nightRect.setSize(vw,vh);
+  if(manualView) return;                                    // lupa activa: no recentrar
   if(!cameraBusy){cam.setZoom(baseZoom);cam.centerOn(baseCX,baseCY);}}
-function cutToPos(x,y){if(cameraBusy)return;cameraBusy=true;const cam=scene.cameras.main,z=Math.min(Math.max(baseZoom*3.6,baseZoom+0.9),2.2);
+function cutToPos(x,y){if(cameraBusy||manualView)return;cameraBusy=true;const cam=scene.cameras.main,z=Math.min(Math.max(baseZoom*3.6,baseZoom+0.9),2.2);
   cam.pan(x,y,650,'Sine.easeInOut'); cam.zoomTo(z,650,'Sine.easeInOut'); reticleLock(true);
   scene.time.delayedCall(3600,()=>{cam.pan(baseCX,baseCY,850,'Sine.easeInOut');cam.zoomTo(baseZoom,850,'Sine.easeInOut');reticleLock(false);hideLabels();
     scene.time.delayedCall(880,()=>{cameraBusy=false;});});}
@@ -642,9 +672,13 @@ function spawnRaid(){
   return {cx:g.cx*T+T/2, cy:g.cy*T+T/2, mm};
 }
 function spawnDragon(x,y){
-  const d=scene.add.image(x,y-140,'td_demon').setOrigin(0.5,0.5).setScale(4.6).setFlipX(true).setDepth(99995);
-  scene.tweens.add({targets:d,y:y-46,duration:620,ease:'Quad.easeIn',
-    onComplete:()=>scene.tweens.add({targets:d,y:y-170,alpha:0,duration:800,ease:'Quad.easeOut',onComplete:()=>d.destroy()})});
+  // "una sombra alada": silueta oscura que cruza en picada + sombra en el suelo
+  const sh=scene.add.ellipse(x-260,y,90,28,0x0a0a14,0.35).setDepth(y-1);
+  const d=scene.add.image(x-260,y-150,'td_bat').setOrigin(0.5,0.5).setScale(7).setTint(0x141024).setAlpha(0.92).setDepth(99995);
+  scene.tweens.add({targets:d,x:x,y:y-60,duration:700,ease:'Quad.easeIn',onComplete:()=>{
+    scene.tweens.add({targets:d,x:x+300,y:y-190,alpha:0,duration:900,ease:'Quad.easeOut',onComplete:()=>d.destroy()});
+  }});
+  scene.tweens.add({targets:sh,x:x+300,scaleX:{from:0.6,to:1.4},alpha:{from:0.35,to:0},duration:1600,ease:'Sine.easeIn',onComplete:()=>sh.destroy()});
 }
 function spawnBeast(){                          // el minotauro cruza la isla
   const fromLeft=Math.random()<0.5;
