@@ -3,8 +3,9 @@
 /* ===== chrome ===== */
 const $=id=>document.getElementById(id); const feedEl=$('feed'),reticleEl=$('reticle');
 const nf=n=>Math.round(n).toLocaleString('es-AR'); let clockStr='Día 1 · 06:00';
-function pushChronicle(tag,color,text,major){const e=document.createElement('div');e.className='entry'+(major?' major':'');
-  e.innerHTML=`<div class="meta"><span class="t">${clockStr}</span><span class="tag" style="color:${color}">[${tag}]</span></div><div class="body">${text}</div>`;
+function pushChronicle(tag,color,text,major,av){const e=document.createElement('div');e.className='entry'+(major?' major':'');
+  const avImg=av?`<img class="av" src="assets/img/ts/av/${av}.png" alt="">`:'';
+  e.innerHTML=`${avImg}<div class="meta"><span class="t">${clockStr}</span><span class="tag" style="color:${color}">[${tag}]</span></div><div class="body">${text}</div>`;
   feedEl.prepend(e); while(feedEl.children.length>70) feedEl.removeChild(feedEl.lastChild);}
 function setWatching(t){$('watch').textContent=t} function setViewers(n){$('viewers').textContent=nf(n)}
 function reticleLock(on){reticleEl.classList.toggle('lock',on)} function setClock(s){clockStr=s;$('clock').textContent=s}
@@ -49,8 +50,12 @@ const MONDEF={
   shaman:{ti:'shaman_idle', ai:'shaman-idle',ar:'shaman-run', sc:PSCALE, fw:192, spd:36},
   gnoll: {ti:'gnoll_idle',  ai:'gnoll-idle', ar:'gnoll-walk', sc:PSCALE, fw:192, spd:44},
   bear:  {ti:'bear_idle',   ai:'bear-idle',  ar:'bear-run',   sc:0.55,   fw:256, spd:52},
+  thief: {ti:'thief_idle',  ai:'thief-idle', ar:'thief-run',  sc:PSCALE, fw:192, spd:56},
+  snake: {ti:'snake_idle',  ai:'snake-idle', ar:'snake-run',  sc:PSCALE, fw:192, spd:38},
+  spider:{ti:'spider_idle', ai:'spider-idle',ar:'spider-run', sc:PSCALE, fw:192, spd:48},
+  pigrider:{ti:'pigrider_idle',ai:'pig-idle',ar:'pig-run',    sc:0.52,   fw:256, spd:58},
 };
-const ROAMERS=['torch','spear','gnoll','bear'];
+const ROAMERS=['torch','spear','gnoll','bear','snake','spider'];
 
 new Phaser.Game({type:Phaser.AUTO,backgroundColor:'#123041',
   scale:{mode:Phaser.Scale.RESIZE,parent:'game',width:'100%',height:'100%'},
@@ -92,6 +97,16 @@ function preload(){
   this.load.spritesheet('bear_idle',TSB+'bear_idle.png',{frameWidth:256,frameHeight:256});
   this.load.spritesheet('bear_run', TSB+'bear_run.png', {frameWidth:256,frameHeight:256});
   this.load.spritesheet('minotaur_walk',TSB+'minotaur_walk.png',{frameWidth:320,frameHeight:320});
+  this.load.spritesheet('thief_idle',TSB+'thief_idle.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('thief_run', TSB+'thief_run.png', {frameWidth:192,frameHeight:192});
+  this.load.spritesheet('snake_idle',TSB+'snake_idle.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('snake_run', TSB+'snake_run.png', {frameWidth:192,frameHeight:192});
+  this.load.spritesheet('spider_idle',TSB+'spider_idle.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('spider_run', TSB+'spider_run.png', {frameWidth:192,frameHeight:192});
+  this.load.spritesheet('pigrider_idle',TSB+'pigrider_idle.png',{frameWidth:256,frameHeight:256});
+  this.load.spritesheet('pigrider_run', TSB+'pigrider_run.png', {frameWidth:256,frameHeight:256});
+  for(let i=1;i<=4;i++){ this.load.image('cloud'+i,TSB+'cloud'+i+'.png'); this.load.spritesheet('wrock'+i,TSB+'wrock'+i+'.png',{frameWidth:128,frameHeight:128}); }
+  this.load.spritesheet('duck',TSB+'duck.png',{frameWidth:32,frameHeight:32});
   // efectos
   this.load.spritesheet('fire',TSB+'fire.png',{frameWidth:128,frameHeight:128});
   this.load.spritesheet('explosion',TSB+'explosion.png',{frameWidth:192,frameHeight:192});
@@ -185,6 +200,16 @@ function create(){
   an.create({key:'bear-idle',frames:an.generateFrameNumbers('bear_idle',{start:0,end:7}),frameRate:7,repeat:-1});
   an.create({key:'bear-run', frames:an.generateFrameNumbers('bear_run',{start:0,end:4}),frameRate:10,repeat:-1});
   an.create({key:'mino-walk',frames:an.generateFrameNumbers('minotaur_walk',{start:0,end:7}),frameRate:9,repeat:-1});
+  an.create({key:'thief-idle',frames:an.generateFrameNumbers('thief_idle',{start:0,end:5}),frameRate:8,repeat:-1});
+  an.create({key:'thief-run', frames:an.generateFrameNumbers('thief_run',{start:0,end:5}),frameRate:11,repeat:-1});
+  an.create({key:'snake-idle',frames:an.generateFrameNumbers('snake_idle',{start:0,end:7}),frameRate:7,repeat:-1});
+  an.create({key:'snake-run', frames:an.generateFrameNumbers('snake_run',{start:0,end:7}),frameRate:10,repeat:-1});
+  an.create({key:'spider-idle',frames:an.generateFrameNumbers('spider_idle',{start:0,end:7}),frameRate:7,repeat:-1});
+  an.create({key:'spider-run', frames:an.generateFrameNumbers('spider_run',{start:0,end:4}),frameRate:10,repeat:-1});
+  an.create({key:'pig-idle',frames:an.generateFrameNumbers('pigrider_idle',{start:0,end:7}),frameRate:8,repeat:-1});
+  an.create({key:'pig-run', frames:an.generateFrameNumbers('pigrider_run',{start:0,end:3}),frameRate:10,repeat:-1});
+  for(let i=1;i<=4;i++) an.create({key:'wrock'+i+'-a',frames:an.generateFrameNumbers('wrock'+i,{start:0,end:7}),frameRate:5,repeat:-1});
+  an.create({key:'duck-a',frames:an.generateFrameNumbers('duck',{start:0,end:2}),frameRate:4,repeat:-1});
 
   // ---- mar + foam + suelo (RenderTexture: 1 draw call para todo el piso) ----
   this.add.tileSprite(0,0,WORLD_W,WORLD_H,'water').setOrigin(0,0).setDepth(-30);
@@ -250,7 +275,7 @@ function create(){
   const caveSpr=this.add.sprite(cv.x*T+T/2,cv.y*T+T,'cave').play('cave-a').setOrigin(0.5,1).setScale(0.85).setDepth(cv.y*T+T);
   if(blocked[cv.y]) blocked[cv.y][cv.x]=true;
   placeDecoImg('tdeco14',cv.x+1,cv.y+1,0.9); placeDecoImg('tdeco15',cv.x-1,cv.y,0.9);   // huesos
-  spawnMonster('bear',cv.x+2,cv.y+1);
+  spawnMonster('bear',cv.x+2,cv.y+1); spawnMonster('snake',cv.x+1,cv.y+2); spawnMonster('spider',cv.x+3,cv.y);
   const gm=nudgeToLand(px-5,ROWS-4);
   placeBuilding('goldmine',gm.x,gm.y,0.8,{fw:2,fh:1}); placeDecoImg('res_gold',gm.x+1,gm.y+1,0.5);
 
@@ -276,6 +301,28 @@ function create(){
   // ---- población: mitad guerreros, mitad aldeanos ----
   for(let i=0;i<NPC_START;i++) spawnNpc(null, Math.random()<0.5?'pawn':'warrior');
   for(let i=0;i<N_MONSTERS;i++){ const t=randFree(); if(t) spawnMonster(pick(ROAMERS),t.x,t.y); }
+
+  // ---- mar vivo: rocas animadas + patito · cielo: nubes a la deriva ----
+  let puestasW=0, intW=0;
+  while(puestasW<7&&intW++<80){
+    const x=rint(0,COLS-1), y=rint(0,ROWS-1);
+    if(land[y][x]||isLand(x-1,y)||isLand(x+1,y)||isLand(x,y-1)||isLand(x,y+1)) continue;
+    const k='wrock'+rint(1,4);
+    this.add.sprite(x*T+T/2,y*T+T/2,k).play({key:k+'-a',startFrame:rint(0,7)}).setDepth(-24).setScale(0.8);
+    puestasW++;
+  }
+  { let dx0=-1,dy0=-1,intD=0;
+    while(intD++<80){ const x=rint(0,COLS-1), y=rint(0,ROWS-1);
+      if(!land[y][x]&&!isLand(x-1,y)&&!isLand(x+1,y)&&!isLand(x,y-1)&&!isLand(x,y+1)){dx0=x;dy0=y;break;} }
+    if(dx0>=0){ const d=this.add.sprite(dx0*T+T/2,dy0*T+T/2,'duck').play('duck-a').setDepth(-24).setScale(1.4);
+      this.tweens.add({targets:d,x:d.x+rint(-60,60),y:d.y+rint(-40,40),duration:9000,yoyo:true,repeat:-1,ease:'Sine.easeInOut'}); } }
+  for(let i=1;i<=4;i++){
+    const c=this.add.image(rint(0,WORLD_W),rint(60,WORLD_H-60),'cloud'+i).setAlpha(0.4).setDepth(89000).setScale(Phaser.Math.FloatBetween(0.7,1.1));
+    const dur=rint(60000,120000);
+    this.tweens.add({targets:c,x:WORLD_W+340,duration:dur*(WORLD_W+340-c.x)/(WORLD_W+680),ease:'Linear',
+      onComplete:function rep(tw,targets){const cl=targets[0]; cl.x=-340; cl.y=rint(60,WORLD_H-60);
+        scene.tweens.add({targets:cl,x:WORLD_W+340,duration:dur,ease:'Linear',onComplete:rep});}});
+  }
 
   nightRect=this.add.rectangle(0,0,10,10,0x0a1436,0).setOrigin(0,0).setScrollFactor(0).setDepth(90000);
   this.cameras.main.setBounds(0,0,WORLD_W,WORLD_H);
@@ -328,6 +375,7 @@ function spawnNpc(gid,tipo){
   tipo=tipo||'warrior';
   let sx=Phaser.Math.Clamp(g.cx+rint(-3,3),1,COLS-2), sy=Phaser.Math.Clamp(g.cy+rint(-2,3),1,ROWS-2);
   const n={sheep:false,monster:false,guild:g.id,tex:g.tex,tipo,name:makeName(),race:pick(RACES),cls:pick(CLASSES),
+    av:'h'+String(rint(1,25)).padStart(2,'0'),
     faceUp:false,faceLeft:false,idle:0,stuck:0,label:null,dead:false};
   if(tipo==='warrior'){
     n.spr=scene.physics.add.sprite(sx*T+T/2,sy*T+T/2,'warrior_'+g.tex,0).setOrigin(0.5,0.95).setScale(WSCALE);
@@ -443,7 +491,7 @@ function poofMonster(n){
 function spawnRaid(){
   const g=pick(GUILDS), mm=[];
   for(let i=rint(3,5);i>0;i--){
-    const m=spawnMonster(pick(['torch','torch','spear','shaman']), g.cx+rint(-3,3), g.cy+rint(-3,3));
+    const m=spawnMonster(pick(['torch','torch','spear','shaman','pigrider']), g.cx+rint(-3,3), g.cy+rint(-3,3));
     if(m) mm.push(m);
   }
   return {cx:g.cx*T+T/2, cy:g.cy*T+T/2, mm};
@@ -479,6 +527,7 @@ const TPL=[
   {tag:'NOCHE',c:'#8c7f68',major:false,snd:'bell',t:x=>`Repican las campanas: la vigilia cambia de guardia en ${x.d}.`},
   {tag:'REFUERZO',c:'#8fb4d6',major:false,spawn:true,snd:'door',t:x=>`Un barco atraca en los muelles: nuevos brazos para el ${x.g}.`},
   {tag:'PASTOR',c:'#9fb06a',major:false,t:x=>`Las ovejas de ${x.d} escapan del corral. Alguien maldice en voz alta.`},
+  {tag:'LADRÓN',c:'#b8b8b8',major:false,thief:true,snd:'coins',t:x=>`Un ladrón se escurre entre los puestos de ${x.d}. Faltan monedas, sobran sospechas.`},
   {tag:'GUERRA',c:'#e5533a',major:true,fx:'fire',kind:'ruin',snd:'fire',t:x=>`GUERRA DE FACCIONES. El ${x.g} asalta ${x.d}. El acero canta y las puertas arden.`},
   {tag:'DRAGÓN',c:'#f2703a',major:true,fx:'fire',kind:'ruin',dragon:true,snd:'fire',t:x=>`¡DRAGÓN! Una sombra alada cae sobre ${x.d}. Fuego, ceniza y gritos.`},
   {tag:'INVASIÓN',c:'#7fbf5a',major:true,fx:'clash',kind:'raid',snd:'latch',t:x=>`¡INVASIÓN! Una horda goblin sale de las Profundidades y cae sobre ${x.d}. ¡A las armas!`},
@@ -506,10 +555,13 @@ function fireEvent(){
   const a=pick(living); let b=pick(living),gd=0; while(b===a&&gd++<6) b=pick(living);
   const gsel=pick(GUILDS);
   const ctx={a:a.name,b:b.name,cls:a.cls,race:a.race,g:gsel.name,d:pick(DISTRICTS),i:pick(ITEMS)};
-  const text=tpl.t(ctx); pushChronicle(tpl.tag,tpl.c,text,tpl.major);
+  const enemyEv=tpl.kind==='raid'||tpl.kind==='beast'||tpl.thief;
+  const av=enemyEv?'e'+String(rint(1,18)).padStart(2,'0'):(tpl.major?a.av:null);
+  const text=tpl.t(ctx); pushChronicle(tpl.tag,tpl.c,text,tpl.major,av);
   if(tpl.snd) sfx(tpl.snd, tpl.major?0.55:0.35);
 
   if(tpl.spawn){ spawnNpc(gsel.id, Math.random()<0.5?'pawn':'warrior'); return; }
+  if(tpl.thief){ const t=randFree(); if(t){ const m=spawnMonster('thief',t.x,t.y); if(m) scene.time.delayedCall(20000,()=>poofMonster(m)); } return; }
 
   if(tpl.kind==='raid'){
     const r=spawnRaid();

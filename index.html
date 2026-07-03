@@ -57,6 +57,8 @@
   .feed::-webkit-scrollbar{width:8px}.feed::-webkit-scrollbar-thumb{background:var(--brass-dim);border-radius:4px}
   .entry{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.04);font-size:12px;line-height:1.5;animation:slin .35s ease}
   @keyframes slin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+  .entry .av{width:30px;height:30px;float:left;margin:2px 8px 2px 0;image-rendering:pixelated;border:1px solid var(--line);border-radius:4px;background:var(--bg3)}
+  .entry::after{content:"";display:block;clear:both}
   .entry .meta{display:flex;gap:8px;align-items:center;margin-bottom:2px}
   .entry .t{font-size:9.5px;color:var(--muted);font-variant-numeric:tabular-nums}
   .entry .tag{font-size:9.5px;letter-spacing:.1em;font-weight:700}
