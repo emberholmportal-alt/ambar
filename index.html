@@ -26,7 +26,8 @@
   .stat{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
   .stat .k{font-size:9.5px;color:var(--muted);letter-spacing:.16em}
   .stat .v{font-size:14px;font-variant-numeric:tabular-nums}
-  .ctrls{display:flex;gap:8px;margin-left:6px}
+  .ctrls{display:flex;gap:8px;margin-left:6px;align-items:center}
+  .evsel{font-family:var(--mono);font-size:11px;color:var(--ink);background:var(--bg3);border:1px solid var(--brass-dim);border-radius:3px;padding:7px 8px;max-width:130px}
   button.ghost{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.1em;color:#f4ecda;background:url('assets/img/ui/ribbon_blue.png') center/100% 100% no-repeat;border:none;padding:9px 14px 11px;cursor:pointer;transition:.15s;min-width:74px;image-rendering:pixelated;text-shadow:0 1px 2px rgba(10,20,40,.8)}
   button.ghost:hover{filter:brightness(1.15)}
   button.ghost:active{filter:brightness(.85)}
@@ -82,7 +83,11 @@
     <div class="live"><span class="dot"></span>EN VIVO</div>
     <div class="brand"><h1>ÁMBAR<b> · </b>La Última Ciudad Libre</h1><span>Crónica perpetua · transmitida por el Ojo del Vigía</span></div>
     <div class="stat"><span class="k">ESPECTADORES</span><span class="v" id="viewers">1.204</span></div>
-    <div class="ctrls"><button class="ghost" id="btnSound">SONIDO</button><button class="ghost" id="btnPause">PAUSA</button><button class="ghost" id="btnSpeed">1×</button></div>
+    <div class="ctrls">
+      <select class="evsel" id="evSel" title="Director: elegí un evento"></select>
+      <button class="ghost" id="btnEvent">LANZAR</button>
+      <button class="ghost" id="btnSound">SONIDO</button><button class="ghost" id="btnPause">PAUSA</button><button class="ghost" id="btnSpeed">1×</button>
+    </div>
   </div>
   <div class="stage">
     <div class="viewport">
