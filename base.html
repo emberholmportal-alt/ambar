@@ -3,80 +3,85 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>ÁMBAR · Mi Base (prototipo)</title>
+<title>ÁMBAR · Mi Aldea (prototipo)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.80.1/phaser.min.js"></script>
 <style>
   :root{
     --bg:#16110c;--bg2:#1f1811;--bg3:#120d09;--ink:#ece3d0;--muted:#8c7f68;
     --brass:#c9a227;--brass-dim:#7a6420;--ember:#e5533a;--line:rgba(201,162,39,.16);
-    --ok:#5fa55a;--bad:#c94f45;--azul:#4a90c2;
+    --ok:#5fa55a;--bad:#c94f45;
     --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Courier New",monospace;
     --display:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
   }
   *{box-sizing:border-box} html,body{height:100%}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--mono);overflow:hidden}
   .app{height:100dvh;display:flex;flex-direction:column}
-  /* ---- HUD superior ---- */
-  .hud{display:flex;align-items:center;gap:14px;padding:8px 14px;background:linear-gradient(180deg,var(--bg2),var(--bg3));border-bottom:1px solid var(--line);z-index:20;flex-wrap:wrap}
-  .brand{font-family:var(--display);font-weight:700;font-size:16px;margin-right:auto}
-  .brand b{color:var(--brass)} .brand small{display:block;font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.12em}
-  .res{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--line);border-radius:4px;padding:4px 10px 4px 4px;font-size:13px;font-variant-numeric:tabular-nums}
-  .res img{width:26px;height:26px;image-rendering:pixelated}
+  /* ---- HUD superior (recursos) ---- */
+  .hud{display:flex;align-items:center;gap:12px;padding:7px 14px;background:linear-gradient(180deg,var(--bg2),var(--bg3));border-bottom:1px solid var(--line);z-index:20;flex-wrap:wrap}
+  .brand{font-family:var(--display);font-weight:700;font-size:15px;margin-right:auto}
+  .brand b{color:var(--brass)} .brand small{display:block;font-family:var(--mono);font-size:8.5px;color:var(--muted);letter-spacing:.12em}
+  .res{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--line);border-radius:4px;padding:3px 9px 3px 4px;font-size:12.5px;font-variant-numeric:tabular-nums}
+  .res img{width:24px;height:24px;image-rendering:pixelated}
   .res.lleno{border-color:var(--ember)}
   .res .cap{font-size:9px;color:var(--muted)}
   .ambar{color:var(--brass);font-weight:700}
   .ambar::before{content:"◆ ";color:var(--brass)}
-  button.ghost{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.08em;color:#f4ecda;background:url('assets/img/ui/ribbon_blue.png') center/100% 100% no-repeat;border:none;padding:9px 14px 11px;cursor:pointer;min-width:64px;image-rendering:pixelated;text-shadow:0 1px 2px rgba(10,20,40,.8)}
+  button.ghost{font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.06em;color:#f4ecda;background:url('assets/img/ui/ribbon_blue.png') center/100% 100% no-repeat;border:none;padding:8px 12px 10px;cursor:pointer;min-width:58px;image-rendering:pixelated;text-shadow:0 1px 2px rgba(10,20,40,.8)}
   button.ghost:hover{filter:brightness(1.15)} button.ghost:active{filter:brightness(.85)}
   button.ghost:disabled{filter:grayscale(1) brightness(.6);cursor:not-allowed}
   /* ---- viewport ---- */
-  .stage{flex:1;position:relative;min-height:0;background:#47a5b5}
+  .stage{flex:1;position:relative;min-height:0;background:#1a3a44}
   #game{position:absolute;inset:0} #game canvas{display:block}
-  .hint{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(18,13,9,.85);border:1px solid var(--line);border-radius:4px;padding:6px 14px;font-size:11px;color:var(--ink);z-index:10;pointer-events:none;opacity:0;transition:.25s}
+  .hint{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(18,13,9,.85);border:1px solid var(--line);border-radius:4px;padding:6px 14px;font-size:11px;z-index:10;pointer-events:none;opacity:0;transition:.25s}
   .hint.on{opacity:1}
-  /* ---- panel de selección ---- */
-  .selpanel{position:absolute;right:12px;top:12px;width:210px;background:linear-gradient(180deg,var(--bg2),var(--bg3));border:1px solid var(--line);border-radius:6px;padding:10px;z-index:11;display:none}
-  .selpanel.on{display:block}
-  .selpanel h3{margin:0 0 2px;font-family:var(--display);font-size:14px}
-  .selpanel .lvl{font-size:10px;color:var(--brass);margin-bottom:8px}
-  .selpanel button{display:block;width:100%;margin-bottom:6px;font-size:10px;padding:8px 6px 10px}
-  .selpanel .nota{font-size:9px;color:var(--muted);line-height:1.4}
-  /* ---- barra de construcción ---- */
-  .build{display:flex;gap:8px;padding:8px 12px;background:linear-gradient(0deg,var(--bg3),var(--bg2));border-top:1px solid var(--line);overflow-x:auto;z-index:20}
-  .card{flex:0 0 auto;width:96px;background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:6px;cursor:pointer;text-align:center;transition:.12s}
-  .card:hover{border-color:var(--brass)}
-  .card.sel{border-color:var(--brass);background:rgba(201,162,39,.08)}
-  .card.lock{opacity:.45;cursor:not-allowed}
-  .card img{height:44px;image-rendering:pixelated;margin:2px auto}
-  .card .nom{font-size:10px;font-weight:700;letter-spacing:.04em}
-  .card .costo{font-size:9px;color:var(--muted);margin-top:2px;line-height:1.5}
-  .card .costo b{color:var(--ink)}
-  .card .req{font-size:8.5px;color:var(--ember)}
-  .toast{position:absolute;bottom:96px;left:50%;transform:translateX(-50%);background:rgba(18,13,9,.92);border:1px solid var(--brass-dim);border-radius:4px;padding:8px 16px;font-size:12px;z-index:30;opacity:0;transition:.3s;pointer-events:none}
-  .toast.on{opacity:1}
-  .qbox{position:absolute;left:12px;top:12px;width:200px;background:linear-gradient(180deg,var(--bg2),var(--bg3));border:1px solid var(--line);border-radius:6px;padding:10px;z-index:11}
-  .qbox .qh{font-size:9px;letter-spacing:.2em;color:var(--muted);margin-bottom:5px}
-  .qbox .qt{font-size:11.5px;line-height:1.45;margin-bottom:8px}
+  .qbox{position:absolute;right:12px;top:12px;width:198px;background:linear-gradient(180deg,var(--bg2),var(--bg3));border:1px solid var(--line);border-radius:6px;padding:9px;z-index:11}
+  .qbox .qh{font-size:9px;letter-spacing:.2em;color:var(--muted);margin-bottom:4px}
+  .qbox .qt{font-size:11px;line-height:1.45;margin-bottom:7px}
   .qbox button{width:100%;font-size:10px;padding:7px 6px 9px}
   .qbox.done{border-color:var(--brass);box-shadow:0 0 14px rgba(201,162,39,.25)}
   .raidbanner{position:absolute;top:12px;left:50%;transform:translateX(-50%);background:rgba(90,20,15,.92);border:1px solid var(--ember);border-radius:4px;padding:8px 18px;font-size:12px;font-weight:700;letter-spacing:.08em;color:#ffd9d0;z-index:12;display:none;animation:rpulse 1.1s ease-in-out infinite}
   .raidbanner.on{display:block}
   @keyframes rpulse{0%,100%{opacity:1}50%{opacity:.65}}
-  @media(max-width:700px){ .brand small{display:none} .res{font-size:11px} .res img{width:20px;height:20px} }
+  .toast{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(18,13,9,.92);border:1px solid var(--brass-dim);border-radius:4px;padding:8px 16px;font-size:12px;z-index:30;opacity:0;transition:.3s;pointer-events:none}
+  .toast.on{opacity:1}
+  /* ---- PANEL INFERIOR estilo Age: minimapa + selección + acciones ---- */
+  .bottom{display:flex;gap:10px;padding:8px 12px;background:linear-gradient(0deg,var(--bg3),var(--bg2));border-top:2px solid var(--brass-dim);z-index:20;height:172px}
+  .mapbox{flex:0 0 auto;border:2px solid var(--brass-dim);border-radius:6px;background:#000;position:relative}
+  #minimap{display:block;image-rendering:pixelated;cursor:crosshair;border-radius:4px}
+  .selbox{flex:0 0 240px;background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:9px;overflow-y:auto}
+  .selbox h3{margin:0 0 2px;font-family:var(--display);font-size:14px}
+  .selbox .lvl{font-size:9.5px;color:var(--brass);margin-bottom:4px}
+  .selbox .hpbar{height:8px;background:#2a2018;border:1px solid var(--line);border-radius:3px;margin:4px 0 8px;overflow:hidden}
+  .selbox .hpbar i{display:block;height:100%;background:var(--ok)}
+  .selbox .vacio{font-size:10.5px;color:var(--muted);line-height:1.5;margin-top:6px}
+  #selActions{display:flex;flex-direction:column;gap:5px}
+  #selActions button{width:100%;font-size:9.5px;padding:7px 5px 9px}
+  .gridbox{flex:1;background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:8px;overflow-x:auto;display:flex;gap:8px;align-items:flex-start}
+  .gridbox .gh{writing-mode:vertical-rl;transform:rotate(180deg);font-size:9px;letter-spacing:.18em;color:var(--muted);align-self:stretch;text-align:center}
+  .card{flex:0 0 auto;width:92px;background:var(--bg2);border:1px solid var(--line);border-radius:6px;padding:5px;cursor:pointer;text-align:center;transition:.12s}
+  .card:hover{border-color:var(--brass)}
+  .card.sel{border-color:var(--brass);background:rgba(201,162,39,.08)}
+  .card.lock{opacity:.45;cursor:not-allowed}
+  .card img{height:40px;image-rendering:pixelated;margin:2px auto}
+  .card .nom{font-size:9.5px;font-weight:700}
+  .card .costo{font-size:8.5px;color:var(--muted);margin-top:1px;line-height:1.45}
+  .card .costo b{color:var(--ink)}
+  .card .req{font-size:8px;color:var(--ember)}
+  @media(max-width:900px){ .selbox{flex-basis:190px} .bottom{height:150px} }
 </style>
 </head>
 <body>
 <div class="app">
   <div class="hud">
-    <div class="brand">ÁMBAR<b> · Mi Base</b><small>PROTOTIPO — el estado se pierde al recargar</small></div>
+    <div class="brand">ÁMBAR<b> · Mi Aldea</b><small>PROTOTIPO — clic izq: seleccionar · clic der: ordenar</small></div>
     <div class="res" id="rOro"><img src="assets/img/ts/res_gold.png" alt="oro"><span id="vOro">0</span><span class="cap" id="cOro"></span></div>
     <div class="res" id="rMad"><img src="assets/img/ts/res_wood.png" alt="madera"><span id="vMad">0</span><span class="cap" id="cMad"></span></div>
     <div class="res" id="rCom"><img src="assets/img/ts/res_meat.png" alt="comida"><span id="vCom">0</span><span class="cap" id="cCom"></span></div>
-    <div class="res" title="Aldeanos libres / total — cada obra y cada puesto de trabajo necesita uno">👤 <span id="vAld">0/0</span></div>
-    <div class="res ambar" title="Moneda simulada — placeholder de la economía real (F4)"><span id="vAmbar">0</span> $AMBAR</div>
-    <button class="ghost" id="btnCaravana" title="Trae +250 del recurso que menos tengas">◆ CARAVANA (8)</button>
-    <button class="ghost" id="btnMercen" style="display:none" title="Refuerzos durante el asalto">◆ MERCENARIOS (10)</button>
-    <button class="ghost" id="btnTiempo" title="Acelerar el tiempo del prototipo">⏱ ×1</button>
+    <div class="res" title="Población / cupo (3 base + 2 por casa)">👤 <span id="vAld">0/0</span></div>
+    <div class="res ambar" title="Moneda simulada (placeholder F4)"><span id="vAmbar">0</span> $AMBAR</div>
+    <button class="ghost" id="btnCaravana" title="+250 del recurso más bajo">◆ CARAVANA (8)</button>
+    <button class="ghost" id="btnMercen" style="display:none">◆ MERCENARIOS (10)</button>
+    <button class="ghost" id="btnTiempo">⏱ ×1</button>
   </div>
   <div class="stage">
     <div id="game"></div>
@@ -87,25 +92,22 @@
       <button class="ghost" id="btnQuest">···</button>
     </div>
     <div class="raidbanner" id="raidbanner">⚔️ ¡ASALTO GOBLIN EN CURSO!</div>
-    <div class="selpanel" id="selpanel">
-      <h3 id="selNom">—</h3><div class="lvl" id="selLvl"></div>
-      <button class="ghost" id="btnCrear" style="display:none">CREAR</button>
-      <button class="ghost" id="btnConstruirCon" style="display:none">CONSTRUIR CON ÉL…</button>
-      <button class="ghost" id="btnDespedir" style="display:none">DESPEDIR (libera cupo)</button>
-      <button class="ghost" id="btnRestos" style="display:none">LIMPIAR RESTOS (40 madera)</button>
-      <button class="ghost" id="btnCosechar" style="display:none">COSECHAR</button>
-      <button class="ghost" id="btnReparar" style="display:none">REPARAR</button>
-      <button class="ghost" id="btnLimpiar" style="display:none">LIMPIAR</button>
-      <button class="ghost" id="btnMover">MOVER</button>
-      <button class="ghost" id="btnMejorar">MEJORAR</button>
-      <button class="ghost" id="btnAcelerar">◆ ACELERAR OBRA</button>
-      <button class="ghost" id="btnSkin">◆ SKIN ROJA</button>
-      <button class="ghost" id="btnCerrar">CERRAR</button>
-      <div class="nota">◆ = gasta $AMBAR (simulado). Acelerar tiene tope por sesión. Nada de esto es pay-to-win: la skin es cosmética.</div>
-    </div>
     <div class="toast" id="toast"></div>
   </div>
-  <div class="build" id="buildbar"></div>
+  <div class="bottom">
+    <div class="mapbox"><canvas id="minimap" width="220" height="150"></canvas></div>
+    <div class="selbox">
+      <h3 id="selNom">—</h3>
+      <div class="lvl" id="selLvl"></div>
+      <div class="hpbar" id="selHpWrap" style="display:none"><i id="selHp" style="width:100%"></i></div>
+      <div id="selActions"></div>
+      <div class="vacio" id="selVacio">Clic izquierdo: seleccionar aldeano, edificio, árbol, veta o animal.<br>Clic derecho con aldeano: ir / talar / minar / cazar.</div>
+    </div>
+    <div class="gridbox" id="buildbox">
+      <div class="gh" id="gridTitle">CONSTRUIR</div>
+      <div id="buildgrid" style="display:flex;gap:8px"></div>
+    </div>
+  </div>
 </div>
 <script src="src/base.js"></script>
 </body>
