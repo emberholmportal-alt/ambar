@@ -7,22 +7,29 @@
 const $=id=>document.getElementById(id);
 const T=64, GW=30, GH=22, BX=4, BY=4;
 const WT=GW+BX*2, HT=GH+BY*2, WORLD_W=WT*T, WORLD_H=HT*T;
-const MAR=1200;                                   // agua extra alrededor del mundo (pantalla completa)
+const MAR=2600;                                   // mar extra alrededor del mundo (cubre pantallas anchas: nada de vacío negro)
 const FOGR=224;                                   // radio del pincel de niebla (px)
 const rint=(a,b)=>Math.floor(Math.random()*(b-a+1))+a, pick=a=>a[Math.floor(Math.random()*a.length)];
 
-/* ===== catálogo de edificios (sin mina/leñador: ahora son nodos naturales) ===== */
+/* ===== EDADES (estilo Age of Empires) — el Ayuntamiento avanza de edad ===== */
+const AGES=[
+  {id:1, nom:'Aldea',   sub:'Feudal',   skin:'blue',  popBase:4},
+  {id:2, nom:'Villa',   sub:'Castillos',skin:'red',   popBase:6, costo:{madera:200,oro:100},           dur:60},
+  {id:3, nom:'Imperio', sub:'Imperial', skin:'black', popBase:9, costo:{madera:400,oro:300,comida:50}, dur:120},
+];
+const nextAge=()=>AGES[S.age];                    // la edad a la que se puede avanzar (o undefined)
+
+/* ===== catálogo de edificios (mina/leñador = nodos naturales; castle = Ayuntamiento/TC) ===== */
 const CAP=2000;
 const MAXLVL={castle:3, def:2};
 const CAT={
-  castle:    {nom:'Ayuntamiento', fw:5,fh:2, costo:{oro:300,madera:300}, dur:120, req:0, unico:true, skins:true,
-              up:[{costo:{oro:500,madera:500},dur:180},{costo:{oro:1200,madera:1200},dur:300}]},
-  house:     {nom:'Casa',         fw:2,fh:2, costo:{madera:100},        dur:180,  req:0, skins:true, up:[{costo:{madera:200},dur:120}]},
-  granja:    {nom:'Granja',       fw:3,fh:2, costo:{madera:120},        dur:240,  req:0, prod:'comida', reserva:400, up:[{costo:{oro:250},dur:200}]},
-  torre:     {nom:'Torre',        fw:2,fh:2, costo:{oro:200,madera:200},dur:420, req:1, skins:true, up:[{costo:{oro:500},dur:300}]},
-  cuartel:   {nom:'Cuartel',      fw:3,fh:2, costo:{madera:300},        dur:600, req:1, skins:true, up:[{costo:{oro:600},dur:360}]},
-  arqueria:  {nom:'Arquería',     fw:3,fh:2, costo:{oro:300},           dur:600, req:1, reqB:'cuartel', skins:true, up:[{costo:{madera:600},dur:360}]},
-  monasterio:{nom:'Monasterio',   fw:3,fh:2, costo:{ambar:40},          dur:600, req:2, skins:true, premium:true, up:[{costo:{ambar:60},dur:360}]},
+  castle:    {nom:'Ayuntamiento', fw:5,fh:2, costo:{oro:300,madera:300}, dur:120, reqAge:1, unico:true, skins:true, esTC:true},
+  house:     {nom:'Casa',         fw:2,fh:2, costo:{madera:100},        dur:120,  reqAge:1, skins:true, up:[{costo:{madera:200},dur:120}]},
+  granja:    {nom:'Granja',       fw:3,fh:2, costo:{madera:120},        dur:180,  reqAge:1, prod:'comida', reserva:400, up:[{costo:{oro:250},dur:200}]},
+  cuartel:   {nom:'Cuartel',      fw:3,fh:2, costo:{madera:300},        dur:300, reqAge:2, skins:true, up:[{costo:{oro:600},dur:360}]},
+  torre:     {nom:'Torre',        fw:2,fh:2, costo:{oro:200,madera:200},dur:300, reqAge:2, skins:true, up:[{costo:{oro:500},dur:300}]},
+  arqueria:  {nom:'Arquería',     fw:3,fh:2, costo:{oro:300},           dur:360, reqAge:3, reqB:'cuartel', skins:true, up:[{costo:{madera:600},dur:360}]},
+  monasterio:{nom:'Monasterio',   fw:3,fh:2, costo:{ambar:40},          dur:360, reqAge:3, skins:true, premium:true, up:[{costo:{ambar:60},dur:360}]},
 };
 const RATE=0.6, BUFFER=b=>120*b.nivel;
 const UNIDADES={
@@ -30,7 +37,7 @@ const UNIDADES={
   guerrero:{nom:'Guerrero',costo:{oro:60,comida:20}, de:['cuartel']},
   arquero: {nom:'Arquero', costo:{oro:80,comida:20}, de:['arqueria']},
 };
-const POPCAP=()=>3+2*S.buildings.filter(b=>b.tipo==='house'&&b.estado==='ok').length;
+const POPCAP=()=>AGES[S.age-1].popBase+2*S.buildings.filter(b=>b.tipo==='house'&&b.estado==='ok').length;
 const popTotal=()=>S.ald.length+S.units.length;
 const CARD_IMG={castle:'castle_blue',house:'house1_blue',granja:'sheep',
   torre:'tower_blue',cuartel:'barracks_blue',arqueria:'archery_blue',monasterio:'monastery_blue'};
@@ -45,7 +52,7 @@ const FAUNA={
   oveja: {nom:'Oveja',   tex:'sheep',     anim:'sheep-a', hp:24, carne:80,  dmg:0,  esc:1.0, oy:0.9,  huye:true},
   jabali:{nom:'Jabalí',  tex:'pig_idle',  anim:'cerdo-i', hp:44, carne:150, dmg:4,  esc:0.55,oy:0.72, huye:false},
   oso:   {nom:'Oso',     tex:'bear_idle', anim:'bear-i',  hp:90, carne:300, dmg:11, esc:0.6, oy:0.8,  huye:false, run:'bear-r'},
-  toro:  {nom:'El Toro Negro', tex:'minotaur_idle', anim:'toro-i', hp:170, carne:450, dmg:17, esc:0.52, oy:0.82, huye:false, run:'toro-r', tint:0x6f5f74, aoa:25, jefe:true},
+  toro:  {nom:'The Black Bull', tex:'minotaur_idle', anim:'toro-i', hp:170, carne:450, dmg:17, esc:0.52, oy:0.82, huye:false, run:'toro-r', tint:0x4a4450, aoa:25, jefe:true},
 };
 const CRITTER={
   snake: {nom:'serpiente',tex:'snake_idle', anim:'snake-i',  esc:0.5, oy:0.75},
@@ -56,12 +63,12 @@ const CRITTER={
 const QUESTS=[
   {txt:'Mandá un aldeano a TALAR un árbol (clic der.)',  check:()=>S.stats.talado>=30, rew:{madera:60,ambar:10}},
   {txt:'Cazá un animal para conseguir carne',            check:()=>S.stats.cazado>=1,  rew:{comida:120,ambar:10}},
-  {txt:'Construí el AYUNTAMIENTO del pueblo',             check:()=>S.thNivel>=1,       rew:{ambar:25,madera:80}},
+  {txt:'Construí una Casa (más cupo de población)',      check:()=>S.stats.casasBuilt>=1, rew:{madera:80,ambar:10}},
   {txt:'Miná 30 de oro de una veta',                     check:()=>S.stats.minado>=30, rew:{oro:60,ambar:10}},
-  {txt:'Construí otra Casa y CREÁ un aldeano',            check:()=>S.stats.aldCreados>=1, rew:{oro:80}},
-  {txt:'Tené una Granja produciendo comida',             check:()=>S.buildings.some(b=>b.tipo==='granja'&&b.estado==='ok'), rew:{oro:100}},
-  {txt:'Mejorá el Ayuntamiento a Nivel 2',               check:()=>S.thNivel>=2,       rew:{ambar:35}},
-  {txt:'Construí una Torre y entrená un Guerrero',        check:()=>S.buildings.some(b=>b.tipo==='torre'&&b.estado==='ok')&&S.stats.entrenados>=1, rew:{oro:100,ambar:10}},
+  {txt:'Avanzá a la Edad II (Villa) — panel del Ayuntamiento', check:()=>S.age>=2,     rew:{ambar:35,madera:100}},
+  {txt:'Construí un Cuartel y entrená un Guerrero',      check:()=>S.buildings.some(b=>b.tipo==='cuartel'&&b.estado==='ok')&&S.stats.entrenados>=1, rew:{oro:120}},
+  {txt:'Avanzá a la Edad III (Imperio)',                 check:()=>S.age>=3,           rew:{ambar:50}},
+  {txt:'Cazá a The Black Bull (el minotauro)',           check:()=>S.stats.bull>=1,    rew:{ambar:40,comida:200}},
   {txt:'Repelé un asalto goblin (¡final!)',              check:()=>S.stats.raids>=1,    rew:{ambar:100}},
 ];
 
@@ -74,8 +81,8 @@ const S={ oro:220, madera:260, comida:130, ambar:60,
   cliff:Array.from({length:GH},()=>Array(GW).fill(false)),
   explored:Array.from({length:GH},()=>Array(GW).fill(false)),
   buildings:[], nodes:[], animals:[], critters:[], piles:[], ald:[], units:[], nextId:1,
-  thNivel:0, aldElegido:null, colocando:null, sel:null,
-  qIx:0, stats:{talado:0,minado:0,cazado:0,cosechas:0,raids:0,skins:0,aldCreados:0,entrenados:0},
+  age:1, aldElegido:null, colocando:null, sel:null,
+  qIx:0, stats:{talado:0,minado:0,cazado:0,cosechas:0,raids:0,skins:0,aldCreados:0,entrenados:0,casasBuilt:0,bull:0},
   raid:{on:false,gob:[],war:[],t:0,cool:180} };
 let scene, ghostG, ghostSpr=null, fogRT=null, homePos={x:0,y:0}, overview=false;
 let baseZoom=1, mmCtx=null, mmBase=null;
@@ -105,6 +112,7 @@ function preload(){
       this.load.image(b+'_'+c,TSB+b+'_'+c+'.png');
     this.load.spritesheet('pawn_'+c,TSB+'pawn_'+c+'.png',{frameWidth:192,frameHeight:192});
   }
+  this.load.image('castle_black',TSB+'castle_black.png');   // Ayuntamiento Edad III (Imperio)
   this.load.spritesheet('warrior_blue','assets/img/warrior_blue.png',{frameWidth:110,frameHeight:98});
   this.load.spritesheet('archer_blue_i','assets/img/ts/archer_blue_i.png',{frameWidth:192,frameHeight:192});
   this.load.spritesheet('archer_blue_r','assets/img/ts/archer_blue_r.png',{frameWidth:192,frameHeight:192});
@@ -134,6 +142,7 @@ function preload(){
     this.load.spritesheet('bush'+i,TSB+'bush'+i+'.png',{frameWidth:128,frameHeight:128}); }
   for(let i=1;i<=15;i++) this.load.image('deco'+i,TSB+'deco'+String(i).padStart(2,'0')+'.png');
   this.load.spritesheet('sboat',TSB+'sboat.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('boat',TSB+'boat.png',{frameWidth:256,frameHeight:256});
   this.load.spritesheet('shark',TSB+'shark.png',{frameWidth:192,frameHeight:192});
   this.load.spritesheet('duck',TSB+'duck.png',{frameWidth:32,frameHeight:32});
   ['door','bong','coins','creak','bell','clash','fire','latch'].forEach(k=>this.load.audio('s_'+k,'assets/sfx/'+k+'.ogg'));
@@ -254,6 +263,7 @@ function create(){
   for(let i=1;i<=4;i++){ an.create({key:'wrock'+i+'-a',frames:an.generateFrameNumbers('wrock'+i,{start:0,end:7}),frameRate:5,repeat:-1});
     an.create({key:'bush'+i+'-a',frames:an.generateFrameNumbers('bush'+i,{start:0,end:7}),frameRate:6,repeat:-1}); }
   an.create({key:'sboat-a',frames:an.generateFrameNumbers('sboat',{start:0,end:-1}),frameRate:6,repeat:-1});
+  an.create({key:'boat-a',frames:an.generateFrameNumbers('boat',{start:0,end:-1}),frameRate:6,repeat:-1});
   an.create({key:'shark-a',frames:an.generateFrameNumbers('shark',{start:0,end:-1}),frameRate:8,repeat:-1});
   an.create({key:'duck-a',frames:an.generateFrameNumbers('duck',{start:0,end:2}),frameRate:4,repeat:-1});
 
@@ -303,7 +313,7 @@ function create(){
 
   // ---- NIEBLA DE GUERRA (cubre TODO el mapa, incluido el mar) ----
   fogRT=this.add.renderTexture(-MAR,-MAR,WORLD_W+MAR*2,WORLD_H+MAR*2).setOrigin(0,0).setDepth(80000);
-  fogRT.fill(0x05090c,0.95);
+  fogRT.fill(0x08131c,0.9);   // azulado y algo menos denso: lo no explorado se lee como mar oscuro, no vacío
 
   // ---- recursos naturales dispersos ----
   scatterNodos('arbol',26);
@@ -316,13 +326,13 @@ function create(){
   scatterCritter('spider',2);
   scatterEyeCandy(30);
 
-  // ---- ARRANQUE: una casita al sur + 3 aldeanos ----
-  let hx=Math.floor(GW/2)-1, hy=GH-5, tr=0;
-  while(tr++<80&&!puedeHuella(hx,hy,2,2)){ hx=rint(3,GW-4); hy=rint(GH-7,GH-3); }
-  const home=addBuilding('house',hx,hy,{listo:true});
-  homePos={x:(BX+hx+1)*T, y:(BY+hy)*T};
-  revelar(homePos.x,homePos.y,6);
-  for(let i=0;i<3;i++){ const a=spawnAldeano(home.x+rint(-46,46),home.y+rint(8,26),true); if(a) revelar(a.spr.x,a.spr.y,5); }
+  // ---- ARRANQUE: un AYUNTAMIENTO ya en pie (Edad I) + 3 aldeanos ----
+  let hx=Math.floor(GW/2)-2, hy=GH-4, tr=0;
+  while(tr++<120&&!puedeHuella(hx,hy,5,2)){ hx=rint(2,GW-7); hy=rint(GH-6,GH-3); }
+  const home=addBuilding('castle',hx,hy,{listo:true});
+  homePos={x:(BX+hx+2.5)*T, y:(BY+hy)*T};
+  revelar(homePos.x,homePos.y,7);
+  for(let i=0;i<3;i++){ const a=spawnAldeano(home.x+rint(-60,60),home.y+rint(10,30),true); if(a) revelar(a.spr.x,a.spr.y,5); }
   scatterScenery();
 
   this.input.on('pointermove',p=>{ if(S.colocando) drawGhost(p); });
@@ -356,10 +366,45 @@ function create(){
   applyCam(); this.scale.on('resize',applyCam);
 
   initMinimap();
+  updateAgeUI();
   refreshHUD(); refreshQuest(); buildGrid(); renderSel();
-  scheduleBoat();
-  toast('Tu aldea arranca con una casita y 3 aldeanos. Clic izquierdo: seleccionar · clic derecho: ordenar.');
+  scheduleBoat(); scheduleShip();
+  // menú desplegable (todos los controles escondidos arriba-derecha)
+  $('btnMenu').onclick=()=>$('menu').classList.toggle('open');
+  toast('Age of Ansem · Edad I. Arrancás con tu Ayuntamiento y 3 aldeanos. Clic izq: seleccionar · clic der: ordenar.');
   window.__raid=()=>startRaid();
+  window.__age=()=>avanzarEdad(byTC());
+}
+/* ===== EDADES: UI + avance ===== */
+const byTC=()=>S.buildings.find(b=>b.tipo==='castle');
+function updateAgeUI(){
+  const a=AGES[S.age-1]; if($('ageTxt')) $('ageTxt').textContent='Edad '+['I','II','III'][S.age-1]+' · '+a.nom;
+}
+function agePopup(){
+  const a=AGES[S.age-1];
+  if($('agePop1')) $('agePop1').textContent='NUEVA EDAD';
+  if($('agePop2')) $('agePop2').textContent='Edad '+['I','II','III'][S.age-1]+' · '+a.nom;
+  const el=$('agePop'); if(el){ el.classList.remove('on'); void el.offsetWidth; el.classList.add('on'); }
+}
+function avanzarEdad(tc){
+  const nx=nextAge();
+  if(!nx){ toast('Ya estás en la Edad máxima (Imperio).'); return; }
+  if(!tc||tc.estado!=='ok'){ toast('El Ayuntamiento debe estar en pie para avanzar de edad.'); sfx('creak',0.4); return; }
+  if(tc.avanzando){ toast('Ya hay una investigación de edad en curso.'); return; }
+  if(!pagar(nx.costo)){ toast('No te alcanza para avanzar de edad: '+costoTxt(nx.costo)); sfx('creak',0.4); return; }
+  tc.avanzando=true; tc.avT=0; tc.avDur=nx.dur;
+  tc.barG=tc.barG||scene.add.graphics().setDepth(96000);
+  sfx('door',0.5); toast('⏳ Investigando la '+nx.nom+'… ('+Math.round(nx.dur)+'s)');
+  if(S.sel&&S.sel.ref===tc) renderSel();
+}
+function completarEdad(tc){
+  tc.avanzando=false; if(tc.barG){tc.barG.clear();}
+  S.age++; const a=AGES[S.age-1];
+  tc.skin=a.skin; refreshBuilding(tc);
+  updateAgeUI(); agePopup(); buildGrid(); refreshHUD();
+  sfx('bong',0.8); scene.cameras.main.flash(400,60,45,20);
+  toast('🏰 ¡Avanzaste a la Edad '+['I','II','III'][S.age-1]+' — '+a.nom+'! Nuevos edificios y unidades disponibles.');
+  if(S.sel&&S.sel.ref===tc) renderSel();
 }
 
 /* ===== cámara ===== */
@@ -653,7 +698,7 @@ function matarAnimal(m){
   burstAt(m.spr.x,m.spr.y-14,0xd98a6a); dustAt(m.spr.x,m.spr.y,2);
   S.stats.cazado++;
   if(m.aoa){ S.ambar+=m.aoa; flyText(m.spr.x,m.spr.y-30,'+'+m.aoa+' ◆','#ffe36b'); }
-  if(FAUNA[m.tipo]&&FAUNA[m.tipo].jefe){ sfx('bong',0.8); toast('🐂 ¡Cazaste a El Toro Negro! Botín enorme de carne y ◆ $AOA.'); }
+  if(FAUNA[m.tipo]&&FAUNA[m.tipo].jefe){ S.stats.bull++; sfx('bong',0.8); toast('🐂 ¡Cazaste a THE BLACK BULL! Botín enorme de carne y ◆ $AOA.'); }
   const px=m.spr.x, py=m.spr.y;
   m.spr.destroy(); S.animals=S.animals.filter(x=>x!==m);
   const psp=scene.add.image(px,py,'res_meat').setScale(0.55).setDepth(py).setInteractive({useHandCursor:true});
@@ -936,21 +981,35 @@ function renderSel(){
 function renderSelEdificio(b){
   const c=CAT[b.tipo];
   $('selNom').textContent=c.nom;
-  $('selLvl').textContent='Nivel '+b.nivel+(b.estado==='esperando'?' · ESPERANDO ALDEANO':'')+(b.estado==='obra'?' · EN OBRA':'')+(b.danado?' · 🔥 DAÑADO':'')+(b.skin==='red'?' · roja':'');
+  if(c.esTC){
+    const a=AGES[S.age-1];
+    $('selLvl').textContent='Edad '+['I','II','III'][S.age-1]+' · '+a.nom+(b.avanzando?' · ⏳ INVESTIGANDO':'')+(b.danado?' · 🔥 DAÑADO':'');
+  } else {
+    $('selLvl').textContent='Nivel '+b.nivel+(b.estado==='esperando'?' · ESPERANDO ALDEANO':'')+(b.estado==='obra'?' · EN OBRA':'')+(b.danado?' · 🔥 DAÑADO':'')+(b.skin==='red'?' · roja':'');
+  }
   setHp(b.hp,100);
   if(b.danado){ accion('REPARAR (60 oro)',()=>repararB(b),S.oro<60); }
   else {
-    const max=b.tipo==='castle'?MAXLVL.castle:MAXLVL.def;
-    const up=c.up&&c.up[b.nivel-1];
-    if(up&&b.nivel<max) accion('MEJORAR ('+costoTxt(up.costo)+')',()=>mejorarB(b),b.estado!=='ok');
-    if(c.prod&&b.estado==='ok') accion('COSECHAR ('+Math.floor(b.buf)+' '+c.prod+')',()=>cosechar(b),b.buf<1);
+    // crear unidades del edificio (aldeano en el TC/casa, guerrero en cuartel, etc.)
     const uCrear=Object.keys(UNIDADES).find(k=>UNIDADES[k].de.includes(b.tipo));
     if(uCrear&&b.estado==='ok') accion('CREAR '+UNIDADES[uCrear].nom.toUpperCase()+' ('+costoTxt(UNIDADES[uCrear].costo)+')',()=>entrenar(uCrear,b),popTotal()>=POPCAP());
+    // AVANZAR DE EDAD (sólo el Ayuntamiento)
+    if(c.esTC&&b.estado==='ok'){
+      const nx=nextAge();
+      if(nx) accion('AVANZAR A EDAD '+['I','II','III'][S.age]+' · '+nx.nom+' ('+costoTxt(nx.costo)+')',()=>avanzarEdad(b),b.avanzando);
+      else accion('EDAD MÁXIMA (Imperio)',null,true);
+    }
+    // mejora de edificios normales
+    if(!c.esTC){
+      const up=c.up&&c.up[b.nivel-1];
+      if(up&&b.nivel<MAXLVL.def) accion('MEJORAR ('+costoTxt(up.costo)+')',()=>mejorarB(b),b.estado!=='ok');
+    }
+    if(c.prod&&b.estado==='ok') accion('COSECHAR ('+Math.floor(b.buf)+' '+c.prod+')',()=>cosechar(b),b.buf<1);
   }
   if(b.estado==='obra') accion('◆ ACELERAR ('+(S.ACEL_TOPE-S.aceleradas)+' · 10)',()=>acelerarB(b),!(S.aceleradas<S.ACEL_TOPE&&S.ambar>=10));
-  if(c.skins&&b.estado==='ok'&&!b.danado) accion(b.skin==='red'?'SKIN ROJA ✓':'◆ SKIN ROJA (25)',()=>skinB(b),b.skin==='red'||S.ambar<25);
+  if(c.skins&&!c.esTC&&b.estado==='ok'&&!b.danado) accion(b.skin==='red'?'SKIN ROJA ✓':'◆ SKIN ROJA (25)',()=>skinB(b),b.skin==='red'||S.ambar<25);
   if(b.estado==='ok') accion('MOVER',()=>startPlace(b.tipo,b.id),false);
-  accion('DEMOLER (40 mad.)',()=>limpiarRestos(b),S.madera<40);
+  if(!c.esTC) accion('DEMOLER (40 mad.)',()=>limpiarRestos(b),S.madera<40);
 }
 function repararB(b){ if(!b.danado||S.oro<60) return;
   S.oro-=60; b.danado=false; b.hp=100; refreshBuilding(b); sfx('bong',0.5); toast(CAT[b.tipo].nom+' reparado.'); refreshHUD(); renderSel(); }
@@ -966,7 +1025,7 @@ function skinB(b){ if(!CAT[b.tipo].skins||b.skin==='red'||S.ambar<25){ sfx('crea
 
 /* ===== barra contextual de construcción ===== */
 function gateMsg(c,tipo){
-  if(S.thNivel<c.req) return c.req===1?'Ayuntamiento':'Ayunt. N'+c.req;
+  if(S.age<(c.reqAge||1)) return 'Edad '+c.reqAge;
   if(c.reqB&&!S.buildings.some(b=>b.tipo===c.reqB&&b.estado==='ok')) return 'requiere '+CAT[c.reqB].nom;
   if(c.unico&&S.buildings.some(b=>b.tipo===tipo)) return 'único';
   return null;
@@ -983,6 +1042,7 @@ function buildGrid(){
   }
   for(const tipo in CAT){
     const c=CAT[tipo];
+    if(c.esTC) continue;                          // el Ayuntamiento ya existe (no se construye)
     const lock=gateMsg(c,tipo);
     const noPlata=!lock&&!Object.entries(c.costo).every(([k,v])=>(k==='ambar'?S.ambar:S[k])>=v);
     const el=document.createElement('div');
@@ -1044,24 +1104,43 @@ function despacharBote(boat,ok){
   if(!ok) toast('El bote se fue sin que lo revises…');
   scheduleBoat();
 }
+/* barco grande de ambiente que cruza el mar (decorativo) */
+function scheduleShip(){ scene.time.delayedCall(rint(30000,60000),spawnShip); }
+function spawnShip(){
+  const norte=Math.random()<0.5;
+  const y=norte?rint(1,BY-1)*T:(HT-rint(1,BY-1))*T;
+  const dir=Math.random()<0.5?1:-1;
+  const sh=scene.add.sprite(dir>0?-MAR*0.4:WORLD_W+MAR*0.4,y,'boat').play('boat-a').setDepth(-22).setScale(0.8).setFlipX(dir<0);
+  scene.tweens.add({targets:sh,x:dir>0?WORLD_W+MAR*0.4:-MAR*0.4,duration:rint(45000,70000),ease:'Linear',onComplete:()=>sh.destroy()});
+  scheduleShip();
+}
 
 /* ===== asalto goblin ===== */
 const gAnim=(tipo,m)=>tipo==='torch'?'gt-'+m:tipo==='spear'?'sp-'+m:'gtnt-'+m;
+function costaTiles(){                             // tiles de tierra pegados al agua (borde de la isla)
+  const out=[];
+  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
+    if(!walkable(x,y)||S.grid[y][x]!==null) continue;
+    if(!isLand(x-1,y)||!isLand(x+1,y)||!isLand(x,y-1)||!isLand(x,y+1)) out.push({x,y});
+  }
+  return out;
+}
 function startRaid(){
   if(S.raid.on) return;
   S.raid.on=true; S.raid.t=0; S.raid.gob=[]; S.raid.war=[];
-  const n=2+Math.max(1,S.thNivel)+rint(0,1);
+  const n=2+Math.max(1,S.age)+rint(0,1);
   sfx('latch',0.6); scene.cameras.main.shake(260,0.006);
   $('raidbanner').classList.add('on'); $('btnMercen').style.display='inline-block';
-  toast('⚔️ ¡ASALTO GOBLIN! '+n+' invasores desembarcan.');
+  toast('⚔️ ¡ASALTO GOBLIN! '+n+' invasores entran por la costa.');
+  const costa=costaTiles();
   for(let i=0;i<n;i++){
-    const lado=pick(['o','e','s']);
-    const gx=lado==='o'?(BX-2)*T:lado==='e'?(BX+GW+2)*T:(BX+rint(1,GW-1))*T;
-    const gy=lado==='s'?(BY+GH+2)*T:(BY+rint(1,GH-1))*T;
+    const t=costa.length?pick(costa):{x:rint(2,GW-3),y:2};   // SIEMPRE en tierra del borde, nunca en el agua
+    const gx=(BX+t.x)*T+T/2, gy=(BY+t.y+1)*T-8;
     const tipo=pick(['torch','torch','spear','tnt']);
     const tex=tipo==='torch'?'goblin_torch':tipo==='spear'?'spear_run':'goblin_tnt';
     const s=scene.add.sprite(gx,gy,tex).setOrigin(0.5,0.72).setScale(tipo==='spear'?0.52:0.62).setDepth(gy);
     s.play(gAnim(tipo,'r'));
+    revelar(gx,gy,3);                              // se despeja la niebla donde desembarcan
     S.raid.gob.push({spr:s,tipo,target:null,atkT:0,dead:false});
   }
   S.units.forEach(u=>{ u.spr.play(u.tipo==='guerrero'?'war-r':'arq-r',true); });
@@ -1201,7 +1280,7 @@ function startAmbient(){
   }catch(e){}
 }
 $('btnAudio').onclick=()=>{ startAmbient(); ambOn=!ambOn; if(ambGain) ambGain.gain.value=ambOn?0.05:0;
-  $('btnAudio').textContent=ambOn?'🔊':'🔇'; };
+  $('btnAudio').textContent=(ambOn?'🔊':'🔇')+' SONIDO'; };
 document.addEventListener('pointerdown',startAmbient,{once:true});
 $('btnCaravana').onclick=()=>{
   if(S.ambar<8){ sfx('creak',0.4); toast('La caravana cuesta 8 ◆.'); return; }
@@ -1215,8 +1294,9 @@ $('btnMercen').onclick=()=>{
 };
 
 /* ===== minimapa ===== */
+let mmW=220, mmH=132;
 function initMinimap(){
-  const cv=$('minimap'); mmCtx=cv.getContext('2d');
+  const cv=$('minimap'); mmCtx=cv.getContext('2d'); mmW=cv.width; mmH=cv.height;
   cv.addEventListener('pointerdown',e=>{
     const r=cv.getBoundingClientRect();
     const fx=(e.clientX-r.left)/r.width, fy=(e.clientY-r.top)/r.height;
@@ -1226,23 +1306,23 @@ function initMinimap(){
 }
 function drawMinimap(){
   if(!mmCtx) return;
-  const cw=220/GW, ch=150/GH;
-  mmCtx.clearRect(0,0,220,150);
-  mmCtx.fillStyle='#173845'; mmCtx.fillRect(0,0,220,150);           // mar de fondo
-  if(mmBase){ try{ mmCtx.drawImage(mmBase,0,0,220,150); }catch(e){} } // terreno REAL (snapshot)
-  mmCtx.fillStyle='rgba(6,10,13,0.86)';                             // sombra sobre lo no explorado
+  const cw=mmW/GW, ch=mmH/GH;
+  mmCtx.clearRect(0,0,mmW,mmH);
+  mmCtx.fillStyle='#0e2731'; mmCtx.fillRect(0,0,mmW,mmH);            // mar de fondo
+  if(mmBase){ try{ mmCtx.drawImage(mmBase,0,0,mmW,mmH); }catch(e){} } // terreno REAL (snapshot)
+  mmCtx.fillStyle='rgba(6,11,16,0.88)';                             // sombra sobre lo no explorado
   for(let y=0;y<GH;y++)for(let x=0;x<GW;x++)
     if(!S.explored[y][x]) mmCtx.fillRect(x*cw,y*ch,cw+0.7,ch+0.7);
   const dot=(wx,wy,col,sz)=>{ mmCtx.fillStyle=col;
-    mmCtx.fillRect((wx-BX*T)/(GW*T)*220-sz/2,(wy-BY*T)/(GH*T)*150-sz/2,sz,sz); };
+    mmCtx.fillRect((wx-BX*T)/(GW*T)*mmW-sz/2,(wy-BY*T)/(GH*T)*mmH-sz/2,sz,sz); };
   for(const n of S.nodes){ if(S.explored[n.ty][n.tx]) dot(n.spr.x,n.spr.y,n.kind==='arbol'?'#1e4d28':'#e5c542',2.4); }
-  for(const m of S.animals){ if(!m.dead){ const t=tileOfPx(m.spr.x,m.spr.y); if(S.explored[t.y][t.x]) dot(m.spr.x,m.spr.y,'#e598b0',2.2); } }
-  for(const b of S.buildings){ dot(b.x,b.y,b.skin==='red'?'#e5533a':'#f4ecda',3); }
+  for(const m of S.animals){ if(!m.dead){ const t=tileOfPx(m.spr.x,m.spr.y); if(S.explored[t.y][t.x]) dot(m.spr.x,m.spr.y,m.tipo==='toro'?'#c060ff':'#e598b0',m.tipo==='toro'?3:2.2); } }
+  for(const b of S.buildings){ dot(b.x,b.y,b.tipo==='castle'?'#ffe36b':(b.skin==='red'?'#e5533a':'#f4ecda'),b.tipo==='castle'?4:3); }
   for(const a of S.ald) dot(a.spr.x,a.spr.y,'#ffe9a0',2.4);
   for(const u of S.units) dot(u.spr.x,u.spr.y,'#4a90c2',2.4);
-  if(S.raid.on) for(const g of S.raid.gob){ if(!g.dead) dot(g.spr.x,g.spr.y,'#ff3a2a',2.6); }
+  if(S.raid.on) for(const g of S.raid.gob){ if(!g.dead) dot(g.spr.x,g.spr.y,'#ff3a2a',2.8); }
   const v=scene.cameras.main.worldView;
-  const rx=(v.x-BX*T)/(GW*T)*220, ry=(v.y-BY*T)/(GH*T)*150, rw=v.width/(GW*T)*220, rh=v.height/(GH*T)*150;
+  const rx=(v.x-BX*T)/(GW*T)*mmW, ry=(v.y-BY*T)/(GH*T)*mmH, rw=v.width/(GW*T)*mmW, rh=v.height/(GH*T)*mmH;
   mmCtx.strokeStyle='rgba(255,233,160,.9)'; mmCtx.lineWidth=1.2; mmCtx.strokeRect(rx,ry,rw,rh);
 }
 
@@ -1322,6 +1402,13 @@ function update(time,delta){
 
   for(const b of S.buildings){
     const c=CAT[b.tipo];
+    if(b.avanzando){                              // investigación de edad en el Ayuntamiento
+      b.avT+=dt; const p=Math.min(1,b.avT/b.avDur);
+      if(b.barG){ b.barG.clear(); const bx=b.x-c.fw*T*0.35, by=b.y-c.fh*T-16, bw=c.fw*T*0.7;
+        b.barG.fillStyle(0x120d09,0.85).fillRect(bx-2,by-2,bw+4,10);
+        b.barG.fillStyle(0xe5533a,1).fillRect(bx,by,bw*p,6); }
+      if(b.avT>=b.avDur) completarEdad(b);
+    }
     if(b.estado==='esperando'){
       if(!S.ald.some(a=>a.bId===b.id)){ const a=aldLibreCerca(b.x,b.y); if(a) mandarConstruir(a,b); }
       if(b.barG){ b.barG.clear(); const bx=b.x-c.fw*T*0.4, by=b.y-c.fh*T-14, bw=c.fw*T*0.8;
@@ -1338,9 +1425,9 @@ function update(time,delta){
         const obrero=S.ald.find(a=>a.bId===b.id&&(a.estado==='obrero'||a.estado==='yendo'));
         if(obrero) parar(obrero);
         if(b.mejorando){ b.nivel++; b.mejorando=false; }
-        if(b.tipo==='castle'){ S.thNivel=Math.max(S.thNivel,b.nivel); buildGrid();
-          toast(b.nivel===1?'🏰 ¡El Ayuntamiento está en pie! Nuevos edificios disponibles.':'¡Ayuntamiento nivel '+b.nivel+'!'); }
-        if(b.tipo==='house') toast('🏠 Casa lista: +2 de cupo. Seleccionala para CREAR un aldeano.');
+        if(b.tipo==='house'){ S.stats.casasBuilt++; toast('🏠 Casa lista: +2 de cupo. Seleccioná el Ayuntamiento o la Casa para CREAR aldeanos.'); }
+        else if(['cuartel','arqueria','torre','monasterio','granja'].includes(b.tipo)) toast('✔️ '+CAT[b.tipo].nom+' en pie.');
+        buildGrid();
         refreshBuilding(b); dustAt(b.x,b.y-20,4); sfx('bong',0.6);
         if(c.prod) pedirTrabajador(b);
         if(S.sel&&S.sel.ref===b) renderSel();
