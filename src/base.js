@@ -45,6 +45,7 @@ const FAUNA={
   oveja: {nom:'Oveja',   tex:'sheep',     anim:'sheep-a', hp:24, carne:80,  dmg:0,  esc:1.0, oy:0.9,  huye:true},
   jabali:{nom:'Jabalí',  tex:'pig_idle',  anim:'cerdo-i', hp:44, carne:150, dmg:4,  esc:0.55,oy:0.72, huye:false},
   oso:   {nom:'Oso',     tex:'bear_idle', anim:'bear-i',  hp:90, carne:300, dmg:11, esc:0.6, oy:0.8,  huye:false, run:'bear-r'},
+  toro:  {nom:'El Toro Negro', tex:'minotaur_idle', anim:'toro-i', hp:170, carne:450, dmg:17, esc:0.52, oy:0.82, huye:false, run:'toro-r', tint:0x6f5f74, aoa:25, jefe:true},
 };
 const CRITTER={
   snake: {nom:'serpiente',tex:'snake_idle', anim:'snake-i',  esc:0.5, oy:0.75},
@@ -80,7 +81,7 @@ let scene, ghostG, ghostSpr=null, fogRT=null, homePos={x:0,y:0}, overview=false;
 let baseZoom=1, mmCtx=null, mmBase=null;
 function sfx(k,v){ try{ scene&&scene.sound.play('s_'+k,{volume:v||0.5}); }catch(e){} }
 
-new Phaser.Game({type:Phaser.AUTO,backgroundColor:'#245063',
+new Phaser.Game({type:Phaser.AUTO,backgroundColor:'#060a0d',   // oscuro: fuera del mapa se lee como niebla, sin “huecos” claros
   scale:{mode:Phaser.Scale.RESIZE,parent:'game',width:'100%',height:'100%'},
   render:{pixelArt:true,antialias:false,roundPixels:true},
   scene:{preload,create,update}});
@@ -113,6 +114,8 @@ function preload(){
   this.load.spritesheet('bear_run',TSB+'bear_run.png',{frameWidth:256,frameHeight:256});
   this.load.spritesheet('snake_idle',TSB+'snake_idle.png',{frameWidth:192,frameHeight:192});
   this.load.spritesheet('spider_idle',TSB+'spider_idle.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('minotaur_idle',TSB+'minotaur_idle.png',{frameWidth:320,frameHeight:320});
+  this.load.spritesheet('minotaur_walk',TSB+'minotaur_walk.png',{frameWidth:320,frameHeight:320});
   this.load.spritesheet('cave',TSB+'cave.png',{frameWidth:192,frameHeight:192});
   this.load.image('goblin_house',TSB+'goblin_house.png');
   this.load.spritesheet('goblin_tnt',TSB+'goblin_tnt.png',{frameWidth:192,frameHeight:192});
@@ -239,6 +242,8 @@ function create(){
   an.create({key:'bear-r',frames:an.generateFrameNumbers('bear_run',{start:0,end:4}),frameRate:9,repeat:-1});
   an.create({key:'snake-i',frames:an.generateFrameNumbers('snake_idle',{start:0,end:7}),frameRate:6,repeat:-1});
   an.create({key:'spider-i',frames:an.generateFrameNumbers('spider_idle',{start:0,end:7}),frameRate:8,repeat:-1});
+  an.create({key:'toro-i',frames:an.generateFrameNumbers('minotaur_idle',{start:0,end:15}),frameRate:8,repeat:-1});
+  an.create({key:'toro-r',frames:an.generateFrameNumbers('minotaur_walk',{start:0,end:7}),frameRate:10,repeat:-1});
   an.create({key:'gtnt-i',frames:an.generateFrameNumbers('goblin_tnt',{start:0,end:6}),frameRate:8,repeat:-1});
   an.create({key:'gtnt-r',frames:an.generateFrameNumbers('goblin_tnt',{start:7,end:13}),frameRate:10,repeat:-1});
   an.create({key:'gt-r',frames:an.generateFrameNumbers('goblin_torch',{start:7,end:12}),frameRate:10,repeat:-1});
@@ -306,6 +311,7 @@ function create(){
   scatterFauna('oveja',7);
   scatterFauna('jabali',4);
   scatterFauna('oso',2);
+  scatterFauna('toro',1);            // El Toro Negro — bestia rara, peligrosa y jugosa
   scatterCritter('snake',3);
   scatterCritter('spider',2);
   scatterEyeCandy(30);
@@ -391,6 +397,17 @@ function killMark(ent){ if(ent.markTw){ent.markTw.remove();ent.markTw=null;} if(
 function moveMark(ent){ if(ent.mark){ const y=ent.spr.y-ent.markOff;
   ent.mark.x=ent.spr.x; ent.mark.y=y; ent.mark.setDepth(ent.spr.y+3);
   ent.markBg.x=ent.spr.x; ent.markBg.y=y+1; ent.markBg.setDepth(ent.spr.y+2); } }
+function drawHp(ent,frac,w,topY){        // barrita de vida flotante (aldeanos/animales)
+  if(!ent.hpG) ent.hpG=scene.add.graphics();
+  const g=ent.hpG; g.clear();
+  const x=Math.round(ent.spr.x-w/2), y=Math.round(topY);
+  g.fillStyle(0x120d09,0.9).fillRect(x-1,y-1,w+2,5);
+  g.fillStyle(0x3a2f22,1).fillRect(x,y,w,3);
+  g.fillStyle(frac>0.5?0x5fa55a:frac>0.25?0xc9a227:0xc94f45,1).fillRect(x,y,Math.max(0,Math.round(w*frac)),3);
+  g.setDepth(ent.spr.y+2);
+}
+function hideBar(ent){ if(ent.hpG) ent.hpG.clear(); }
+function killBar(ent){ if(ent.hpG){ent.hpG.destroy();ent.hpG=null;} }
 function burstAt(x,y,color){
   for(let i=0;i<10;i++){ const p=scene.add.image(x,y,'dot').setTint(color).setDepth(99999).setScale(Phaser.Math.FloatBetween(0.5,1.2));
     scene.tweens.add({targets:p,x:x+rint(-26,26),y:y-rint(4,30),alpha:0,scale:0.1,duration:rint(400,900),ease:'Quad.easeOut',onComplete:()=>p.destroy()}); }
@@ -482,7 +499,7 @@ function parar(a){
 }
 function despedir(a){
   if(a.dustEv)a.dustEv.remove(); if(a.tween)a.tween.remove();
-  killMark(a);
+  killMark(a); killBar(a);
   S.ald=S.ald.filter(x=>x!==a);
   scene.tweens.add({targets:a.spr,alpha:0,y:'-=14',duration:600,onComplete:()=>a.spr.destroy()});
   sfx('door',0.4); toast('Aldeano despedido: cupo liberado.');
@@ -493,7 +510,7 @@ function dañarAldeano(a,dmg){
   a.spr.setTint(0xff6a5a); scene.time.delayedCall(120,()=>a.spr&&a.spr.clearTint&&a.spr.clearTint());
   if(a.hp<=0){
     if(a.dustEv)a.dustEv.remove(); if(a.tween)a.tween.remove();
-    killMark(a);
+    killMark(a); killBar(a);
     S.ald=S.ald.filter(x=>x!==a);
     const d=scene.add.sprite(a.spr.x,a.spr.y,'dead').play('dead-a').setOrigin(0.5,0.72).setScale(0.5).setDepth(a.spr.y);
     d.once('animationcomplete',()=>scene.tweens.add({targets:d,alpha:0,duration:1500,onComplete:()=>d.destroy()}));
@@ -597,8 +614,9 @@ function scatterFauna(tipo,n){
     if(!ok) continue;
     const x=(BX+tx)*T+T/2, y=(BY+ty+1)*T-12;   // pies dentro del tile (no en el borde con agua)
     const s=scene.add.sprite(x,y,cfg.tex).setOrigin(0.5,cfg.oy).setScale(cfg.esc).setDepth(y);
+    if(cfg.tint) s.setTint(cfg.tint);
     s.play(cfg.anim);
-    const m={id:'m'+S.nextId++, tipo, spr:s, hp:cfg.hp, maxhp:cfg.hp, carne:cfg.carne, dmg:cfg.dmg,
+    const m={id:'m'+S.nextId++, tipo, spr:s, hp:cfg.hp, maxhp:cfg.hp, carne:cfg.carne, dmg:cfg.dmg, aoa:cfg.aoa||0,
       dead:false, homeT:{x:tx,y:ty}, wT:rint(2,7), atkT:0, hunter:null};
     s.setInteractive({useHandCursor:true});
     s.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'animal',ref:m}); });
@@ -631,8 +649,11 @@ function scatterScenery(){                 // cueva + choza goblin como paisaje 
 }
 function matarAnimal(m){
   if(m.dead) return; m.dead=true;
+  killBar(m);
   burstAt(m.spr.x,m.spr.y-14,0xd98a6a); dustAt(m.spr.x,m.spr.y,2);
   S.stats.cazado++;
+  if(m.aoa){ S.ambar+=m.aoa; flyText(m.spr.x,m.spr.y-30,'+'+m.aoa+' ◆','#ffe36b'); }
+  if(FAUNA[m.tipo]&&FAUNA[m.tipo].jefe){ sfx('bong',0.8); toast('🐂 ¡Cazaste a El Toro Negro! Botín enorme de carne y ◆ $AOA.'); }
   const px=m.spr.x, py=m.spr.y;
   m.spr.destroy(); S.animals=S.animals.filter(x=>x!==m);
   const psp=scene.add.image(px,py,'res_meat').setScale(0.55).setDepth(py).setInteractive({useHandCursor:true});
@@ -775,7 +796,7 @@ function moverMilitar(u,wx,wy){
   if(!S.raid.on) u.spr.play(u.tipo==='guerrero'?'war-r':'arq-r',true);
 }
 function despedirMilitar(u){
-  u.dead=true; killMark(u); S.units=S.units.filter(x=>x!==u);
+  u.dead=true; killMark(u); killBar(u); S.units=S.units.filter(x=>x!==u);
   scene.tweens.add({targets:u.spr,alpha:0,y:'-=14',duration:600,onComplete:()=>u.spr.destroy()});
   sfx('door',0.4); toast('Unidad despedida: cupo liberado.');
   if(S.sel&&S.sel.ref===u) deseleccionar(); refreshHUD();
@@ -890,7 +911,7 @@ function renderSel(){
     accion('DETENER',()=>parar(a),!ocupado);
     accion('DESPEDIR',()=>despedir(a),false);
     const t=$('selVacio'); t.style.display='block';
-    t.innerHTML='Clic derecho para ordenar: <b>ir</b>, <b>talar</b> árbol, <b>minar</b> veta o <b>cazar</b> animal.<br>Elegí un edificio de la derecha para que <b>este</b> aldeano lo construya.';
+    t.innerHTML='Clic der.: ir · talar · minar · cazar.<br>Elegí un edificio → lo construye este aldeano.';
   } else if(sel.t==='militar'){
     const u=sel.ref;
     $('selNom').textContent=UNIDADES[u.tipo].nom; $('selLvl').textContent='En guardia'; setHp(null);
@@ -1131,7 +1152,7 @@ function pelear(lista,vivos,dtReal,esUnidad){
         sfx('clash',0.2); u.target=null; }
     } else {
       sfx('clash',0.3); burstAt(u.spr.x,u.spr.y-16,0xffffff); killGoblin(u.target); u.target=null;
-      if(Math.random()<(esUnidad?0.2:0.25)){ u.dead=true; killMark(u); if(esUnidad) S.units=S.units.filter(x=>x!==u);
+      if(Math.random()<(esUnidad?0.2:0.25)){ u.dead=true; killMark(u); killBar(u); if(esUnidad) S.units=S.units.filter(x=>x!==u);
         const d2=scene.add.sprite(u.spr.x,u.spr.y,'dead').play('dead-a').setOrigin(0.5,0.72).setScale(0.5).setDepth(u.spr.y);
         d2.once('animationcomplete',()=>scene.tweens.add({targets:d2,alpha:0,duration:1500,onComplete:()=>d2.destroy()}));
         u.spr.destroy(); refreshHUD(); }
@@ -1145,6 +1166,7 @@ function refreshHUD(){
   $('vAmbar').textContent=S.ambar;
   const libres=S.ald.filter(a=>a.estado==='libre'||a.estado==='paseo').length;
   $('vAld').textContent=libres+' libres · '+popTotal()+'/'+POPCAP();
+  const bi=$('btnIdle'); if(bi){ bi.textContent='💤 IDLE ('+libres+')'; bi.disabled=libres===0; }
   $('cOro').textContent='/'+CAP; $('cMad').textContent='/'+CAP; $('cCom').textContent='/'+CAP;
   $('rOro').classList.toggle('lleno',S.oro>=CAP); $('rMad').classList.toggle('lleno',S.madera>=CAP); $('rCom').classList.toggle('lleno',S.comida>=CAP);
 }
@@ -1153,6 +1175,34 @@ function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('on'
   clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),3600); }
 function hint(msg){ const h=$('hint'); h.textContent=msg; h.classList.toggle('on',!!msg); }
 $('btnTiempo').onclick=()=>{ S.speed=S.speed===1?4:1; $('btnTiempo').textContent='⏱ ×'+S.speed; };
+let idleCursor=0;
+$('btnIdle').onclick=()=>{                      // buscador de aldeanos ociosos (clásico de Age)
+  const idle=S.ald.filter(a=>a.estado==='libre'||a.estado==='paseo');
+  if(!idle.length){ toast('No hay aldeanos ociosos: están todos trabajando.'); sfx('creak',0.3); return; }
+  const a=idle[idleCursor%idle.length]; idleCursor++;
+  seleccionar({t:'aldeano',ref:a}); overview=false;
+  scene.cameras.main.setZoom(Phaser.Math.Clamp(baseZoom*2.4,1,3.6));
+  scene.cameras.main.centerOn(a.spr.x,a.spr.y); marcaOrden(a.spr.x,a.spr.y-20);
+};
+/* ===== ambiente sonoro (WebAudio, sin assets) ===== */
+let actx=null, ambGain=null, ambOn=true;
+function startAmbient(){
+  if(actx) return;
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+    actx=new AC(); ambGain=actx.createGain(); ambGain.gain.value=ambOn?0.05:0; ambGain.connect(actx.destination);
+    [110,164.81,220].forEach((f,i)=>{ const o=actx.createOscillator(); o.type=i===0?'triangle':'sine'; o.frequency.value=f;
+      const g=actx.createGain(); g.gain.value=0.5/3; o.connect(g); g.connect(ambGain); o.start(); });
+    const n=actx.sampleRate*2, buf=actx.createBuffer(1,n,actx.sampleRate), d=buf.getChannelData(0);
+    for(let i=0;i<n;i++) d[i]=(Math.random()*2-1)*0.5;
+    const noise=actx.createBufferSource(); noise.buffer=buf; noise.loop=true;
+    const lp=actx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=380;
+    const ng=actx.createGain(); ng.gain.value=0.22; noise.connect(lp); lp.connect(ng); ng.connect(ambGain); noise.start();
+  }catch(e){}
+}
+$('btnAudio').onclick=()=>{ startAmbient(); ambOn=!ambOn; if(ambGain) ambGain.gain.value=ambOn?0.05:0;
+  $('btnAudio').textContent=ambOn?'🔊':'🔇'; };
+document.addEventListener('pointerdown',startAmbient,{once:true});
 $('btnCaravana').onclick=()=>{
   if(S.ambar<8){ sfx('creak',0.4); toast('La caravana cuesta 8 ◆.'); return; }
   S.ambar-=8; const menor=['oro','madera','comida'].sort((a,b2)=>S[a]-S[b2])[0];
@@ -1219,7 +1269,8 @@ function update(time,delta){
         } else {
           m.hunter=a; a.atkT+=dtReal;
           if(a.atkT>0.9){ a.atkT=0; m.hp-=8; flyText(m.spr.x,m.spr.y-24,'-8','#fff');
-            m.spr.setTint(0xffaaaa); scene.time.delayedCall(100,()=>m.spr&&m.spr.active&&m.spr.clearTint());
+            m.spr.setTint(0xffaaaa); const bt=FAUNA[m.tipo].tint;
+            scene.time.delayedCall(100,()=>{ if(m.spr&&m.spr.active){ if(bt) m.spr.setTint(bt); else m.spr.clearTint(); } });
             burstAt(m.spr.x,m.spr.y-14,0xffffff); sfx('clash',0.25);
             if(m.hp<=0){ matarAnimal(m); }
           }
@@ -1263,6 +1314,7 @@ function update(time,delta){
     const tk=Math.floor(a.spr.x/T)+','+Math.floor(a.spr.y/T);
     if(tk!==a.lastTile){ a.lastTile=tk; revelar(a.spr.x,a.spr.y,4); }
     moveMark(a);
+    if(a.hp<a.maxhp||(S.sel&&S.sel.ref===a)) drawHp(a,a.hp/a.maxhp,32,a.spr.y-a.markOff+12); else hideBar(a);
   }
   for(const u of S.units) moveMark(u);
 
@@ -1319,6 +1371,7 @@ function updateAnimals(dtReal,dt){
   for(const m of S.animals){
     if(m.dead) continue;
     const cfg=FAUNA[m.tipo];
+    drawHp(m, m.hp/m.maxhp, m.tipo==='toro'?42:m.tipo==='oso'?36:26, m.spr.y-m.spr.originY*m.spr.displayHeight*0.82);
     const cazador=m.hunter&&S.ald.includes(m.hunter)&&m.hunter.estado==='cazando'?m.hunter:null;
     if(cazador){
       const d=Phaser.Math.Distance.Between(m.spr.x,m.spr.y,cazador.spr.x,cazador.spr.y);
