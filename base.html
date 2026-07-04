@@ -3,23 +3,31 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>ÁMBAR · Mi Aldea (prototipo)</title>
+<title>Age of Ansem · The Black Bull</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.80.1/phaser.min.js"></script>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=IM+Fell+English:ital@0;1&display=swap');
   :root{
     --bg:#16110c;--bg2:#1f1811;--bg3:#120d09;--ink:#ece3d0;--muted:#8c7f68;
     --brass:#c9a227;--brass-dim:#7a6420;--ember:#e5533a;--line:rgba(201,162,39,.16);
     --ok:#5fa55a;--bad:#c94f45;
     --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Courier New",monospace;
-    --display:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    --display:"Cinzel","Iowan Old Style",Georgia,serif;
+    --flavor:"IM Fell English","Iowan Old Style",Georgia,serif;
   }
+  /* ---- scrollbars temáticos (estética Age) ---- */
+  *{scrollbar-width:thin;scrollbar-color:var(--brass-dim) transparent}
+  *::-webkit-scrollbar{width:7px;height:7px}
+  *::-webkit-scrollbar-track{background:rgba(0,0,0,.25);border-radius:4px}
+  *::-webkit-scrollbar-thumb{background:linear-gradient(var(--brass-dim),#5a4a18);border-radius:4px;border:1px solid rgba(0,0,0,.35)}
+  *::-webkit-scrollbar-thumb:hover{background:var(--brass)}
   *{box-sizing:border-box} html,body{height:100%}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--mono);overflow:hidden}
   .app{height:100dvh;display:flex;flex-direction:column}
   /* ---- HUD superior (recursos) ---- */
   .hud{display:flex;align-items:center;gap:12px;padding:7px 14px;background:linear-gradient(180deg,var(--bg2),var(--bg3));border-bottom:1px solid var(--line);z-index:20;flex-wrap:wrap}
-  .brand{font-family:var(--display);font-weight:700;font-size:15px;margin-right:auto}
-  .brand b{color:var(--brass)} .brand small{display:block;font-family:var(--mono);font-size:8.5px;color:var(--muted);letter-spacing:.12em}
+  .brand{font-family:var(--display);font-weight:800;font-size:16px;letter-spacing:.06em;margin-right:auto;line-height:1.05;text-shadow:0 1px 0 #000}
+  .brand b{color:var(--brass);font-weight:700} .brand small{display:block;font-family:var(--flavor);font-style:italic;font-size:11px;color:var(--muted);letter-spacing:.04em;text-transform:none}
   .res{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--line);border-radius:4px;padding:3px 9px 3px 4px;font-size:12.5px;font-variant-numeric:tabular-nums}
   .res img{width:24px;height:24px;image-rendering:pixelated}
   .res.lleno{border-color:var(--ember)}
@@ -45,17 +53,18 @@
   .toast{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(18,13,9,.92);border:1px solid var(--brass-dim);border-radius:4px;padding:8px 16px;font-size:12px;z-index:30;opacity:0;transition:.3s;pointer-events:none}
   .toast.on{opacity:1}
   /* ---- PANEL INFERIOR estilo Age: minimapa + selección + acciones ---- */
-  .bottom{display:flex;gap:10px;padding:8px 12px;background:linear-gradient(0deg,var(--bg3),var(--bg2));border-top:2px solid var(--brass-dim);z-index:20;height:172px}
-  .mapbox{flex:0 0 auto;border:2px solid var(--brass-dim);border-radius:6px;background:#000;position:relative}
+  .bottom{display:flex;gap:10px;padding:8px 12px;background:linear-gradient(0deg,var(--bg3),var(--bg2));border-top:2px solid var(--brass-dim);z-index:20;height:204px}
+  .mapbox{flex:0 0 auto;border:2px solid var(--brass-dim);border-radius:6px;background:#000;position:relative;box-shadow:inset 0 0 0 1px rgba(0,0,0,.6)}
   #minimap{display:block;image-rendering:pixelated;cursor:crosshair;border-radius:4px}
-  .selbox{flex:0 0 240px;background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:9px;overflow-y:auto}
-  .selbox h3{margin:0 0 2px;font-family:var(--display);font-size:14px}
+  .selbox{flex:0 0 236px;background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:9px 9px 9px 11px;overflow-y:auto;box-shadow:inset 3px 0 0 -1px var(--brass-dim)}
+  .selbox h3{margin:0 0 2px;font-family:var(--display);font-weight:700;font-size:15px;color:var(--ink)}
   .selbox .lvl{font-size:9.5px;color:var(--brass);margin-bottom:4px}
   .selbox .hpbar{height:8px;background:#2a2018;border:1px solid var(--line);border-radius:3px;margin:4px 0 8px;overflow:hidden}
   .selbox .hpbar i{display:block;height:100%;background:var(--ok)}
   .selbox .vacio{font-size:10.5px;color:var(--muted);line-height:1.5;margin-top:6px}
-  #selActions{display:flex;flex-direction:column;gap:5px}
-  #selActions button{width:100%;font-size:9.5px;padding:7px 5px 9px}
+  #selActions{display:flex;flex-direction:column;gap:4px}
+  #selActions button{width:100%;font-size:9.5px;padding:5px 5px 7px}
+  .selbox .vacio{font-size:10px;line-height:1.45}
   .gridbox{flex:1;background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:8px;overflow-x:auto;display:flex;gap:8px;align-items:flex-start}
   .gridbox .gh{writing-mode:vertical-rl;transform:rotate(180deg);font-size:9px;letter-spacing:.18em;color:var(--muted);align-self:stretch;text-align:center}
   .card{flex:0 0 auto;width:92px;background:var(--bg2);border:1px solid var(--line);border-radius:6px;padding:5px;cursor:pointer;text-align:center;transition:.12s}
@@ -67,21 +76,23 @@
   .card .costo{font-size:8.5px;color:var(--muted);margin-top:1px;line-height:1.45}
   .card .costo b{color:var(--ink)}
   .card .req{font-size:8px;color:var(--ember)}
-  @media(max-width:900px){ .selbox{flex-basis:190px} .bottom{height:150px} }
+  @media(max-width:900px){ .selbox{flex-basis:190px} .bottom{height:168px} }
 </style>
 </head>
 <body>
 <div class="app">
   <div class="hud">
-    <div class="brand">ÁMBAR<b> · Mi Aldea</b><small>PROTOTIPO — clic izq: seleccionar · clic der: ordenar</small></div>
+    <div class="brand">AGE OF ANSEM<b> · The Black Bull</b><small>clic izq: seleccionar · clic der: ordenar</small></div>
     <div class="res" id="rOro"><img src="assets/img/ts/res_gold.png" alt="oro"><span id="vOro">0</span><span class="cap" id="cOro"></span></div>
     <div class="res" id="rMad"><img src="assets/img/ts/res_wood.png" alt="madera"><span id="vMad">0</span><span class="cap" id="cMad"></span></div>
     <div class="res" id="rCom"><img src="assets/img/ts/res_meat.png" alt="comida"><span id="vCom">0</span><span class="cap" id="cCom"></span></div>
     <div class="res" title="Población / cupo (3 base + 2 por casa)">👤 <span id="vAld">0/0</span></div>
-    <div class="res ambar" title="Moneda simulada (placeholder F4)"><span id="vAmbar">0</span> $AMBAR</div>
+    <div class="res ambar" title="Moneda del juego (simulada · placeholder F4)"><span id="vAmbar">0</span> $AOA</div>
+    <button class="ghost" id="btnIdle" title="Ir al próximo aldeano ocioso">💤 IDLE (0)</button>
     <button class="ghost" id="btnCaravana" title="+250 del recurso más bajo">◆ CARAVANA (8)</button>
     <button class="ghost" id="btnMercen" style="display:none">◆ MERCENARIOS (10)</button>
     <button class="ghost" id="btnTiempo">⏱ ×1</button>
+    <button class="ghost" id="btnAudio" title="Música/ambiente">🔊</button>
   </div>
   <div class="stage">
     <div id="game"></div>
