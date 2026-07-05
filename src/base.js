@@ -10,6 +10,7 @@ const WT=GW+BX*2, HT=GH+BY*2, WORLD_W=WT*T, WORLD_H=HT*T;
 const MAR=2600;                                   // mar extra alrededor del mundo (cubre pantallas anchas: nada de vacío negro)
 const FOGR=224;                                   // radio del pincel de niebla (px)
 const rint=(a,b)=>Math.floor(Math.random()*(b-a+1))+a, pick=a=>a[Math.floor(Math.random()*a.length)];
+const randAv=()=>'av'+String(rint(1,10)).padStart(2,'0');   // nombre de archivo del avatar (av01..av10)
 
 /* ===== catálogo de edificios (mina/leñador = nodos naturales; castle = Ayuntamiento/TC) ===== */
 const CAP=2000;
@@ -26,8 +27,9 @@ const CAT={
 const RATE=0.6, BUFFER=b=>120*b.nivel;
 const UNIDADES={
   aldeano: {nom:'Aldeano', costo:{comida:50},        de:['castle','house']},
-  guerrero:{nom:'Guerrero',costo:{oro:60,comida:20}, de:['cuartel']},
-  arquero: {nom:'Arquero', costo:{oro:80,comida:20}, de:['arqueria']},
+  guerrero:{nom:'Guerrero',costo:{oro:60,comida:20}, de:['cuartel'],    hp:60},
+  arquero: {nom:'Arquero', costo:{oro:80,comida:20}, de:['arqueria'],   hp:34},
+  monje:   {nom:'Monje',   costo:{oro:60,comida:40}, de:['monasterio'], hp:34, sana:true},
 };
 const POPCAP=()=>5+2*S.buildings.filter(b=>b.tipo==='house'&&b.estado==='ok').length;
 const popTotal=()=>S.ald.length+S.units.length;
@@ -107,9 +109,17 @@ function preload(){
     this.load.spritesheet('pawn_'+c,TSB+'pawn_'+c+'.png',{frameWidth:192,frameHeight:192});
   }
   this.load.image('castle_black',TSB+'castle_black.png');   // Ayuntamiento Edad III (Imperio)
-  this.load.spritesheet('warrior_blue','assets/img/warrior_blue.png',{frameWidth:110,frameHeight:98});
+  this.load.spritesheet('warrior_i','assets/img/ts/warrior_i.png',{frameWidth:192,frameHeight:192}); // guerrero moderno (192px)
+  this.load.spritesheet('warrior_r','assets/img/ts/warrior_r.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('warrior_a','assets/img/ts/warrior_a.png',{frameWidth:192,frameHeight:192});
   this.load.spritesheet('archer_blue_i','assets/img/ts/archer_blue_i.png',{frameWidth:192,frameHeight:192});
   this.load.spritesheet('archer_blue_r','assets/img/ts/archer_blue_r.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('monk_i','assets/img/ts/monk_blue_i.png',{frameWidth:192,frameHeight:192});   // monje sanador
+  this.load.spritesheet('monk_r','assets/img/ts/monk_blue_r.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('explosion',TSB+'explosion.png',{frameWidth:128,frameHeight:128});
+  this.load.spritesheet('bomb',TSB+'bomb.png',{frameWidth:128,frameHeight:128});
+  this.load.image('cannonball',TSB+'cannonball.png');
+  this.load.spritesheet('pawn_hammer',TSB+'pawn_hammer.png',{frameWidth:192,frameHeight:192});        // aldeano construyendo
   this.load.spritesheet('pig_idle',TSB+'pig_idle.png',{frameWidth:192,frameHeight:192});
   this.load.spritesheet('pig_run',TSB+'pig_run.png',{frameWidth:192,frameHeight:192});
   this.load.spritesheet('bear_idle',TSB+'bear_idle.png',{frameWidth:256,frameHeight:256});
@@ -239,8 +249,14 @@ function create(){
     an.create({key:'pawn_'+c+'-i',frames:an.generateFrameNumbers('pawn_'+c,{start:0,end:5}),frameRate:6,repeat:-1});
     an.create({key:'pawn_'+c+'-r',frames:an.generateFrameNumbers('pawn_'+c,{start:6,end:11}),frameRate:10,repeat:-1});
   }
-  an.create({key:'war-i',frames:an.generateFrameNumbers('warrior_blue',{start:0,end:5}),frameRate:6,repeat:-1});
-  an.create({key:'war-r',frames:an.generateFrameNumbers('warrior_blue',{start:12,end:17}),frameRate:11,repeat:-1});
+  an.create({key:'war-i',frames:an.generateFrameNumbers('warrior_i',{start:0,end:7}),frameRate:8,repeat:-1});
+  an.create({key:'war-r',frames:an.generateFrameNumbers('warrior_r',{start:0,end:5}),frameRate:11,repeat:-1});
+  an.create({key:'war-a',frames:an.generateFrameNumbers('warrior_a',{start:0,end:3}),frameRate:14,repeat:0});
+  an.create({key:'monk-i',frames:an.generateFrameNumbers('monk_i',{start:0,end:5}),frameRate:7,repeat:-1});
+  an.create({key:'monk-r',frames:an.generateFrameNumbers('monk_r',{start:0,end:3}),frameRate:9,repeat:-1});
+  an.create({key:'boom',frames:an.generateFrameNumbers('explosion',{start:0,end:8}),frameRate:16,repeat:0});
+  an.create({key:'bomb-a',frames:an.generateFrameNumbers('bomb',{start:0,end:3}),frameRate:12,repeat:-1});
+  an.create({key:'phammer',frames:an.generateFrameNumbers('pawn_hammer',{start:0,end:2}),frameRate:8,repeat:-1});
   an.create({key:'arq-i',frames:an.generateFrameNumbers('archer_blue_i',{start:0,end:-1}),frameRate:7,repeat:-1});
   an.create({key:'arq-r',frames:an.generateFrameNumbers('archer_blue_r',{start:0,end:-1}),frameRate:10,repeat:-1});
   an.create({key:'cerdo-i',frames:an.generateFrameNumbers('pig_idle',{start:0,end:-1}),frameRate:7,repeat:-1});
@@ -438,6 +454,10 @@ function burstAt(x,y,color){
   for(let i=0;i<10;i++){ const p=scene.add.image(x,y,'dot').setTint(color).setDepth(99999).setScale(Phaser.Math.FloatBetween(0.5,1.2));
     scene.tweens.add({targets:p,x:x+rint(-26,26),y:y-rint(4,30),alpha:0,scale:0.1,duration:rint(400,900),ease:'Quad.easeOut',onComplete:()=>p.destroy()}); }
 }
+function explosionAt(x,y,esc){
+  const e=scene.add.sprite(x,y,'explosion').setDepth(99997).setScale(esc||1.1).play('boom');
+  e.once('animationcomplete',()=>e.destroy()); sfx('fire',0.5);
+}
 
 /* ===== niebla ===== */
 function revelar(px,py,rTiles){
@@ -488,7 +508,7 @@ function spawnAldeano(x,y,inicial){
   const s=scene.add.sprite(x,y,'pawn_blue').setOrigin(0.5,0.72).setScale(0.7).setDepth(y);
   s.play('pawn_blue-i');
   const a={id:'a'+S.nextId++, spr:s, estado:'libre', hp:25, maxhp:25, path:null, onArrive:null,
-    tx:x, ty:y, wT:rint(2,6), task:null, tarT:0, tool:null, lastTile:'', atkT:0};
+    tx:x, ty:y, wT:rint(2,6), task:null, tarT:0, tool:null, lastTile:'', atkT:0, av:randAv()};
   s.setInteractive({useHandCursor:true});
   s.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'aldeano',ref:a}); });
   addMark(a,0xffe36b,64);
@@ -559,7 +579,7 @@ function mandarConstruir(a,b){
     a.estado='obrero'; a.bId=b.id;
     if(b.estado==='esperando') b.estado='obra';
     a.dustEv=scene.time.addEvent({delay:900,loop:true,callback:()=>dustAt(b.x,b.y-10,1)});
-    a.spr.play('pawn_blue-i',true);
+    a.tool='hammer'; a.spr.setTexture('pawn_hammer',0).setScale(0.7); a.spr.play('phammer',true);  // martillando
     if(S.sel&&S.sel.ref===a) renderSel();
   });
 }
@@ -804,22 +824,26 @@ function entrenar(tipoU,b){
   if(popTotal()>=POPCAP()){ toast('🏠 Cupo lleno ('+POPCAP()+'). Más Casas o despedí unidades.'); sfx('creak',0.4); return; }
   if(!pagar(u.costo)){ toast('No te alcanza: '+costoTxt(u.costo)); sfx('creak',0.4); return; }
   if(tipoU==='aldeano'){ const a=spawnAldeano(b.x+rint(-30,30),b.y+rint(10,26)); if(a){S.stats.aldCreados++; revelar(a.spr.x,a.spr.y,4); dustAt(a.spr.x,a.spr.y,2); sfx('bong',0.5); toast('👤 Aldeano nuevo en el pueblo.');} refreshHUD(); renderSel(); return; }
-  const tex=tipoU==='guerrero'?'warrior_blue':'archer_blue_i';
-  const s=scene.add.sprite(b.x+rint(-34,34),b.y+rint(10,28),tex).setOrigin(0.5,tipoU==='guerrero'?0.95:0.72).setScale(0.72).setDepth(b.y);
-  s.play(tipoU==='guerrero'?'war-i':'arq-i');
-  const un={id:'u'+S.nextId++, tipo:tipoU, spr:s, home:{x:s.x,y:s.y}, target:null, cd:0, dead:false, wT:rint(3,8), moveT:null};
+  const idle=uAnim(tipoU,'i'), tex={guerrero:'warrior_i',arquero:'archer_blue_i',monje:'monk_i'}[tipoU];
+  const s=scene.add.sprite(b.x+rint(-34,34),b.y+rint(10,28),tex).setOrigin(0.5,0.72).setScale(0.72).setDepth(b.y);
+  s.play(idle);
+  const un={id:'u'+S.nextId++, tipo:tipoU, spr:s, home:{x:s.x,y:s.y}, target:null, cd:0, dead:false, wT:rint(3,8), moveT:null,
+    hp:u.hp, maxhp:u.hp, atkCd:0, healCd:0, av:randAv()};
   s.setInteractive({useHandCursor:true});
   s.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'militar',ref:un}); });
-  addMark(un,0x8ec8ff,tipoU==='guerrero'?78:66);
+  addMark(un,tipoU==='monje'?0x8ee0a0:0x8ec8ff,66);
   S.units.push(un); S.stats.entrenados++;
-  dustAt(s.x,s.y,2); sfx('clash',0.4); toast('⚔️ '+u.nom+' entrenado y en guardia.');
+  dustAt(s.x,s.y,2); sfx(tipoU==='monje'?'bell':'clash',0.4);
+  toast((tipoU==='monje'?'✝️ ':'⚔️ ')+u.nom+' listo'+(u.sana?' — sanará a tus tropas en la oleada.':' y en guardia.'));
+  cronica((tipoU==='monje'?'✝️':'⚔️')+' '+u.nom+' entrenado', un.av);
   refreshHUD();
 }
+const uAnim=(tipo,m)=>tipo==='guerrero'?'war-'+m:tipo==='monje'?'monk-'+m:'arq-'+m;
 function moverMilitar(u,wx,wy){
   const t=tileOfPx(wx,wy); const dst=walkable(t.x,t.y)?t:(adjWalkable(t.x,t.y)||t);
   u.home={x:(BX+dst.x)*T+T/2,y:(BY+dst.y)*T+T/2};
   u.moveT=u.home;
-  if(!S.raid.on) u.spr.play(u.tipo==='guerrero'?'war-r':'arq-r',true);
+  if(!S.raid.on) u.spr.play(uAnim(u.tipo,'r'),true);
 }
 function despedirMilitar(u){
   u.dead=true; killMark(u); killBar(u); S.units=S.units.filter(x=>x!==u);
@@ -924,15 +948,16 @@ function setHp(cur,max){
 }
 const ESTLBL={libre:'Libre',paseo:'Paseando',yendo:'En camino',obrero:'Construyendo',peon:'En la granja',
   talando:'Talando 🪓',minando:'Minando ⛏️',cazando:'Cazando 🏹',recolectando:'Recogiendo carne'};
+function setAv(av){ const e=$('selAv'); if(!e) return; if(av){ e.src='assets/img/av/'+av+'.png'; e.style.display='block'; } else e.style.display='none'; }
 function renderSel(){
   const act=$('selActions'); act.innerHTML='';
   const sel=S.sel;
-  if(!sel){ $('selNom').textContent='—'; $('selLvl').textContent=''; setHp(null); $('selVacio').style.display='block'; return; }
-  $('selVacio').style.display='none';
+  if(!sel){ $('selNom').textContent='—'; $('selLvl').textContent=''; setHp(null); setAv(null); $('selVacio').style.display='block'; return; }
+  $('selVacio').style.display='none'; setAv(null);
 
   if(sel.t==='aldeano'){
     const a=sel.ref;
-    $('selNom').textContent='Aldeano'; $('selLvl').textContent=ESTLBL[a.estado]||a.estado; setHp(a.hp,a.maxhp);
+    $('selNom').textContent='Aldeano'; $('selLvl').textContent=ESTLBL[a.estado]||a.estado; setHp(a.hp,a.maxhp); setAv(a.av);
     const ocupado=a.estado!=='libre'&&a.estado!=='paseo';
     accion('DETENER',()=>parar(a),!ocupado);
     accion('DESPEDIR',()=>despedir(a),false);
@@ -940,7 +965,7 @@ function renderSel(){
     t.innerHTML='Clic der.: ir · talar · minar · cazar.<br>Elegí un edificio → lo construye este aldeano.';
   } else if(sel.t==='militar'){
     const u=sel.ref;
-    $('selNom').textContent=UNIDADES[u.tipo].nom; $('selLvl').textContent='En guardia'; setHp(null);
+    $('selNom').textContent=UNIDADES[u.tipo].nom; $('selLvl').textContent=UNIDADES[u.tipo].sana?'Sanador · en la retaguardia':'En guardia'; setHp(u.hp,u.maxhp); setAv(u.av);
     accion('DESPEDIR',()=>despedirMilitar(u),false);
     const t=$('selVacio'); t.style.display='block'; t.innerHTML='Clic derecho: reposicionar la unidad.';
   } else if(sel.t==='nodo'){
@@ -1111,9 +1136,25 @@ function oleadaNaval(cnt,costa){                   // piratas que desembarcan de
   const desdeIzq=t.x<GW/2, fromX=desdeIzq?-MAR*0.3:WORLD_W+MAR*0.3;
   const boat=scene.add.sprite(fromX,cy,'pboat').play('pboat-a').setDepth(cy-2).setScale(0.9).setFlipX(!desdeIzq);
   scene.tweens.add({targets:boat,x:cx+(desdeIzq?-30:30),duration:3500,ease:'Sine.easeIn',onComplete:()=>{
-    scene.tweens.add({targets:boat,x:fromX,alpha:0,delay:800,duration:4500,onComplete:()=>boat.destroy()});
+    if(!S.over){ cañonazo(boat.x,boat.y-20); scene.time.delayedCall(1400,()=>{ if(boat.active&&!S.over) cañonazo(boat.x,boat.y-20); }); }  // bombardeo naval
+    scene.tweens.add({targets:boat,x:fromX,alpha:0,delay:2600,duration:4500,onComplete:()=>boat.destroy()});
   }});
   for(let i=0;i<cnt;i++){ const tt=pick(costa); spawnEnemy('pshark',tt.x,tt.y); }
+}
+function cañonazo(fx,fy){                            // el barco pirata dispara una bomba a un edificio
+  const cand=S.buildings.filter(b=>b.estado==='ok'&&!b.danado);
+  if(!cand.length) return;
+  const b=cand.reduce((m,x)=>Phaser.Math.Distance.Between(fx,fy,x.x,x.y)<Phaser.Math.Distance.Between(fx,fy,m.x,m.y)?x:m,cand[0]);
+  const bomb=scene.add.sprite(fx,fy,'bomb').play('bomb-a').setDepth(99990).setScale(0.7);
+  sfx('latch',0.4);
+  scene.tweens.add({targets:bomb,x:b.x,y:b.y-20,duration:900,ease:'Quad.easeIn',
+    onUpdate:()=>bomb.setDepth(99990), onComplete:()=>{ bomb.destroy(); explosionAt(b.x,b.y-14,1.3);
+      scene.cameras.main.shake(180,0.006);
+      if(b.estado==='ok'&&!b.danado){ b.hp-=45;
+        scene.tweens.add({targets:b.sprs[0],x:'+=4',duration:50,yoyo:true,repeat:2});
+        if(b.hp<=0){ if(b.tipo==='castle'){ gameOver(); return; }
+          b.danado=true; const w=S.ald.find(a=>a.bId===b.id&&a.estado==='peon'); if(w) parar(w);
+          refreshBuilding(b); toast('💣 ¡'+CAT[b.tipo].nom+' bombardeado por los piratas!'); } } } });
 }
 function lanzarOleada(){
   if(S.phase==='wave'||S.over) return;
@@ -1127,10 +1168,11 @@ function lanzarOleada(){
   const naval=S.wave%3===0, boss=S.wave%5===0;
   if(naval) oleadaNaval(1+Math.floor(S.wave/3),costa);
   if(boss){ const t=costa.length?pick(costa):{x:Math.floor(GW/2),y:2}; spawnEnemy('toro',t.x,t.y); }
-  S.units.forEach(u=>{ if(!u.dead) u.spr.play(u.tipo==='guerrero'?'war-r':'arq-r',true); });
-  toast(boss?('🐂 ¡OLEADA '+S.wave+' — JEFE! THE BLACK BULL lidera el asalto.')
+  S.units.forEach(u=>{ if(!u.dead) u.spr.play(uAnim(u.tipo,'r'),true); });
+  const msg=boss?('🐂 ¡OLEADA '+S.wave+' — JEFE! THE BLACK BULL lidera el asalto.')
        :naval?('🏴‍☠️ ¡OLEADA '+S.wave+'! Piratas desembarcan por el mar.')
-       :('⚔️ ¡OLEADA '+S.wave+'! Goblins entran por la costa.'));
+       :('⚔️ ¡OLEADA '+S.wave+'! Goblins entran por la costa.');
+  toast(msg); cronica(msg.replace(/^[^ ]+ /,''), randAv());
   updateBanner();
 }
 function finOleada(){
@@ -1138,11 +1180,12 @@ function finOleada(){
   $('raidbanner').classList.remove('on'); $('btnMercen').style.display='none';
   S.raid.war.forEach(w=>{ if(!w.dead){ scene.tweens.add({targets:w.spr,alpha:0,duration:1200,onComplete:()=>w.spr.destroy()}); } });
   S.raid.war=[];
-  S.units.forEach(u=>{ if(!u.dead){ u.spr.play(u.tipo==='guerrero'?'war-i':'arq-i',true); u.target=null; u.moveT=null; } });
+  S.units.forEach(u=>{ if(!u.dead){ u.spr.play(uAnim(u.tipo,'i'),true); u.target=null; u.moveT=null; } });
   const bono=100*S.wave; S.score+=bono; S.stats.raids++;
   const oro=40+10*S.wave; S.oro=Math.min(CAP,S.oro+oro); S.ambar+=5;
   if(S.score>S.best) S.best=S.score;
   sfx('bong',0.7); toast('🛡️ ¡Oleada '+S.wave+' repelida! +'+bono+' pts · +'+oro+' oro. Reforzá para la próxima.');
+  cronica('🛡️ Oleada '+S.wave+' repelida · +'+bono+' pts',randAv());
   updateBanner(); refreshHUD(); refreshQuest();
 }
 function gameOver(){
@@ -1165,8 +1208,8 @@ function showGameOver(){
   $('btnRetry').onclick=()=>location.reload();
 }
 function spawnDefensor(x,y){
-  const s=scene.add.sprite(x,y,'warrior_blue').setOrigin(0.5,0.95).setScale(0.72).setDepth(y);
-  s.play('war-r'); S.raid.war.push({spr:s,target:null,dead:false});
+  const s=scene.add.sprite(x,y,'warrior_i').setOrigin(0.5,0.72).setScale(0.72).setDepth(y);
+  s.play('war-r'); S.raid.war.push({spr:s,tipo:'guerrero',target:null,dead:false,hp:40,maxhp:40,atkCd:0});
 }
 function golpearEnemigo(g,dmg,color){              // daño con vida: bosses aguantan varios golpes
   g.hp-=dmg; burstAt(g.spr.x,g.spr.y-16,color||0xffffff);
@@ -1176,7 +1219,8 @@ function golpearEnemigo(g,dmg,color){              // daño con vida: bosses agu
 function killGoblin(g){
   if(g.dead) return; g.dead=true;
   burstAt(g.spr.x,g.spr.y-14, g.kind==='pshark'?0x6ac0e0 : g.boss?0xc060ff : 0x7fbf5a); dustAt(g.spr.x,g.spr.y,2);
-  if(g.boss){ scene.cameras.main.flash(300,120,60,140); S.stats.bull++; }
+  if(g.kind==='tnt'||g.boss) explosionAt(g.spr.x,g.spr.y-10,g.boss?1.6:1.1);   // TNT/jefe estallan
+  if(g.boss){ scene.cameras.main.flash(300,120,60,140); S.stats.bull++; cronica('🐂 ¡THE BLACK BULL derrotado!',randAv()); }
   g.spr.destroy(); S.kills++; S.score+=g.boss?250:10;
   if(S.raid.gob.length&&S.raid.gob.every(x=>x.dead)) finOleada();
 }
@@ -1227,9 +1271,16 @@ function raidTick(dtReal){
   pelear(S.units,vivos,dtReal,true);
   pelear(R.war,vivos,dtReal,false);
 }
+function muereUnidad(u,esUnidad){
+  u.dead=true; killMark(u); killBar(u); if(esUnidad) S.units=S.units.filter(x=>x!==u);
+  const d2=scene.add.sprite(u.spr.x,u.spr.y,'dead').play('dead-a').setOrigin(0.5,0.72).setScale(0.5).setDepth(u.spr.y);
+  d2.once('animationcomplete',()=>scene.tweens.add({targets:d2,alpha:0,duration:1500,onComplete:()=>d2.destroy()}));
+  u.spr.destroy(); if(esUnidad){ cronica('☠️ '+(UNIDADES[u.tipo]?UNIDADES[u.tipo].nom:'Unidad')+' caído', u.av); refreshHUD(); }
+}
 function pelear(lista,vivos,dtReal,esUnidad){
   for(const u of lista.filter(u2=>!u2.dead)){
-    const arquero=esUnidad&&u.tipo==='arquero';
+    if(u.tipo==='monje'){ curarCerca(u,dtReal); continue; }   // el monje no pelea: sana
+    const arquero=u.tipo==='arquero';
     const alcance=arquero?T*4.5:26;
     if(!u.target||u.target.dead) u.target=vivos.find(g=>!g.dead)||null;
     if(!u.target){ if(u.moveT){ const d=Phaser.Math.Distance.Between(u.spr.x,u.spr.y,u.moveT.x,u.moveT.y);
@@ -1246,14 +1297,28 @@ function pelear(lista,vivos,dtReal,esUnidad){
         sfx('clash',0.2); u.target=null; }
     } else {
       u.atkCd=(u.atkCd||0)-dtReal;
-      if(u.atkCd<=0){ u.atkCd=0.8; sfx('clash',0.3); golpearEnemigo(u.target,2,0xffffff);
-        if(!u.target.dead && Math.random()<(esUnidad?0.12:0.16)){ u.dead=true; killMark(u); killBar(u); if(esUnidad) S.units=S.units.filter(x=>x!==u);
-          const d2=scene.add.sprite(u.spr.x,u.spr.y,'dead').play('dead-a').setOrigin(0.5,0.72).setScale(0.5).setDepth(u.spr.y);
-          d2.once('animationcomplete',()=>scene.tweens.add({targets:d2,alpha:0,duration:1500,onComplete:()=>d2.destroy()}));
-          u.spr.destroy(); refreshHUD(); }
+      if(u.atkCd<=0){ u.atkCd=0.85; sfx('clash',0.3);
+        if(u.tipo==='guerrero'){ u.spr.play('war-a',true); u.spr.once('animationcomplete',()=>{ if(u.spr&&u.spr.active&&!u.dead) u.spr.play('war-r',true); }); }
+        golpearEnemigo(u.target,2,0xffffff);
+        // el enemigo devuelve daño al cuerpo a cuerpo
+        if(u.target&&!u.target.dead){ u.hp=(u.hp||40)-u.target.dmg*0.35;
+          if(u.hp<=0){ muereUnidad(u,esUnidad); continue; } }
         if(u.target&&u.target.dead) u.target=null; }
     }
   }
+}
+function curarCerca(u,dtReal){                      // monje: sana la unidad/aldeano más herido cerca
+  if(u.moveT){ const d=Phaser.Math.Distance.Between(u.spr.x,u.spr.y,u.moveT.x,u.moveT.y);
+    if(d>6){ const sp=52*dtReal, ang=Math.atan2(u.moveT.y-u.spr.y,u.moveT.x-u.spr.x); u.spr.x+=Math.cos(ang)*sp; u.spr.y+=Math.sin(ang)*sp; u.spr.setFlipX(Math.cos(ang)<0); u.spr.setDepth(u.spr.y);} else u.moveT=null; }
+  u.healCd=(u.healCd||0)-dtReal; if(u.healCd>0) return;
+  const cerca=[...S.units.filter(x=>!x.dead&&x!==u&&x.hp<x.maxhp), ...S.ald.filter(a=>a.hp<a.maxhp)]
+    .filter(t=>Phaser.Math.Distance.Between(u.spr.x,u.spr.y,t.spr.x,t.spr.y)<T*4)
+    .sort((a,b)=>(a.hp/a.maxhp)-(b.hp/b.maxhp))[0];
+  if(!cerca) return;
+  u.healCd=1.4; cerca.hp=Math.min(cerca.maxhp,cerca.hp+12);
+  flyText(cerca.spr.x,cerca.spr.y-30,'+12','#8ee0a0'); sfx('bell',0.25);
+  const ray=scene.add.line(0,0,u.spr.x,u.spr.y-20,cerca.spr.x,cerca.spr.y-20,0x8ee0a0,0.7).setLineWidth(2).setDepth(99996);
+  scene.tweens.add({targets:ray,alpha:0,duration:300,onComplete:()=>ray.destroy()});
 }
 
 /* ===== HUD ===== */
@@ -1269,6 +1334,15 @@ function refreshHUD(){
 let toastT=null;
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('on');
   clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),3600); }
+/* ===== crónica (feed de eventos con avatar humano) ===== */
+function cronica(txt,av){
+  const box=$('cronicaList'); if(!box) return;
+  const row=document.createElement('div'); row.className='crow';
+  row.innerHTML='<img src="assets/img/av/'+(av||randAv())+'.png" alt="">'+'<span>'+txt+'</span>';
+  box.insertBefore(row,box.firstChild);
+  while(box.children.length>7) box.removeChild(box.lastChild);
+  row.animate?row.animate([{opacity:0,transform:'translateX(-8px)'},{opacity:1,transform:'none'}],{duration:220}):0;
+}
 function hint(msg){ const h=$('hint'); h.textContent=msg; h.classList.toggle('on',!!msg); }
 $('btnTiempo').onclick=()=>{ S.speed=S.speed===1?4:1; $('btnTiempo').textContent='⏱ ×'+S.speed; };
 let idleCursor=0;
@@ -1413,7 +1487,8 @@ function update(time,delta){
     moveMark(a);
     if(a.hp<a.maxhp||(S.sel&&S.sel.ref===a)) drawHp(a,a.hp/a.maxhp,32,a.spr.y-a.markOff+12); else hideBar(a);
   }
-  for(const u of S.units) moveMark(u);
+  for(const u of S.units){ moveMark(u);
+    if(u.hp!=null&&(u.hp<u.maxhp||(S.sel&&S.sel.ref===u))) drawHp(u,u.hp/u.maxhp,30,u.spr.y-58); else hideBar(u); }
 
   updateAnimals(dtReal,dt);
 

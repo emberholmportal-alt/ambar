@@ -50,9 +50,9 @@
   .menu button{width:100%}
   button.ghost{font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.05em;color:#f4ecda;
     background:url('assets/img/ui/ribbon_blue.png') center/100% 100% no-repeat;border:none;padding:9px 12px 11px;cursor:pointer;
-    min-width:58px;image-rendering:pixelated;text-shadow:0 1px 2px rgba(10,20,40,.8)}
-  button.ghost:hover{filter:brightness(1.15)} button.ghost:active{filter:brightness(.85)}
-  button.ghost:disabled{filter:grayscale(1) brightness(.6);cursor:not-allowed}
+    min-width:60px;image-rendering:pixelated;text-shadow:0 1px 2px rgba(10,20,40,.85)}
+  button.ghost:hover{filter:brightness(1.14)} button.ghost:active{filter:brightness(.85)}
+  button.ghost:disabled{filter:grayscale(1) brightness(.62);cursor:not-allowed}
 
   /* ---- viewport ---- */
   .stage{flex:1;position:relative;min-height:0;background:#0a0f12}
@@ -100,9 +100,17 @@
   .ambar{color:var(--brass);font-weight:700}
   .ambar::before{content:"◆ ";color:var(--brass)}
 
-  .selbox{flex:0 0 236px;border-radius:8px;padding:9px 9px 9px 11px;overflow-y:auto;
+  .selbox{flex:0 0 236px;border-radius:8px;padding:9px 9px 9px 11px;overflow-y:auto;position:relative;
     box-shadow:inset 3px 0 0 -1px var(--brass-dim), inset 0 0 0 1px rgba(0,0,0,.5)}
+  .selav{display:none;width:52px;height:52px;float:right;border-radius:6px;border:2px solid var(--brass-dim);
+    image-rendering:pixelated;object-fit:cover;object-position:50% 22%;margin:0 0 4px 6px;background:#0d0906}
   .selbox h3{margin:0 0 2px;font-family:var(--display);font-weight:700;font-size:16px;color:var(--ink);letter-spacing:.01em}
+  /* crónica (feed con avatar) */
+  .cronica{position:absolute;left:12px;top:12px;width:210px;border-radius:8px;padding:8px 9px;z-index:11}
+  .cronica .ch{font-family:var(--display);font-weight:700;font-size:11px;letter-spacing:.16em;color:var(--brass);margin-bottom:4px}
+  .crow{display:flex;align-items:center;gap:7px;font-size:9.5px;line-height:1.15;padding:4px 0;border-top:1px solid var(--line)}
+  .crow img{width:26px;height:26px;border-radius:4px;image-rendering:pixelated;border:1px solid var(--line2);object-fit:cover;object-position:50% 22%;flex:0 0 auto}
+  .crow span{color:var(--ink)}
   .selbox .lvl{font-family:var(--mono);font-size:9.5px;color:var(--brass);margin-bottom:4px}
   .selbox .hpbar{height:9px;background:#2a2018;border:1px solid var(--line);border-radius:3px;margin:4px 0 8px;overflow:hidden}
   .selbox .hpbar i{display:block;height:100%;background:var(--ok);transition:width .2s}
@@ -152,6 +160,7 @@
       <div class="qt" id="qTxt">—</div>
       <button class="ghost" id="btnQuest">···</button>
     </div>
+    <div class="cronica frame" id="cronica"><div class="ch">⚜ CRÓNICA</div><div id="cronicaList"></div></div>
     <div class="raidbanner" id="raidbanner">⚔️ ¡ASALTO GOBLIN EN CURSO!</div>
     <div class="agepop" id="agePop"><div class="t1" id="agePop1">NUEVA EDAD</div><div class="t2" id="agePop2">—</div></div>
     <div class="toast" id="toast"></div>
@@ -168,6 +177,7 @@
       </div>
     </div>
     <div class="selbox frame">
+      <img id="selAv" class="selav" alt="">
       <h3 id="selNom">—</h3>
       <div class="lvl" id="selLvl"></div>
       <div class="hpbar" id="selHpWrap" style="display:none"><i id="selHp" style="width:100%"></i></div>
