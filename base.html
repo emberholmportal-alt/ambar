@@ -75,6 +75,14 @@
   @keyframes agepop{0%{opacity:0;transform:translate(-50%,-50%) scale(.7)}15%{opacity:1;transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-58%) scale(1)}}
   .toast{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(18,13,9,.92);border:1px solid var(--brass-dim);border-radius:4px;padding:8px 16px;font-size:12px;z-index:30;opacity:0;transition:.3s;pointer-events:none}
   .toast.on{opacity:1}
+  /* ---- GAME OVER (fin del asedio) ---- */
+  .gameover{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+    background:radial-gradient(ellipse at center,rgba(30,10,8,.82),rgba(6,4,3,.94));z-index:60;text-align:center}
+  .gameover.on{display:flex}
+  .gameover .gtitle{font-family:var(--title);font-size:40px;color:var(--ember);text-shadow:0 3px 0 #000;letter-spacing:.04em}
+  .gameover .gstat{font-family:var(--display);font-size:17px;color:var(--ink)}
+  .gameover .gstat b{color:var(--brass)}
+  .gameover button{margin-top:14px;font-size:14px;padding:12px 22px 14px}
 
   /* ---- PANEL INFERIOR: minimapa + recursos · selección · construcción ---- */
   .bottom{display:flex;gap:10px;padding:8px 12px;background:linear-gradient(0deg,#0d0906,#1b140d);border-top:2px solid var(--brass-dim);z-index:20;height:214px}
@@ -124,10 +132,11 @@
   <div class="hud">
     <div class="agebanner" id="ageBanner">
       <div class="game">AGE OF <b>ANSEM</b></div>
-      <div class="age" id="ageTxt">Edad I · Aldea</div>
+      <div class="age" id="ageTxt">🛡️ Preparación…</div>
     </div>
     <button class="iconbtn" id="btnMenu" title="Menú">☰</button>
     <div class="menu frame" id="menu">
+      <button class="ghost" id="btnOleada" title="Adelantar la oleada por puntos extra">⚔️ OLEADA YA</button>
       <button class="ghost" id="btnIdle" title="Ir al próximo aldeano ocioso">💤 IDLE (0)</button>
       <button class="ghost" id="btnCaravana" title="+250 del recurso más bajo">◆ CARAVANA (8)</button>
       <button class="ghost" id="btnMercen" style="display:none">◆ MERCENARIOS (10)</button>
