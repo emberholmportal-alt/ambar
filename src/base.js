@@ -17,12 +17,12 @@ const CAP=2000;
 const MAXLVL={castle:3, def:2};
 const CAT={   // reqWave: oleadas que hay que sobrevivir para desbloquear (progresión defensiva)
   castle:    {nom:'Ayuntamiento', fw:5,fh:2, costo:{oro:300,madera:300}, dur:120, unico:true, skins:true, esTC:true, hp:300},
-  muralla:   {nom:'Muralla',      fw:1,fh:1, costo:{madera:30},         dur:12,   reqWave:0, muro:true, hp:260},
+  muralla:   {nom:'Muralla',      fw:1,fh:1, costo:{madera:30},         dur:12,   reqWave:0, muro:true, hp:260, desc:'Empalizada de madera (260 de resistencia). Barata y rápida: frená la horda desde la primera oleada. Colocá una línea arrastrando.'},
   house:     {nom:'Casa',         fw:2,fh:2, costo:{madera:100},        dur:120,  reqWave:0, skins:true, up:[{costo:{madera:200},dur:120}]},
   granja:    {nom:'Granja',       fw:3,fh:2, costo:{madera:120},        dur:180,  reqWave:0, prod:'comida', reserva:400, up:[{costo:{oro:250},dur:200}]},
   torre:     {nom:'Torre',        fw:2,fh:2, costo:{oro:150,madera:150},dur:240, reqWave:1, skins:true, up:[{costo:{oro:500},dur:300}]},
   cuartel:   {nom:'Cuartel',      fw:3,fh:2, costo:{madera:300},        dur:300, reqWave:1, skins:true, up:[{costo:{oro:600},dur:360}]},
-  murallon:  {nom:'Murallón',     fw:1,fh:1, costo:{madera:60,oro:20},  dur:16,   reqWave:2, muro:true, hp:520},
+  murallon:  {nom:'Murallón',     fw:1,fh:1, costo:{madera:60,oro:20},  dur:16,   reqWave:2, muro:true, hp:520, desc:'Muro de piedra reforzado (520 de resistencia: el doble que la Muralla). Cuesta madera + oro y se desbloquea en la oleada 2, para el frente donde más pegan.'},
   arqueria:  {nom:'Arquería',     fw:3,fh:2, costo:{oro:300},           dur:360, reqWave:3, reqB:'cuartel', skins:true, up:[{costo:{madera:600},dur:360}]},
   monasterio:{nom:'Monasterio',   fw:3,fh:2, costo:{ambar:40},          dur:360, reqWave:4, skins:true, premium:true, up:[{costo:{ambar:60},dur:360}]},
 };
@@ -162,7 +162,7 @@ function preload(){
     this.load.spritesheet('wrock'+i,TSB+'wrock'+i+'.png',{frameWidth:128,frameHeight:128});
     this.load.image('rock'+i,TSB+'rock'+i+'.png');
     this.load.spritesheet('bush'+i,TSB+'bush'+i+'.png',{frameWidth:128,frameHeight:128}); }
-  for(let i=1;i<=15;i++) this.load.image('deco'+i,TSB+'deco'+String(i).padStart(2,'0')+'.png');
+  for(let i=1;i<=18;i++) this.load.image('deco'+i,TSB+'deco'+String(i).padStart(2,'0')+'.png');
   this.load.spritesheet('sboat',TSB+'sboat.png',{frameWidth:192,frameHeight:192});
   this.load.spritesheet('boat',TSB+'boat.png',{frameWidth:256,frameHeight:256});
   this.load.spritesheet('shark',TSB+'shark.png',{frameWidth:192,frameHeight:192});
@@ -181,6 +181,28 @@ function makeFogBrush(s){
   const g=ctx.createRadialGradient(FOGR,FOGR,FOGR*0.35,FOGR,FOGR,FOGR);
   g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(0.72,'rgba(255,255,255,1)'); g.addColorStop(1,'rgba(255,255,255,0)');
   ctx.fillStyle=g; ctx.fillRect(0,0,d,d); tex.refresh();
+}
+function makeGrassBrush(s){
+  const d=128, tex=s.textures.createCanvas('gbrush',d,d), ctx=tex.getContext();
+  const g=ctx.createRadialGradient(d/2,d/2,0,d/2,d/2,d/2);
+  g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=g; ctx.fillRect(0,0,d,d); tex.refresh();
+}
+// manchas de pasto de distinto tono para que el suelo no sea un verde plano
+function paintGrassPatches(rt){
+  const brush=scene.add.image(0,0,'gbrush').setVisible(false);
+  const claros=[0x6fa04a,0x7fae52,0x8dbb5e], oscuros=[0x2f5730,0x244a28,0x39623a];
+  for(let i=0;i<90;i++){
+    const tx=rint(0,GW-1), ty=rint(0,GH-1);
+    if(!S.land[ty][tx]) continue;
+    const claro=Math.random()<0.5;
+    brush.setPosition((BX+tx)*T+rint(-20,20)+T/2,(BY+ty)*T+rint(-20,20)+T/2)
+         .setTint(pick(claro?claros:oscuros))
+         .setAlpha(Phaser.Math.FloatBetween(0.05,claro?0.13:0.18))
+         .setScale(Phaser.Math.FloatBetween(0.7,1.9));
+    rt.draw(brush);
+  }
+  brush.destroy();
 }
 
 /* ===== mapa continental (tierra grande + costa irregular + mar/lagos + mesetas) ===== */
@@ -227,13 +249,16 @@ function buildMap(){
   // garantizar zona de arranque sólida (centro-sur)
   const sx0=Math.floor(GW/2)-3, sy0=GH-6;
   for(let y=sy0;y<GH-1;y++)for(let x=sx0;x<sx0+6;x++) if(isIn(x,y)) S.land[y][x]=true;
-  // 2 mesetas con desnivel (pared de acantilado al sur)
-  for(let m=0;m<2;m++){
+  // varias mesetas con desnivel (pared de acantilado al sur) — relieve, menos chato
+  const nMes=rint(3,4);
+  for(let m=0;m<nMes;m++){
     let mx=0,my=0,tr=0;
-    do{ mx=rint(4,GW-5); my=rint(2,Math.floor(GH/2)); tr++; }while(tr<50&&!isLand(mx,my));
-    const mr=Phaser.Math.FloatBetween(2.2,3.2);
-    for(let y=0;y<GH;y++)for(let x=0;x<GW;x++)
-      if(S.land[y][x]&&Math.hypot(x-mx,y-my)<mr&&y<GH-3) S.elev[y][x]=1;
+    do{ mx=rint(4,GW-5); my=rint(2,Math.floor(GH*0.6)); tr++; }while(tr<50&&!isLand(mx,my));
+    const mr=Phaser.Math.FloatBetween(1.8,3.4), ph=Math.random()*6.28;
+    for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
+      const wob=0.5*Math.sin(Math.atan2(y-my,x-mx)*3+ph);   // borde orgánico, no un círculo
+      if(S.land[y][x]&&Math.hypot(x-mx,y-my)<mr+wob&&y<GH-3) S.elev[y][x]=1;
+    }
   }
   for(let y=0;y<GH;y++)for(let x=0;x<GW;x++)
     if(S.elev[y][x]&&!isLand(x,y+1)) S.elev[y][x]=0;
@@ -255,7 +280,7 @@ function eIdx(x,y){
 }
 
 function create(){
-  scene=this; makeDot(this); makeTri(this); makeBird(this); makeFogBrush(this);
+  scene=this; makeDot(this); makeTri(this); makeBird(this); makeFogBrush(this); makeGrassBrush(this);
   buildMap();
   const an=this.anims;
   an.create({key:'foam-a',frames:an.generateFrameNumbers('foam',{start:0,end:7}),frameRate:7,repeat:-1});
@@ -338,6 +363,7 @@ function create(){
     const l=isIn(x-1,y)&&S.cliff[y][x-1], r=isIn(x+1,y)&&S.cliff[y][x+1];
     rt.drawFrame('elev', l&&r?13 : r?12 : l?14 : 15, (BX+x)*T,(BY+y)*T);
   }
+  paintGrassPatches(rt);   // variación de tono sobre el pasto (menos chato)
   // snapshot del terreno real → base del minimapa (no procedural)
   try{ rt.snapshotArea(BX*T,BY*T,GW*T,GH*T,img=>{ mmBase=img; }); }catch(e){}
 
@@ -375,7 +401,7 @@ function create(){
   scatterFauna('toro',1);            // El Toro Negro — bestia rara, peligrosa y jugosa
   scatterCritter('snake',3);
   scatterCritter('spider',2);
-  scatterEyeCandy(30);
+  scatterEyeCandy(50);
 
   // ---- ARRANQUE: un AYUNTAMIENTO ya en pie (Edad I) + 3 aldeanos ----
   let hx=Math.floor(GW/2)-2, hy=GH-4, tr=0;
@@ -385,6 +411,7 @@ function create(){
   revelar(homePos.x,homePos.y,7);
   for(let i=0;i<3;i++){ const a=spawnAldeano(home.x+rint(-60,60),home.y+rint(10,30),true); if(a) revelar(a.spr.x,a.spr.y,5); }
   scatterScenery();
+  scatterLandmarks();
 
   this.input.on('pointermove',p=>{ if(!S.colocando) return; drawGhost(p);
     // arrastrar para colocar una LÍNEA de murallas
@@ -765,14 +792,36 @@ function recogerPila(pile){
 }
 
 /* ===== eye-candy (decos no bloqueantes) ===== */
+// hongos, cristales, arbustos, pasto, calabazas, huesos, rocas — con sombrita al pie
 function scatterEyeCandy(n){
   let puestos=0, tries=0;
-  while(puestos<n&&tries++<200){
+  while(puestos<n&&tries++<400){
     const tx=rint(0,GW-1), ty=rint(0,GH-1);
     if(!isLand(tx,ty)||S.cliff[ty][tx]||S.grid[ty][tx]!==null) continue;
-    const x=(BX+tx)*T+T/2, y=(BY+ty+1)*T-6;
-    scene.add.image(x+rint(-14,14),y,'deco'+rint(4,15)).setOrigin(0.5,1).setScale(Phaser.Math.FloatBetween(0.6,0.9)).setDepth(y).setAlpha(0.95);
+    const x=(BX+tx)*T+T/2+rint(-14,14), y=(BY+ty+1)*T-6;
+    const r=Math.random();
+    if(r<0.22){ // roca (estática) con sombra
+      scene.add.ellipse(x,y,26,10,0x000000,0.18).setDepth(y-1);
+      scene.add.image(x,y,'rock'+rint(1,4)).setOrigin(0.5,1).setScale(Phaser.Math.FloatBetween(0.7,1.05)).setDepth(y);
+    } else {    // deco 1..15 (traen sombra pintada): hongos, cristales, arbustos, pasto, calabaza, huesos
+      scene.add.image(x,y,'deco'+rint(1,15))
+        .setOrigin(0.5,1).setScale(Phaser.Math.FloatBetween(0.65,1.0)).setDepth(y).setAlpha(0.96);
+    }
     puestos++;
+  }
+}
+// hitos más grandes y variados: espantapájaros, cartel, calavera en cruz
+function scatterLandmarks(){
+  const props=[['deco18',0.7],['deco18',0.7],['deco17',0.85],['deco16',0.85],['deco13',1.0]];
+  for(const [tex,esc] of props){
+    for(let tr=0;tr<60;tr++){ const tx=rint(1,GW-2), ty=rint(1,GH-2);
+      if(!isLand(tx,ty)||S.cliff[ty][tx]||S.grid[ty][tx]!==null) continue;
+      if(Math.hypot((BX+tx)*T-homePos.x,(BY+ty)*T-homePos.y)<T*4) continue;
+      const x=(BX+tx)*T+T/2, y=(BY+ty+1)*T-4;
+      scene.add.ellipse(x,y,30,11,0x000000,0.16).setDepth(y-1);
+      scene.add.image(x,y,tex).setOrigin(0.5,1).setScale(esc).setDepth(y);
+      break;
+    }
   }
 }
 
@@ -784,6 +833,23 @@ function texOf(b){
   if(b.tipo==='house')  return 'house'+b.var+'_'+b.skin;
   if(CAT[b.tipo].skins) return {torre:'tower',cuartel:'barracks',arqueria:'archery',monasterio:'monastery'}[b.tipo]+'_'+b.skin;
   return null;
+}
+// ¿hay una muralla (o murallón) en esta celda? — para autotilear la línea
+function wallAt(tx,ty){ return S.buildings.some(b=>CAT[b.tipo].muro&&b.tx===tx&&b.ty===ty); }
+// wall.png es una empalizada 4×3: elijo el frame según los vecinos para que la línea conecte
+function wallFrame(b){
+  const L=wallAt(b.tx-1,b.ty), R=wallAt(b.tx+1,b.ty), U=wallAt(b.tx,b.ty-1), D=wallAt(b.tx,b.ty+1);
+  if(R&&D) return 0; if(L&&D) return 3; if(R&&U) return 8; if(L&&U) return 11;  // esquinas
+  if(L||R) return 9;   // tramo/extremo horizontal (tronco grueso)
+  if(U||D) return 4;   // tramo/extremo vertical (poste)
+  return 1;            // poste suelto con travesaño (siempre visible)
+}
+// re-frame de la muralla nueva y sus vecinas al colocar/quitar
+function refreshWallsAround(tx,ty){
+  for(const [dx,dy] of [[0,0],[-1,0],[1,0],[0,-1],[0,1]]){
+    const w=S.buildings.find(b=>CAT[b.tipo].muro&&b.tx===tx+dx&&b.ty===ty+dy);
+    if(w&&w.wallSpr) w.wallSpr.setFrame(wallFrame(w));
+  }
 }
 function makeSprites(b){
   const c=CAT[b.tipo];
@@ -797,9 +863,9 @@ function makeSprites(b){
     sprs.push(scene.add.sprite(x-14,y-T*0.7,'sheep').play('sheep-a').setOrigin(0.5,0.9).setDepth(y-T*0.7));
     sprs.push(scene.add.sprite(x+20,y-T*0.55,'pig_idle').play('cerdo-i').setOrigin(0.5,0.72).setScale(0.42).setDepth(y-T*0.55));
   } else if(CAT[b.tipo].muro){
-    const w=scene.add.image(x,y+6,'wall',5).setOrigin(0.5,1).setDepth(y);
-    if(b.tipo==='murallon'){ w.setScale(1.18).setTint(0x9fb0c4); } else w.setScale(1.05);
-    sprs.push(w);
+    const w=scene.add.image(x,y+6,'wall',wallFrame(b)).setOrigin(0.5,1).setDepth(y);
+    if(b.tipo==='murallon'){ w.setScale(1.16).setTint(0xc2cbd6); } else w.setScale(1.06);  // murallón = piedra reforzada
+    b.wallSpr=w; sprs.push(w);
   } else {
     sprs.push(scene.add.image(x,y,texOf(b)).setOrigin(0.5,1).setDepth(y));
   }
@@ -824,6 +890,7 @@ function limpiarRestos(b){
   S.madera-=40;
   setGrid(b,null); destroySprites(b);
   S.buildings=S.buildings.filter(x=>x!==b);
+  if(CAT[b.tipo].muro) refreshWallsAround(b.tx,b.ty);   // las vecinas re-conectan
   dustAt(b.x,b.y-10,4); sfx('door',0.5); deseleccionar(); refreshHUD(); buildGrid();
 }
 function addBuilding(tipo,tx,ty,opt){
@@ -938,7 +1005,7 @@ function startPlace(tipo,moverId){
   S.colocando={tipo,moverId:moverId||null,lastTile:''};
   if(ghostSpr){ghostSpr.destroy();ghostSpr=null;}
   if(tipo!=='granja'){
-    if(CAT[tipo].muro){ ghostSpr=scene.add.image(0,0,'wall',5).setOrigin(0.5,1).setAlpha(0.6).setScale(tipo==='murallon'?1.18:1.05).setDepth(94000).setVisible(false); }
+    if(CAT[tipo].muro){ ghostSpr=scene.add.image(0,0,'wall',1).setOrigin(0.5,1).setAlpha(0.6).setScale(tipo==='murallon'?1.16:1.06).setTint(tipo==='murallon'?0xc2cbd6:0xffffff).setDepth(94000).setVisible(false); }
     else { const tex=moverId?texOf(byId(moverId)):CARD_IMG[tipo];
       if(tex&&tex!=='sheep') ghostSpr=scene.add.image(0,0,tex).setOrigin(0.5,1).setAlpha(0.55).setDepth(94000).setVisible(false); }
   }
@@ -974,7 +1041,7 @@ function tryPlace(tx,ty){
   if(!pagar(c.costo)){ sfx('creak',0.4); if(!c.muro) toast('No te alcanza para '+c.nom+'.'); return; }
   addBuilding(tipo,tx,ty,{});
   sfx(c.muro?'chop':'door',0.5);
-  if(c.muro){ S.colocando.lastTile=tx+','+ty; refreshHUD(); buildGrid(); }   // muro: seguís colocando una línea
+  if(c.muro){ refreshWallsAround(tx,ty); S.colocando.lastTile=tx+','+ty; refreshHUD(); buildGrid(); }   // muro: seguís colocando una línea
   else { cancelPlace(); refreshHUD(); }
 }
 function cancelPlace(){ S.colocando=null; S.aldElegido=null; ghostG.clear(); if(ghostSpr){ghostSpr.destroy();ghostSpr=null;} hint(''); buildGrid(); }
@@ -1097,6 +1164,7 @@ function buildGrid(){
     const noPlata=!lock&&!Object.entries(c.costo).every(([k,v])=>(k==='ambar'?S.ambar:S[k])>=v);
     const el=document.createElement('div');
     el.className='card'+(lock?' lock':'')+(S.colocando&&S.colocando.tipo===tipo?' sel':'');
+    if(c.desc) el.title=c.desc;
     const img=CARD_IMG[tipo], isSheet=img==='sheep';
     el.innerHTML=`${isSheet
       ?`<div style="width:64px;height:44px;margin:2px auto;background:url('assets/img/sheep.png') no-repeat 0 0;background-size:200%;image-rendering:pixelated"></div>`
@@ -1178,13 +1246,14 @@ function scatterCampfires(n){
     scene.add.sprite(x,y,'fire').play('fire-a').setOrigin(0.5,1).setScale(0.42).setDepth(y);
   }
 }
-/* estandartes decorativos azules flanqueando el Ayuntamiento (chicos, flamean) */
+/* braseros encendidos flanqueando el Ayuntamiento (los pergaminos vacíos quedaban mal) */
 function scatterBanners(){
   const tc=byTC(); if(!tc) return;
-  for(const ox of [-0.4, CAT.castle.fw-0.6]){
+  for(const ox of [-0.2, CAT.castle.fw-0.8]){
     const x=(BX+tc.tx+ox)*T+T/2, y=(BY+tc.ty+CAT.castle.fh)*T;
-    const b=scene.add.image(x,y,'banner_v').setOrigin(0.5,1).setDepth(y+1).setScale(0.5).setTint(0x7aa0d8);
-    scene.tweens.add({targets:b,scaleX:0.44,duration:1400,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+    const glow=scene.add.circle(x,y-16,20,0xff8a3a,0.18).setDepth(y);
+    scene.tweens.add({targets:glow,scale:1.3,alpha:0.3,duration:800,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+    scene.add.sprite(x,y,'fire').play({key:'fire-a',startFrame:rint(0,6)}).setOrigin(0.5,1).setScale(0.5).setDepth(y+1);
   }
 }
 /* mariposas (día) y luciérnagas (glow) — vida ambiente */
