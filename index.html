@@ -7,12 +7,16 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.80.1/phaser.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@500;700;800&family=MedievalSharp&family=IM+Fell+English:ital@0;1&display=swap');
+  @font-face{font-family:'UnifrakturCook';src:url('UnifrakturCook-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
   /* ==== pantalla de carga (logo + barra) ==== */
   #splash{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;
     background:radial-gradient(120% 120% at 50% 38%,#241a10 0%,#140f0a 55%,#0b0806 100%);transition:opacity .6s ease}
   #splash.hide{opacity:0;pointer-events:none}
   #splashLogo{width:min(62vw,520px);height:auto;image-rendering:auto;
     filter:drop-shadow(0 10px 30px rgba(0,0,0,.6));animation:splashIn .8s cubic-bezier(.2,.9,.25,1) both}
+  #splashSub{font-family:'UnifrakturCook','MedievalSharp',serif;font-weight:700;font-size:clamp(30px,6vw,58px);
+    color:#e7c766;margin-top:-8px;letter-spacing:.02em;text-shadow:0 3px 0 #000,0 0 18px rgba(0,0,0,.7);
+    animation:splashIn 1s .15s cubic-bezier(.2,.9,.25,1) both}
   @keyframes splashIn{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
   #splashBarWrap{width:min(46vw,340px);height:14px;border:2px solid #6b5426;border-radius:9px;background:#1a130c;
     box-shadow:inset 0 2px 6px rgba(0,0,0,.6),0 0 0 3px #100b07;overflow:hidden}
@@ -47,6 +51,7 @@
   .titlechip .game{font-family:var(--title);font-size:18px;line-height:1;color:var(--brass-hi);letter-spacing:.03em;text-shadow:0 2px 0 #000,0 0 8px rgba(0,0,0,.6)}
   .titlechip .game b{color:#f0d564}
   .titlechip .sub{font-family:var(--flavor);font-style:italic;font-size:10px;color:var(--muted);margin-top:1px}
+  .titlechip .minilogo{height:60px;width:auto;display:block;filter:drop-shadow(0 3px 6px rgba(0,0,0,.6))}
   .menuwrap{position:absolute;top:9px;right:12px;z-index:40}
   .iconbtn{width:44px;height:44px;font-size:20px;color:#f4ecda;cursor:pointer;display:block;
     background:url('assets/img/ui/ribbon_yellow.png') center/100% 100% no-repeat;border:none;image-rendering:pixelated;
@@ -85,7 +90,9 @@
   .agepop .t1{font-family:var(--title);font-size:15px;color:#6b3410}
   .agepop .t2{font-family:var(--title);font-size:30px;color:#3a2a12;line-height:1}
   @keyframes agepop{0%{opacity:0;transform:translate(-50%,-50%) scale(.7)}15%{opacity:1;transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-58%) scale(1)}}
-  .toast{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(18,13,9,.92);border:1px solid var(--brass-dim);border-radius:4px;padding:8px 16px;font-size:12px;z-index:30;opacity:0;transition:.3s;pointer-events:none}
+  .toast{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);color:#2e2214;font-family:var(--flavor);font-weight:600;
+    background:url('assets/img/ui/paper2.png') center/100% 100% no-repeat;image-rendering:pixelated;
+    padding:11px 26px;font-size:12.5px;z-index:30;opacity:0;transition:.3s;pointer-events:none;text-shadow:0 1px 0 rgba(255,246,214,.5);min-width:200px;text-align:center}
   .toast.on{opacity:1}
   /* ---- GAME OVER (fin del asedio) ---- */
   .gameover{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;
@@ -99,7 +106,10 @@
   /* ---- PANEL INFERIOR: minimapa + recursos · selección · construcción ---- */
   .bottom{display:flex;gap:10px;padding:8px 12px;background:linear-gradient(0deg,#0d0906,#1b140d);border-top:2px solid var(--brass-dim);z-index:20;height:214px}
   .leftcol{flex:0 0 auto;display:flex;flex-direction:column;gap:7px}
-  .mapbox{border:2px solid var(--brass-dim);border-radius:6px;background:#000;box-shadow:inset 0 0 0 1px rgba(0,0,0,.6)}
+  .mapbox{border:2px solid var(--brass-dim);border-radius:6px;background:#000;box-shadow:inset 0 0 0 1px rgba(0,0,0,.6);position:relative}
+  .mmbtn{position:absolute;left:4px;bottom:4px;font-family:var(--mono);font-size:10px;cursor:pointer;
+    background:linear-gradient(180deg,var(--bg2),var(--bg3));color:var(--brass-hi);border:1px solid var(--brass-dim);border-radius:4px;padding:2px 7px}
+  .mmbtn:hover{background:var(--brass-dim);color:#120d09} .mmbtn:disabled{opacity:.45;cursor:default}
   #minimap{display:block;image-rendering:pixelated;cursor:crosshair;border-radius:4px}
   /* recursos DEBAJO del minimapa (rellena el hueco) */
   .resbar{display:grid;grid-template-columns:1fr 1fr;gap:5px}
@@ -119,7 +129,10 @@
   .selbox h3{margin:0 0 2px;font-family:var(--display);font-weight:700;font-size:16px;color:var(--ink);letter-spacing:.01em}
   /* crónica (feed con avatar) */
   .cronica{position:absolute;left:12px;top:12px;width:210px;border-radius:8px;padding:8px 9px;z-index:11}
-  .cronica .ch{font-family:var(--display);font-weight:700;font-size:11px;letter-spacing:.16em;color:var(--brass);margin-bottom:4px}
+  .cronica .ch{font-family:var(--display);font-weight:700;font-size:11px;letter-spacing:.16em;color:var(--brass);margin-bottom:4px;display:flex;align-items:center;justify-content:space-between}
+  .cronica .cronx{cursor:pointer;background:var(--bg3);color:var(--brass-hi);border:1px solid var(--brass-dim);border-radius:4px;width:18px;height:18px;line-height:1;font-size:13px;padding:0;display:flex;align-items:center;justify-content:center}
+  .cronica .cronx:hover{background:var(--brass-dim);color:#120d09}
+  .cronica.min{width:auto} .cronica.min #cronicaList{display:none}
   .crow{display:flex;align-items:center;gap:7px;font-size:9.5px;line-height:1.15;padding:4px 0;border-top:1px solid var(--line)}
   .crow img{width:26px;height:26px;border-radius:4px;image-rendering:pixelated;border:1px solid var(--line2);object-fit:cover;object-position:50% 22%;flex:0 0 auto}
   .crow span{color:var(--ink)}
@@ -150,6 +163,7 @@
 <body>
 <div id="splash">
   <img id="splashLogo" src="assets/img/aoa_logo.png" alt="Age of Ansem"/>
+  <div id="splashSub">The Black Bull</div>
   <div id="splashBarWrap"><div id="splashBar"></div></div>
   <div id="splashTxt">Forjando el reino…</div>
 </div>
@@ -157,8 +171,7 @@
   <div class="stage">
     <div id="game"></div>
     <div class="titlechip" id="ageBanner">
-      <div class="game">AGE OF <b>ANSEM</b></div>
-      <div class="sub">The Black Bull</div>
+      <img class="minilogo" src="assets/img/aoa_logo.png" alt="Age of Ansem"/>
     </div>
     <div class="menuwrap">
       <button class="iconbtn" id="btnMenu" title="Menú">☰</button>
@@ -177,7 +190,7 @@
       <div class="qt" id="qTxt">—</div>
       <button class="ghost" id="btnQuest">···</button>
     </div>
-    <div class="cronica frame" id="cronica"><div class="ch">⚜ CRÓNICA</div><div id="cronicaList"></div></div>
+    <div class="cronica frame" id="cronica"><div class="ch">⚜ CRÓNICA<button class="cronx" id="cronToggle" title="Mostrar/ocultar crónica">–</button></div><div id="cronicaList"></div></div>
     <div class="raidbanner" id="raidbanner">⚔️ ¡ASALTO GOBLIN EN CURSO!</div>
     <div class="agepop" id="agePop"><div class="t1" id="agePop1">NUEVA EDAD</div><div class="t2" id="agePop2">—</div></div>
     <div class="toast" id="toast"></div>
@@ -185,7 +198,9 @@
   <div class="bottom">
     <div class="leftcol">
       <div class="wavebar" id="waveBar">🛡️ Preparación…</div>
-      <div class="mapbox"><canvas id="minimap" width="220" height="132"></canvas></div>
+      <div class="mapbox"><canvas id="minimap" width="220" height="132"></canvas>
+        <button class="mmbtn" id="btnIdleMM" title="Ir marcando aldeanos ociosos">💤 Ociosos (<span id="idleN">0</span>)</button>
+      </div>
       <div class="resbar">
         <div class="res" id="rOro"><img src="assets/img/ts/res_gold.png" alt="oro"><span id="vOro">0</span><span class="cap" id="cOro"></span></div>
         <div class="res" id="rMad"><img src="assets/img/ts/res_wood.png" alt="madera"><span id="vMad">0</span><span class="cap" id="cMad"></span></div>

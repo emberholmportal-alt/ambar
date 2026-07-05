@@ -20,7 +20,7 @@ const CAT={   // reqWave: oleadas que hay que sobrevivir para desbloquear (progr
   muralla:   {nom:'Muralla',      fw:1,fh:1, costo:{madera:30},         dur:12,   reqWave:0, muro:true, hp:260, desc:'Empalizada de madera (260 de resistencia). Barata y rápida: frená la horda desde la primera oleada. Colocá una línea arrastrando.'},
   house:     {nom:'Casa',         fw:2,fh:2, costo:{madera:100},        dur:120,  reqWave:0, skins:true, up:[{costo:{madera:200},dur:120}]},
   granja:    {nom:'Granja',       fw:3,fh:2, costo:{madera:120},        dur:180,  reqWave:0, prod:'comida', reserva:400, up:[{costo:{oro:250},dur:200}]},
-  torre:     {nom:'Torre',        fw:2,fh:2, costo:{oro:150,madera:150},dur:240, reqWave:1, skins:true, up:[{costo:{oro:500},dur:300}]},
+  torre:     {nom:'Torre',        fw:2,fh:2, costo:{oro:150,madera:150},dur:240, reqWave:1, skins:true, hp:90, up:[{costo:{oro:500},dur:300}]},
   cuartel:   {nom:'Cuartel',      fw:3,fh:2, costo:{madera:300},        dur:300, reqWave:1, skins:true, up:[{costo:{oro:600},dur:360}]},
   murallon:  {nom:'Murallón',     fw:1,fh:1, costo:{madera:60,oro:20},  dur:16,   reqWave:2, muro:true, hp:520, desc:'Muro de piedra reforzado (520 de resistencia: el doble que la Muralla). Cuesta madera + oro y se desbloquea en la oleada 2, para el frente donde más pegan.'},
   arqueria:  {nom:'Arquería',     fw:3,fh:2, costo:{oro:300},           dur:360, reqWave:3, reqB:'cuartel', skins:true, up:[{costo:{madera:600},dur:360}]},
@@ -83,6 +83,23 @@ const S={ oro:220, madera:260, comida:130, ambar:60,
   raid:{on:false,gob:[],war:[],t:0,cool:180} };
 const PREP0=120, PREPW=40;                          // preparación: 2 min la primera, 40s entre oleadas
 let scene, ghostG, ghostSpr=null, fogRT=null, homePos={x:0,y:0}, overview=false;
+const CUR={def:'auto',sword:'auto',hand:'auto'};
+function makeCursors(){
+  const mk=(draw,hx,hy)=>{ const c=document.createElement('canvas'); c.width=32;c.height=32; const x=c.getContext('2d'); draw(x); return 'url('+c.toDataURL('image/png')+') '+hx+' '+hy+', auto'; };
+  CUR.def=mk(x=>{ x.fillStyle='#120d09';                    // flecha clásica con contorno oscuro
+    x.beginPath();x.moveTo(1,1);x.lineTo(1,21);x.lineTo(6.5,15.5);x.lineTo(10.5,24);x.lineTo(14,22.5);x.lineTo(10,14.5);x.lineTo(18,14.5);x.closePath();x.fill();
+    x.fillStyle='#f0d564';
+    x.beginPath();x.moveTo(3.5,4);x.lineTo(3.5,17);x.lineTo(7.5,13);x.lineTo(11.5,20.5);x.lineTo(12.6,20);x.lineTo(8.8,12.6);x.lineTo(14,12.6);x.closePath();x.fill(); },1,1);
+  CUR.hand=mk(x=>{ x.fillStyle='#120d09'; x.fillRect(6,3,4,13); x.fillRect(4,10,12,10);   // manito señaladora simple
+    x.fillStyle='#e7c766'; x.fillRect(7,5,2,10); x.fillRect(6,12,9,7); },8,2);
+  CUR.sword=mk(x=>{                                          // espada (militar seleccionado → atacar)
+    x.fillStyle='#120d09'; x.fillRect(12,1,7,18); x.fillRect(7,17,15,5); x.fillRect(12,21,7,9);
+    x.fillStyle='#d8dde6'; x.fillRect(14,2,3,15); x.fillStyle='#f2f5fa'; x.fillRect(14,2,1,15);
+    x.fillStyle='#c9a227'; x.fillRect(9,18,13,3); x.fillStyle='#7a5a34'; x.fillRect(14,22,3,6); },15,3);
+}
+function applyCursor(){ if(!scene||!scene.game) return;
+  const k=(S.sel&&S.sel.t==='militar')?CUR.sword:CUR.def;
+  scene.game.canvas.style.cursor=k; }
 let baseZoom=1, mmCtx=null, mmBase=null;
 function sfx(k,v){ try{ scene&&scene.sound.play('s_'+k,{volume:v||0.5}); }catch(e){} }
 
@@ -301,7 +318,7 @@ function eIdx(x,y){
 }
 
 function create(){
-  scene=this; makeDot(this); makeTri(this); makeBird(this); makeFogBrush(this); makeGrassBrush(this); makeSword(this);
+  scene=this; makeDot(this); makeTri(this); makeBird(this); makeFogBrush(this); makeGrassBrush(this); makeSword(this); makeCursors(); applyCursor();
   buildMap();
   const an=this.anims;
   an.create({key:'foam-a',frames:an.generateFrameNumbers('foam',{start:0,end:7}),frameRate:7,repeat:-1});
@@ -475,6 +492,7 @@ function create(){
   scheduleBoat(); scheduleShip(); scheduleBirds(); scatterCampfires(2); scatterBanners(); scatterAmbientLife();
   // menú desplegable (todos los controles escondidos arriba-derecha)
   $('btnMenu').onclick=()=>$('menu').classList.toggle('open');
+  $('cronToggle')&&($('cronToggle').onclick=()=>{ const c=$('cronica'), min=c.classList.toggle('min'); $('cronToggle').textContent=min?'+':'–'; });
   $('btnOleada')&&($('btnOleada').onclick=()=>{ if(S.phase==='prep'&&!S.over){ S.score+=Math.ceil(S.phaseT)*3; toast('¡Adelantás la oleada! +'+Math.ceil(S.phaseT)*3+' pts.'); lanzarOleada(); } });
   toast('EL ASEDIO · Preparate: construí defensas y entrená tropas. La primera oleada llega en '+PREP0+'s.');
   cronica('Fundás tu pueblo. Que empiece el asedio.',randAv());
@@ -678,6 +696,13 @@ function despedir(a){
   scene.tweens.add({targets:a.spr,alpha:0,y:'-=14',duration:600,onComplete:()=>a.spr.destroy()});
   sfx('door',0.4); toast('Aldeano despedido: cupo liberado.');
   if(S.sel&&S.sel.ref===a) deseleccionar(); refreshHUD();
+}
+function dañarDefensor(u,dmg){                        // el enemigo pega a una unidad defensora (militar o aldeano)
+  if(!u||u.dead) return;
+  if(S.ald.includes(u)){ dañarAldeano(u,dmg); return; }
+  u.hp=(u.hp!=null?u.hp:(u.maxhp||40))-dmg; flyText(u.spr.x,u.spr.y-30,'-'+dmg,'#ff9a8a');
+  u.spr.setTint(0xff6a5a); scene.time.delayedCall(120,()=>{ if(u.spr&&u.spr.active) u.spr.clearTint(); });
+  if(u.hp<=0) muereUnidad(u, S.units.includes(u));
 }
 function dañarAldeano(a,dmg){
   a.hp-=dmg; flyText(a.spr.x,a.spr.y-30,'-'+dmg,'#ff9a8a');
@@ -1119,8 +1144,8 @@ const costoTxt=c=>Object.entries(c).map(([k,v])=>`${v} ${k==='ambar'?'◆':k}`).
 const byId=id=>S.buildings.find(b=>b.id===id);
 
 /* ===== SELECCIÓN + panel inferior ===== */
-function seleccionar(sel){ S.sel=sel; renderSel(); buildGrid(); }
-function deseleccionar(){ S.sel=null; renderSel(); buildGrid(); }
+function seleccionar(sel){ S.sel=sel; renderSel(); buildGrid(); applyCursor(); }
+function deseleccionar(){ S.sel=null; renderSel(); buildGrid(); applyCursor(); }
 function accion(label,fn,disabled){
   const b=document.createElement('button'); b.className='ghost'; b.textContent=label; b.disabled=!!disabled;
   if(fn&&!disabled) b.onclick=fn;
@@ -1186,6 +1211,12 @@ function renderSelEdificio(b){
       if(up&&b.nivel<MAXLVL.def) accion('MEJORAR ('+costoTxt(up.costo)+')',()=>mejorarB(b),b.estado!=='ok'); }
     if(c.prod&&b.estado==='ok') accion('COSECHAR ('+Math.floor(b.buf)+' '+c.prod+')',()=>cosechar(b),b.buf<1);
   }
+  if(c.esTC){                                    // Ayuntamiento: refugiar / liberar aldeanos
+    const dentro=S.ald.filter(a=>a.estado==='refugiado').length;
+    const idle=S.ald.filter(a=>a.estado==='libre'||a.estado==='paseo').length;
+    if(dentro>0) accion('🚪 SACAR ALDEANOS ('+dentro+')',()=>liberarAldeanos(),false);
+    accion('🛡️ REFUGIAR OCIOSOS ('+idle+')',()=>refugiarAldeanos(),idle===0);
+  }
   if(b.estado==='obra') accion('◆ ACELERAR ('+(S.ACEL_TOPE-S.aceleradas)+' · 10)',()=>acelerarB(b),!(S.aceleradas<S.ACEL_TOPE&&S.ambar>=10));
   if(c.skins&&!c.esTC&&b.estado==='ok'&&!b.danado) accion(b.skin==='red'?'SKIN ROJA ✓':'◆ SKIN ROJA (25)',()=>skinB(b),b.skin==='red'||S.ambar<25);
   if(b.estado==='ok'&&!c.esTC) accion('MOVER',()=>startPlace(b.tipo,b.id),false);
@@ -1200,6 +1231,20 @@ function repararB(b){
   if(eraRuina){ b.hp=Math.max(1,b.hp); refreshBuilding(b); }   // saca el tinte de ruina y el fuego total
   b.reparando=true;                                            // la vida sube de a poco (se ve la barra llenarse)
   sfx('bong',0.5); toast('🔧 '+CAT[b.tipo].nom+' en reparación…'); refreshHUD(); renderSel(); }
+function refugiarAldeanos(){                                    // los ociosos entran al Ayuntamiento (a salvo de la horda)
+  const idle=S.ald.filter(a=>a.estado==='libre'||a.estado==='paseo');
+  if(!idle.length){ toast('No hay aldeanos ociosos para refugiar.'); sfx('creak',0.3); return; }
+  idle.forEach(a=>{ if(a.dustEv){a.dustEv.remove();a.dustEv=null;} if(a.tween){a.tween.remove();a.tween=null;}
+    a.estado='refugiado'; a.path=null; a.spr.setVisible(false); if(a.mark){a.mark.setVisible(false);a.markBg.setVisible(false);} hideBar(a);
+    if(S.sel&&S.sel.ref===a) deseleccionar(); });
+  sfx('door',0.5); toast('🛡️ '+idle.length+' aldeanos a resguardo en el Ayuntamiento.'); refreshHUD(); if(S.sel) renderSel();
+}
+function liberarAldeanos(){
+  const dentro=S.ald.filter(a=>a.estado==='refugiado'); if(!dentro.length) return;
+  dentro.forEach(a=>{ a.estado='libre'; a.spr.setVisible(true).setPosition(homePos.x+rint(-42,42),homePos.y+rint(12,34)); a.spr.setDepth(a.spr.y).play('pawn_blue-i',true);
+    if(a.mark){a.mark.setVisible(true);a.markBg.setVisible(true);} });
+  sfx('door',0.5); toast('🚪 '+dentro.length+' aldeanos vuelven al pueblo.'); refreshHUD(); if(S.sel) renderSel();
+}
 function mejorarB(b){ const up=CAT[b.tipo].up[b.nivel-1];
   if(!pagar(up.costo)){ sfx('creak',0.4); toast('No te alcanza para la mejora.'); return; }
   b.estado='esperando'; b.obraT=0; b.obraDur=up.dur; b.mejorando=true; refreshBuilding(b);
@@ -1316,15 +1361,17 @@ function scatterCampfires(n){
     scene.add.sprite(x,y,'fire').play('fire-a').setOrigin(0.5,1).setScale(0.42).setDepth(y);
   }
 }
-/* braseros encendidos flanqueando el Ayuntamiento (los pergaminos vacíos quedaban mal) */
+/* guardia decorativa flanqueando el Ayuntamiento (las llamas solas quedaban mal) */
 function scatterBanners(){
   const tc=byTC(); if(!tc) return;
-  for(const ox of [-0.2, CAT.castle.fw-0.8]){
-    const x=(BX+tc.tx+ox)*T+T/2, y=(BY+tc.ty+CAT.castle.fh)*T;
-    const glow=scene.add.circle(x,y-16,20,0xff8a3a,0.18).setDepth(y);
-    scene.tweens.add({targets:glow,scale:1.3,alpha:0.3,duration:800,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
-    scene.add.sprite(x,y,'fire').play({key:'fire-a',startFrame:rint(0,6)}).setOrigin(0.5,1).setScale(0.5).setDepth(y+1);
-  }
+  const combo=pick([['war','pawn'],['war','war'],['war','pawn'],['war','war']]);   // aleatorio: guerrero+aldeano o dos guerreros
+  const xs=[(BX+tc.tx-0.05)*T+T/2, (BX+tc.tx+CAT.castle.fw-0.95)*T+T/2];
+  const y=(BY+tc.ty+CAT.castle.fh)*T+6;
+  combo.forEach((tipo,i)=>{
+    const flip=i===1;
+    if(tipo==='war') scene.add.sprite(xs[i],y,'warrior_i').play({key:'war-i',startFrame:rint(0,7)}).setOrigin(0.5,0.72).setScale(0.66).setDepth(y).setFlipX(flip);
+    else { scene.add.sprite(xs[i],y,'pawn_blue',0).play('pawn_blue-i').setOrigin(0.5,0.72).setScale(0.66).setDepth(y).setFlipX(flip); }
+  });
 }
 /* mariposas (día) y luciérnagas (glow) — vida ambiente */
 function scatterAmbientLife(){
@@ -1554,23 +1601,36 @@ function raidTick(dtReal){
     if(g.glow){ g.glow.x=g.spr.x; g.glow.y=g.spr.y-6; g.glow.setDepth(g.spr.y-1); }
     if(g.hp<g.maxhp) drawHp(g, g.hp/g.maxhp, g.boss?46:24, g.spr.y-g.spr.originY*g.spr.displayHeight*0.82); else hideBar(g);
     if(g.ladron){ tickLadron(g,dtReal); continue; }
-    if(!g.target||g.target.danado||g.target.estado!=='ok'){
+    // los de cuerpo a cuerpo enganchan primero con la unidad defensora más cercana; recién si no hay, van al edificio
+    if(!g.ranged){
+      let uNear=null, best=T*3.6;
+      for(const u of S.units) if(!u.dead){ const dd=Phaser.Math.Distance.Between(g.spr.x,g.spr.y,u.spr.x,u.spr.y); if(dd<best){best=dd;uNear=u;} }
+      for(const u of S.raid.war) if(!u.dead){ const dd=Phaser.Math.Distance.Between(g.spr.x,g.spr.y,u.spr.x,u.spr.y); if(dd<best){best=dd;uNear=u;} }
+      for(const a of S.ald){ if(a.estado==='refugiado') continue; const dd=Phaser.Math.Distance.Between(g.spr.x,g.spr.y,a.spr.x,a.spr.y); if(dd<best){best=dd;uNear=a;} }
+      if(uNear){ g.target=uNear; g.esUnidad=true; }
+      else if(g.esUnidad){ g.target=null; g.esUnidad=false; }
+    }
+    if(!g.target||(g.esUnidad&&g.target.dead)||(!g.esUnidad&&(g.target.danado||g.target.estado!=='ok'))){
       const cands=S.buildings.filter(b=>b.estado==='ok'&&!b.danado);
       g.target = cands.length ? cands.reduce((m,b)=>Phaser.Math.Distance.Between(g.spr.x,g.spr.y,b.x,b.y)<Phaser.Math.Distance.Between(g.spr.x,g.spr.y,m.x,m.y)?b:m,cands[0])
                               : (tc||null);
+      g.esUnidad=false;
       if(!g.target){ continue; }
     }
-    const d=Phaser.Math.Distance.Between(g.spr.x,g.spr.y,g.target.x,g.target.y-20);
+    const txp=g.esUnidad?g.target.spr.x:g.target.x, typ=g.esUnidad?g.target.spr.y:g.target.y-20;
+    const d=Phaser.Math.Distance.Between(g.spr.x,g.spr.y,txp,typ);
     const rango=g.ranged?T*3.6:34;                   // el shaman ataca de lejos
     if(d>rango){
-      const sp=(g.sp||46)*dtReal, ang=Math.atan2(g.target.y-20-g.spr.y,g.target.x-g.spr.x);
+      const sp=(g.sp||46)*dtReal, ang=Math.atan2(typ-g.spr.y,txp-g.spr.x);
       g.spr.x+=Math.cos(ang)*sp; g.spr.y+=Math.sin(ang)*sp; g.spr.setFlipX(Math.cos(ang)<0); g.spr.setDepth(g.spr.y);
       if(g.spr.anims.currentAnim&&g.spr.anims.currentAnim.key!==g.ar) g.spr.play(g.ar,true);
     } else {
       g.atkT+=dtReal;
       if(g.atkT>(g.ranged?2.0:1.1)){ g.atkT=0;
         g.spr.play(g.ai,true);
-        if(g.bomba){                                  // pez bomba: lanza una bomba que estalla
+        if(g.esUnidad){                               // pega a la unidad defensora
+          dañarDefensor(g.target,g.dmg); if(g.target.dead){ g.target=null; g.esUnidad=false; }
+        } else if(g.bomba){                           // pez bomba: lanza una bomba que estalla
           const tgt=g.target, p=scene.add.sprite(g.spr.x,g.spr.y-20,'bomb').play('bomb-a').setDepth(99990).setScale(0.6);
           sfx('latch',0.35);
           scene.tweens.add({targets:p,x:tgt.x,y:tgt.y-16,duration:520,ease:'Quad.easeIn',onComplete:()=>{p.destroy(); explosionAt(tgt.x,tgt.y-12,1.1); dañarEdificio(tgt,g.dmg,0xffb03a);}});
@@ -1666,6 +1726,7 @@ function refreshHUD(){
   const libres=S.ald.filter(a=>a.estado==='libre'||a.estado==='paseo').length;
   $('vAld').textContent=libres+' libres · '+popTotal()+'/'+POPCAP();
   const bi=$('btnIdle'); if(bi){ bi.textContent='💤 IDLE ('+libres+')'; bi.disabled=libres===0; }
+  const iN=$('idleN'); if(iN) iN.textContent=libres; const bmm=$('btnIdleMM'); if(bmm) bmm.disabled=libres===0;
   $('cOro').textContent='/'+CAP; $('cMad').textContent='/'+CAP; $('cCom').textContent='/'+CAP;
   $('rOro').classList.toggle('lleno',S.oro>=CAP); $('rMad').classList.toggle('lleno',S.madera>=CAP); $('rCom').classList.toggle('lleno',S.comida>=CAP);
 }
@@ -1684,14 +1745,16 @@ function cronica(txt,av){
 function hint(msg){ const h=$('hint'); h.textContent=msg; h.classList.toggle('on',!!msg); }
 $('btnTiempo').onclick=()=>{ S.speed=S.speed===1?4:1; $('btnTiempo').textContent='⏱ ×'+S.speed; };
 let idleCursor=0;
-$('btnIdle').onclick=()=>{                      // buscador de aldeanos ociosos (clásico de Age)
+function irIdle(){                               // buscador de aldeanos ociosos (clásico de Age)
   const idle=S.ald.filter(a=>a.estado==='libre'||a.estado==='paseo');
   if(!idle.length){ toast('No hay aldeanos ociosos: están todos trabajando.'); sfx('creak',0.3); return; }
   const a=idle[idleCursor%idle.length]; idleCursor++;
   seleccionar({t:'aldeano',ref:a}); overview=false;
   scene.cameras.main.setZoom(Phaser.Math.Clamp(baseZoom*2.4,1,3.6));
   scene.cameras.main.centerOn(a.spr.x,a.spr.y); marcaOrden(a.spr.x,a.spr.y-20);
-};
+}
+$('btnIdle').onclick=irIdle;
+$('btnIdleMM')&&($('btnIdleMM').onclick=irIdle);
 /* ===== ambiente sonoro (WebAudio, sin assets) ===== */
 let actx=null, ambGain=null, ambOn=true;
 function startAmbient(){
@@ -1761,6 +1824,7 @@ function update(time,delta){
   const dt=delta/1000*S.speed, dtReal=delta/1000;
 
   for(const a of S.ald){
+    if(a.estado==='refugiado') continue;                 // a resguardo dentro del Ayuntamiento
     if(a.estado==='yendo'){
       const dx=a.tx-a.spr.x, dy=a.ty-a.spr.y, d=Math.hypot(dx,dy);
       if(d<5){
