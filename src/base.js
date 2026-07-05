@@ -76,7 +76,7 @@ const S={ oro:220, madera:260, comida:130, ambar:60,
   elev:Array.from({length:GH},()=>Array(GW).fill(0)),
   cliff:Array.from({length:GH},()=>Array(GW).fill(false)),
   explored:Array.from({length:GH},()=>Array(GW).fill(false)),
-  buildings:[], nodes:[], animals:[], critters:[], piles:[], ald:[], units:[], allies:[], bubbles:[], nextId:1,
+  buildings:[], nodes:[], animals:[], critters:[], piles:[], ald:[], units:[], allies:[], dialogOn:true, nextId:1,
   aldElegido:null, colocando:null, sel:null,
   wave:0, phase:'prep', phaseT:120, score:0, best:0, kills:0, over:false,   // EL ASEDIO (primera oleada a los 2 min)
   qIx:0, stats:{talado:0,minado:0,cazado:0,cosechas:0,raids:0,skins:0,aldCreados:0,entrenados:0,casasBuilt:0,bull:0},
@@ -100,7 +100,7 @@ function makeCursors(){
 function applyCursor(){ if(!scene||!scene.game) return;
   const k=(S.sel&&S.sel.t==='militar')?CUR.sword:CUR.def;
   scene.game.canvas.style.cursor=k; }
-let baseZoom=1, mmCtx=null, mmBase=null;
+let baseZoom=1, mmCtx=null, mmBase=null, mmBlink=false;
 function sfx(k,v){ try{ scene&&scene.sound.play('s_'+k,{volume:v||0.5}); }catch(e){} }
 
 new Phaser.Game({type:Phaser.AUTO,backgroundColor:'#060a0d',   // oscuro: fuera del mapa se lee como niebla, sin “huecos” claros
@@ -428,7 +428,12 @@ function create(){
     if(!S.land[y][x]||S.elev[y][x]) continue;
     if(!isLand(x-1,y)||!isLand(x+1,y)||!isLand(x,y-1)||!isLand(x,y+1)) rt.drawFrame('ground',16,(BX+x)*T,(BY+y)*T);
   }
-  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++) if(S.elev[y][x]) rt.drawFrame('elev',eIdx(x,y),(BX+x)*T,(BY+y)*T);
+  // meseta: la CIMA es pasto verde; los bordes conservan el reborde de piedra (se lee como terraza)
+  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++) if(S.elev[y][x]){
+    const ef=eIdx(x,y);
+    if(ef===5) rt.drawFrame('ground',11,(BX+x)*T,(BY+y)*T);   // interior = pasto
+    else rt.drawFrame('elev',ef,(BX+x)*T,(BY+y)*T);           // borde = piedra
+  }
   for(let y=0;y<GH;y++)for(let x=0;x<GW;x++) if(S.cliff[y][x]){
     const l=isIn(x-1,y)&&S.cliff[y][x-1], r=isIn(x+1,y)&&S.cliff[y][x+1];
     rt.drawFrame('elev', l&&r?13 : r?12 : l?14 : 15, (BX+x)*T,(BY+y)*T);
@@ -525,6 +530,7 @@ function create(){
   // menú desplegable (todos los controles escondidos arriba-derecha)
   $('btnMenu').onclick=()=>$('menu').classList.toggle('open');
   $('cronToggle')&&($('cronToggle').onclick=()=>{ const c=$('cronica'), min=c.classList.toggle('min'); $('cronToggle').textContent=min?'+':'–'; });
+  $('btnDialog')&&($('btnDialog').onclick=()=>{ S.dialogOn=!S.dialogOn; $('btnDialog').textContent=(S.dialogOn?'💬':'🚫')+' DIÁLOGOS'; if(!S.dialogOn) ocultarDialogo(); });
   $('btnOleada')&&($('btnOleada').onclick=()=>{ if(S.phase==='prep'&&!S.over){ S.score+=Math.ceil(S.phaseT)*3; toast('¡Adelantás la oleada! +'+Math.ceil(S.phaseT)*3+' pts.'); lanzarOleada(); } });
   toast('EL ASEDIO · Preparate: construí defensas y entrená tropas. La primera oleada llega en '+PREP0+'s.');
   cronica('Fundás tu pueblo. Que empiece el asedio.',randAv());
@@ -581,43 +587,38 @@ const DIALOGO={
 };
 const ONOMA={ oveja:['¡Beee!','¡Bêê!','Meeeh…'], jabali:['¡Oink!','¡Grññ!','*hozando*'], oso:['¡GROAAR!','¡Rrraw!','*gruñe*'],
   toro:['¡MUUU!','¡MUUUH!','*resopla furioso*'], snake:['¡Ssss!','¡Ssssh!'], spider:['*click click*','…'], bestia:['¡Por el Rey!','¡GROAR! (leal)','*ruge a tu favor*'] };
-function liftBocadillo(ent){ return (ent.spr.displayHeight*ent.spr.originY)+18; }
-function bocadillo(ent,txt){
-  if(!ent||!ent.spr||!ent.spr.active||ent._bub) return;
-  if(S.bubbles.filter(b=>!b.remove).length>=2) return;
-  const key=ent.spr.texture.key;
-  const port=scene.add.image(0,0,key,0).setDisplaySize(38,38);
-  const t=scene.add.text(0,0,txt,{fontFamily:'"IM Fell English",Georgia,serif',fontSize:'13px',fontStyle:'italic',color:'#241a10',wordWrap:{width:130},align:'left'}).setOrigin(0,0.5);
-  const tw=Math.min(t.width,132), th=Math.max(38,t.height), w=6+38+7+tw+9, h=th+12;
-  const g=scene.add.graphics();
-  g.fillStyle(0x000000,0.22).fillRoundedRect(-w/2+2,-h/2+3,w,h,9);
-  g.fillStyle(0xefe2c0,0.98).fillRoundedRect(-w/2,-h/2,w,h,9);
-  g.fillStyle(0xefe2c0,0.98).fillTriangle(-7,h/2-1,9,h/2-1,-2,h/2+10);
-  g.lineStyle(2,0x7a5a34,1).strokeRoundedRect(-w/2,-h/2,w,h,9);
-  port.setPosition(-w/2+6+19,0); t.setPosition(-w/2+6+38+7,0);
-  const cont=scene.add.container(ent.spr.x,ent.spr.y-liftBocadillo(ent),[g,port,t]).setDepth(99991).setScale(0.6);
-  scene.tweens.add({targets:cont,scale:1,duration:170,ease:'Back.easeOut'});
-  const b={cont,ent,ttl:2.9,lift:liftBocadillo(ent),remove:false}; ent._bub=b; S.bubbles.push(b);
+const NOMBRE_BICHO={oveja:'Oveja',jabali:'Jabalí',oso:'Oso',toro:'The Black Bull',snake:'Víbora',spider:'Araña'};
+let dlgT=0;
+function retratoSprite(spr,size){                      // recorta el frame actual del sprite a un dataURL (para bichos sin avatar)
+  try{ const fr=spr.frame, src=fr.texture.getSourceImage();
+    const c=document.createElement('canvas'); c.width=size; c.height=size; const cx=c.getContext('2d'); cx.imageSmoothingEnabled=false;
+    cx.drawImage(src, fr.cutX, fr.cutY, fr.cutWidth, fr.cutHeight, 0,0,size,size); return c.toDataURL('image/png');
+  }catch(e){ return null; }
 }
-function updateBocadillos(dtReal){
-  for(const b of S.bubbles){ if(b.remove) continue;
-    const vivo=b.ent&&b.ent.spr&&b.ent.spr.active&&!b.ent.dead;
-    if(vivo){ b.cont.x=b.ent.spr.x; b.cont.y=b.ent.spr.y-b.lift; b.cont.setDepth(b.ent.spr.y+60); }
-    b.ttl-=dtReal;
-    if(b.ttl<=0||!vivo){ b.remove=true; if(b.ent)b.ent._bub=null; const c=b.cont;
-      scene.tweens.add({targets:c,alpha:0,y:c.y-12,duration:280,onComplete:()=>c.destroy()}); }
-  }
-  if(S.bubbles.some(b=>b.remove)) S.bubbles=S.bubbles.filter(b=>!b.remove);
+// diálogo GRANDE en primer plano, con la imagen de la unidad al lado (desactivable en el menú)
+function mostrarDialogo(ent,txt,quien){
+  if(!S.dialogOn) return;
+  const box=$('dialog'); if(!box) return;
+  const img=$('dlgImg'); let src=ent.av?('assets/img/av/'+ent.av+'.png'):retratoSprite(ent.spr,120);
+  if(src){ img.src=src; img.style.display='block'; } else img.style.display='none';
+  $('dlgWho').textContent=quien||''; $('dlgTxt').textContent=txt;
+  box.classList.remove('on'); void box.offsetWidth; box.classList.add('on');   // reinicia la animación
+  dlgT=3.8;
 }
+function ocultarDialogo(){ const box=$('dialog'); if(box) box.classList.remove('on'); }
 function soltarBocadillo(){
+  if(!S.dialogOn) return;
   const wv=scene.cameras.main.worldView, dentro=e=>e.spr&&e.spr.active&&wv.contains(e.spr.x,e.spr.y);
   const gente=[...S.ald.filter(a=>a.estado!=='refugiado'), ...S.units.filter(u=>!u.dead)].filter(dentro);
   const bichos=[...S.animals.filter(m=>!m.dead), ...S.allies.filter(u=>!u.dead)].filter(dentro);
   const pool=[]; gente.forEach(e=>pool.push({e,g:true})); bichos.forEach(e=>pool.push({e,g:false}));
   if(!pool.length) return;
   const {e,g}=pick(pool);
-  if(g){ const kind=S.units.includes(e)?'militar':'aldeano'; const set=S.raid.on?DIALOGO[kind].asedio:DIALOGO[kind].ocio; bocadillo(e,pick(set)); }
-  else { const key=e.beast||e.tipo; bocadillo(e,pick(ONOMA[key]||ONOMA.snake)); }
+  if(g){ const mil=S.units.includes(e), kind=mil?'militar':'aldeano';
+    const set=S.raid.on?DIALOGO[kind].asedio:DIALOGO[kind].ocio;
+    mostrarDialogo(e,pick(set), mil?(UNIDADES[e.tipo]?UNIDADES[e.tipo].nom:'Guerrero'):'Aldeano'); }
+  else { const key=e.beast||e.tipo; const leal=S.allies.includes(e);
+    mostrarDialogo(e, pick(leal?ONOMA.bestia:(ONOMA[key]||ONOMA.snake)), (NOMBRE_BICHO[key]||'Bestia')+(leal?' (leal)':'')); }
 }
 // feedback de orden con ícono (espada al atacar, madera al talar, oro al minar, carne al cazar) + texto
 function ordenIcono(x,y,tex,txt,color,esc){
@@ -1306,8 +1307,8 @@ function renderSel(){
     const m=sel.ref, cfg=FAUNA[m.tipo];
     $('selNom').textContent=cfg.nom; $('selLvl').textContent='Carne: '+cfg.carne+(cfg.dmg?' · ⚠️ contraataca':' · pacífico'); setHp(m.hp,m.maxhp);
     accion('CAZAR',()=>{ const a=aldLibreCerca(m.spr.x,m.spr.y); if(a){mandarCazar(a,m); toast('🏹 A cazar.');} else toast('No hay aldeanos libres.'); },false);
-    if(cfg.dmg>0){ const costo=cfg.jefe?20:cfg.dmg>=10?10:6;   // el monarca doblega bestias salvajes a su bando
-      accion('👑 CONVERTIR (◆ '+costo+')',()=>convertirBestia(m,costo),S.ambar<costo); }
+    const costo=cfg.jefe?20:cfg.dmg>=10?10:6;         // el monarca doblega CUALQUIER bestia a su bando
+    accion('👑 CONVERTIR (◆ '+costo+')',()=>convertirBestia(m,costo),S.ambar<costo);
   } else if(sel.t==='pila'){
     const pile=sel.ref;
     $('selNom').textContent='Carne'; $('selLvl').textContent='+'+pile.carne+' comida al recogerla'; setHp(null);
@@ -1438,7 +1439,7 @@ function spawnBoat(){
   const y=(BY+rint(2,GH-3))*T;
   const boat=scene.add.sprite(-MAR/2,y,'sboat').play('sboat-a').setDepth(-22).setScale(0.8);
   scene.tweens.add({targets:boat,x:(BX-2)*T,duration:7000,ease:'Sine.easeOut',onComplete:()=>{
-    boat.setInteractive({useHandCursor:true});
+    boat.setInteractive({useHandCursor:true}); S.bote=boat;   // señalizado en el minimapa
     const glow=scene.add.circle(boat.x,y-30,16,0xc9a227,0.4).setDepth(-21);
     scene.tweens.add({targets:glow,alpha:0.1,scale:1.4,duration:600,yoyo:true,repeat:-1});
     toast('⚓ Un bote misterioso llegó — tocalo antes de que se vaya.'); sfx('bell',0.4);
@@ -1452,6 +1453,7 @@ function spawnBoat(){
   }});
 }
 function despacharBote(boat,ok){
+  S.bote=null;
   scene.tweens.add({targets:boat,x:-MAR/2,duration:6000,ease:'Sine.easeIn',onComplete:()=>boat.destroy()});
   if(!ok) toast('El bote se fue sin que lo revises…');
   scheduleBoat();
@@ -1480,16 +1482,25 @@ function scatterCampfires(n){
     scene.add.sprite(x,y,'fire').play('fire-a').setOrigin(0.5,1).setScale(0.42).setDepth(y);
   }
 }
-/* guardia decorativa flanqueando el Ayuntamiento (las llamas solas quedaban mal) */
+// guerrero real (seleccionable/comandable), sin costo — para la guardia inicial
+function crearGuerrero(x,y){
+  const u=UNIDADES.guerrero;
+  const s=scene.add.sprite(x,y,'warrior_i').setOrigin(0.5,0.72).setScale(0.72).setDepth(y).play('war-i');
+  const un={id:'u'+S.nextId++, tipo:'guerrero', spr:s, home:{x,y}, target:null, cd:0, dead:false, wT:rint(3,8), moveT:null,
+    hp:u.hp, maxhp:u.hp, atkCd:0, healCd:0, av:randAv()};
+  s.setInteractive({useHandCursor:true});
+  s.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'militar',ref:un}); });
+  addMark(un,0x8ec8ff,66); S.units.push(un); return un;
+}
+/* guardia REAL flanqueando el Ayuntamiento (unidades usables, no adorno) */
 function scatterBanners(){
   const tc=byTC(); if(!tc) return;
   const combo=pick([['war','pawn'],['war','war'],['war','pawn'],['war','war']]);   // aleatorio: guerrero+aldeano o dos guerreros
   const xs=[(BX+tc.tx-0.05)*T+T/2, (BX+tc.tx+CAT.castle.fw-0.95)*T+T/2];
   const y=(BY+tc.ty+CAT.castle.fh)*T+6;
   combo.forEach((tipo,i)=>{
-    const flip=i===1;
-    if(tipo==='war') scene.add.sprite(xs[i],y,'warrior_i').play({key:'war-i',startFrame:rint(0,7)}).setOrigin(0.5,0.72).setScale(0.66).setDepth(y).setFlipX(flip);
-    else { scene.add.sprite(xs[i],y,'pawn_blue',0).play('pawn_blue-i').setOrigin(0.5,0.72).setScale(0.66).setDepth(y).setFlipX(flip); }
+    const u=tipo==='war'?crearGuerrero(xs[i],y):spawnAldeano(xs[i],y,true);
+    if(u) u.spr.setFlipX(i===1);
   });
 }
 /* mariposas (día) y luciérnagas (glow) — vida ambiente */
@@ -1716,12 +1727,28 @@ function tickLadron(g,dtReal){
     cronica('🦝 Robo: -'+ro+' oro · -'+rm+' madera',randAv()); refreshHUD();
   }
 }
+const esBloqueante=gv=>typeof gv==='number'||(typeof gv==='string'&&gv[0]==='s');   // edificios/escenario cortan el paso (no los nodos)
+function avanzarHacia(ent,tx,ty,sp){                  // mueve hacia (tx,ty) deslizando contra edificios; devuelve si avanzó
+  const ang=Math.atan2(ty-ent.spr.y,tx-ent.spr.x), dx=Math.cos(ang)*sp, dy=Math.sin(ang)*sp;
+  const libre=(px,py)=>{ const t=tileOfPx(px,py); return !(isIn(t.x,t.y)&&esBloqueante(S.grid[t.y][t.x])); };
+  let moved=true;
+  if(libre(ent.spr.x+dx,ent.spr.y+dy)){ ent.spr.x+=dx; ent.spr.y+=dy; }
+  else if(libre(ent.spr.x+dx,ent.spr.y)){ ent.spr.x+=dx; }
+  else if(libre(ent.spr.x,ent.spr.y+dy)){ ent.spr.y+=dy; }
+  else { const px=Math.cos(ang+Math.PI/2)*sp, py=Math.sin(ang+Math.PI/2)*sp;   // bordear
+    if(libre(ent.spr.x+px,ent.spr.y+py)){ ent.spr.x+=px; ent.spr.y+=py; }
+    else if(libre(ent.spr.x-px,ent.spr.y-py)){ ent.spr.x-=px; ent.spr.y-=py; }
+    else moved=false; }
+  ent.spr.setFlipX(dx<0); ent.spr.setDepth(ent.spr.y);
+  return moved;
+}
 function raidTick(dtReal){
   const R=S.raid;
   const vivos=R.gob.filter(g=>!g.dead);
   if(!vivos.length){ return; }
   const tc=byTC();
   for(const g of vivos){
+    g.spr.setDepth(g.spr.y);                          // profundidad siempre al día: nunca detrás del edificio si está adelante
     if(g.glow){ g.glow.x=g.spr.x; g.glow.y=g.spr.y-6; g.glow.setDepth(g.spr.y-1); }
     if(g.hp<g.maxhp) drawHp(g, g.hp/g.maxhp, g.boss?46:24, g.spr.y-g.spr.originY*g.spr.displayHeight*0.82); else hideBar(g);
     if(g.ladron){ tickLadron(g,dtReal); continue; }
@@ -1742,13 +1769,18 @@ function raidTick(dtReal){
       g.esUnidad=false;
       if(!g.target){ continue; }
     }
-    const txp=g.esUnidad?g.target.spr.x:g.target.x, typ=g.esUnidad?g.target.spr.y:g.target.y-20;
+    const txp=g.esUnidad?g.target.spr.x:g.target.x, typ=g.esUnidad?g.target.spr.y:g.target.y-2;   // apunta a la BASE del edificio (profundidad correcta)
     const d=Phaser.Math.Distance.Between(g.spr.x,g.spr.y,txp,typ);
     const rango=g.ranged?T*3.6:34;                   // el shaman ataca de lejos
     if(d>rango){
-      const sp=(g.sp||46)*dtReal, ang=Math.atan2(typ-g.spr.y,txp-g.spr.x);
-      g.spr.x+=Math.cos(ang)*sp; g.spr.y+=Math.sin(ang)*sp; g.spr.setFlipX(Math.cos(ang)<0); g.spr.setDepth(g.spr.y);
+      const sp=(g.sp||46)*dtReal;
+      const moved=avanzarHacia(g,txp,typ,sp);        // no atraviesa edificios
       if(g.spr.anims.currentAnim&&g.spr.anims.currentAnim.key!==g.ar) g.spr.play(g.ar,true);
+      if(!moved&&!g.esUnidad){ g.stuck=(g.stuck||0)+dtReal;    // si un muro/edificio le corta el paso, que la agarre con eso
+        if(g.stuck>0.6){ g.stuck=0; let near=null,bd=1e9;
+          for(const b of S.buildings){ if(b.estado!=='ok'||b.danado) continue; const dd=Phaser.Math.Distance.Between(g.spr.x,g.spr.y,b.x,b.y); if(dd<bd){bd=dd;near=b;} }
+          if(near){ g.target=near; g.esUnidad=false; } } }
+      else g.stuck=0;
     } else {
       g.atkT+=dtReal;
       if(g.atkT>(g.ranged?2.0:1.1)){ g.atkT=0;
@@ -1938,6 +1970,13 @@ function drawMinimap(){
   for(const a of S.ald) dot(a.spr.x,a.spr.y,'#ffe9a0',2.4);
   for(const u of S.units) dot(u.spr.x,u.spr.y,'#4a90c2',2.4);
   if(S.raid.on) for(const g of S.raid.gob){ if(!g.dead) dot(g.spr.x,g.spr.y,'#ff3a2a',2.8); }
+  // bote misterioso: marcador dorado titilante (clampeado al borde del minimapa)
+  if(S.bote&&S.bote.active){ mmBlink=!mmBlink;
+    let bx=Phaser.Math.Clamp((S.bote.x-BX*T)/(GW*T)*mmW,4,mmW-4), by=Phaser.Math.Clamp((S.bote.y-BY*T)/(GH*T)*mmH,4,mmH-4);
+    mmCtx.beginPath(); mmCtx.arc(bx,by,mmBlink?4.4:3.2,0,6.28);
+    mmCtx.fillStyle=mmBlink?'#ffe36b':'#c9a227'; mmCtx.fill();
+    mmCtx.lineWidth=1.2; mmCtx.strokeStyle='#3a2a12'; mmCtx.stroke();
+    mmCtx.fillStyle='#3a2a12'; mmCtx.font='6px monospace'; mmCtx.fillText('⚓',bx-3,by+2.5); }
   const v=scene.cameras.main.worldView;
   const rx=(v.x-BX*T)/(GW*T)*mmW, ry=(v.y-BY*T)/(GH*T)*mmH, rw=v.width/(GW*T)*mmW, rh=v.height/(GH*T)*mmH;
   mmCtx.strokeStyle='rgba(255,233,160,.9)'; mmCtx.lineWidth=1.2; mmCtx.strokeRect(rx,ry,rw,rh);
@@ -2021,8 +2060,8 @@ function update(time,delta){
 
   updateAnimals(dtReal,dt);
   updateAllies(dtReal);
-  updateBocadillos(dtReal);
-  chatT-=dtReal; if(chatT<=0){ chatT=Phaser.Math.FloatBetween(4.5,8.5); soltarBocadillo(); }
+  if(dlgT>0){ dlgT-=dtReal; if(dlgT<=0) ocultarDialogo(); }
+  chatT-=dtReal; if(chatT<=0){ chatT=Phaser.Math.FloatBetween(5,9); soltarBocadillo(); }
 
   for(const b of S.buildings){
     const c=CAT[b.tipo];
