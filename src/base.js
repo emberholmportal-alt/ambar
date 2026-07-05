@@ -141,6 +141,15 @@ function preload(){
   this.load.spritesheet('shaman_run',TSB+'shaman_run.png',{frameWidth:192,frameHeight:192});
   this.load.spritesheet('pigrider_idle',TSB+'pigrider_idle.png',{frameWidth:256,frameHeight:256});
   this.load.spritesheet('pigrider_run',TSB+'pigrider_run.png',{frameWidth:256,frameHeight:256});
+  this.load.spritesheet('thief_idle',TSB+'thief_idle.png',{frameWidth:192,frameHeight:192});     // ladrón (roba recursos)
+  this.load.spritesheet('thief_run',TSB+'thief_run.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('troll_i',TSB+'troll_i.png',{frameWidth:384,frameHeight:384});           // troll pesado
+  this.load.spritesheet('troll_r',TSB+'troll_r.png',{frameWidth:384,frameHeight:384});
+  this.load.spritesheet('troll_a',TSB+'troll_a.png',{frameWidth:384,frameHeight:384});
+  this.load.spritesheet('bfish_i',TSB+'bfish_i.png',{frameWidth:192,frameHeight:192});           // pez bomba (naval)
+  this.load.spritesheet('bfish_r',TSB+'bfish_r.png',{frameWidth:192,frameHeight:192});
+  this.load.image('banner_h',TSB+'banner_h.png');                                                // estandartes decorativos
+  this.load.image('banner_v',TSB+'banner_v.png');
   this.load.spritesheet('spear_idle',TSB+'spear_idle.png',{frameWidth:256,frameHeight:256});
   this.load.spritesheet('spear_run',TSB+'spear_run.png',{frameWidth:256,frameHeight:256});
   this.load.image('goldmine',TSB+'goldmine.png');
@@ -294,6 +303,13 @@ function create(){
   an.create({key:'sham-i',frames:an.generateFrameNumbers('shaman_idle',{start:0,end:7}),frameRate:8,repeat:-1});
   an.create({key:'prid-r',frames:an.generateFrameNumbers('pigrider_run',{start:0,end:3}),frameRate:10,repeat:-1});
   an.create({key:'prid-i',frames:an.generateFrameNumbers('pigrider_idle',{start:0,end:7}),frameRate:8,repeat:-1});
+  an.create({key:'thief-r',frames:an.generateFrameNumbers('thief_run',{start:0,end:5}),frameRate:13,repeat:-1});
+  an.create({key:'thief-i',frames:an.generateFrameNumbers('thief_idle',{start:0,end:5}),frameRate:8,repeat:-1});
+  an.create({key:'troll-r',frames:an.generateFrameNumbers('troll_r',{start:0,end:9}),frameRate:9,repeat:-1});
+  an.create({key:'troll-i',frames:an.generateFrameNumbers('troll_i',{start:0,end:11}),frameRate:8,repeat:-1});
+  an.create({key:'troll-a',frames:an.generateFrameNumbers('troll_a',{start:0,end:5}),frameRate:10,repeat:0});
+  an.create({key:'bfish-r',frames:an.generateFrameNumbers('bfish_r',{start:0,end:5}),frameRate:10,repeat:-1});
+  an.create({key:'bfish-i',frames:an.generateFrameNumbers('bfish_i',{start:0,end:7}),frameRate:8,repeat:-1});
   for(const j of ['waxe','wpick']) an.create({key:j+'-r',frames:an.generateFrameNumbers(j+'_blue_r',{start:0,end:-1}),frameRate:10,repeat:-1});
   for(let i=1;i<=4;i++){ an.create({key:'wrock'+i+'-a',frames:an.generateFrameNumbers('wrock'+i,{start:0,end:7}),frameRate:5,repeat:-1});
     an.create({key:'bush'+i+'-a',frames:an.generateFrameNumbers('bush'+i,{start:0,end:7}),frameRate:6,repeat:-1}); }
@@ -408,7 +424,7 @@ function create(){
   initMinimap();
   updateBanner();
   refreshHUD(); refreshQuest(); buildGrid(); renderSel();
-  scheduleBoat(); scheduleShip(); scheduleBirds(); scatterCampfires(2);
+  scheduleBoat(); scheduleShip(); scheduleBirds(); scatterCampfires(2); scatterBanners(); scatterAmbientLife();
   // menú desplegable (todos los controles escondidos arriba-derecha)
   $('btnMenu').onclick=()=>$('menu').classList.toggle('open');
   $('btnOleada')&&($('btnOleada').onclick=()=>{ if(S.phase==='prep'&&!S.over){ S.score+=Math.ceil(S.phaseT)*3; toast('¡Adelantás la oleada! +'+Math.ceil(S.phaseT)*3+' pts.'); lanzarOleada(); } });
@@ -1162,6 +1178,28 @@ function scatterCampfires(n){
     scene.add.sprite(x,y,'fire').play('fire-a').setOrigin(0.5,1).setScale(0.42).setDepth(y);
   }
 }
+/* estandartes decorativos azules flanqueando el Ayuntamiento (chicos, flamean) */
+function scatterBanners(){
+  const tc=byTC(); if(!tc) return;
+  for(const ox of [-0.4, CAT.castle.fw-0.6]){
+    const x=(BX+tc.tx+ox)*T+T/2, y=(BY+tc.ty+CAT.castle.fh)*T;
+    const b=scene.add.image(x,y,'banner_v').setOrigin(0.5,1).setDepth(y+1).setScale(0.5).setTint(0x7aa0d8);
+    scene.tweens.add({targets:b,scaleX:0.44,duration:1400,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+  }
+}
+/* mariposas (día) y luciérnagas (glow) — vida ambiente */
+function scatterAmbientLife(){
+  for(let i=0;i<9;i++){ let tx=rint(1,GW-2),ty=rint(1,GH-2); if(!walkable(tx,ty)) continue;
+    const x=(BX+tx)*T+T/2, y=(BY+ty)*T+rint(-6,22), col=pick([0xff7ab0,0xffd24a,0x8ad0ff,0xb0ff8a,0xff9a5a]);
+    const m=scene.add.image(x,y,'dot').setTint(col).setScale(0.7).setAlpha(0.92).setDepth(y);
+    scene.tweens.add({targets:m,x:x+rint(-70,70),y:y+rint(-40,30),duration:rint(2200,4200),yoyo:true,repeat:-1,ease:'Sine.easeInOut',onUpdate:()=>m.setDepth(m.y)});
+    scene.tweens.add({targets:m,scaleX:0.25,duration:160,yoyo:true,repeat:-1}); }
+  for(let i=0;i<12;i++){ let tx=rint(1,GW-2),ty=rint(1,GH-2); if(!walkable(tx,ty)) continue;
+    const x=(BX+tx)*T+T/2, y=(BY+ty)*T;
+    const f=scene.add.image(x,y,'dot').setTint(0xfff29a).setScale(0.55).setDepth(97000).setBlendMode(Phaser.BlendModes.ADD);
+    scene.tweens.add({targets:f,alpha:0.12,duration:rint(700,1500),yoyo:true,repeat:-1});
+    scene.tweens.add({targets:f,x:x+rint(-55,55),y:y+rint(-45,10),duration:rint(3200,6200),yoyo:true,repeat:-1,ease:'Sine.easeInOut'}); }
+}
 /* barco grande de ambiente que cruza el mar (decorativo) */
 function scheduleShip(){ scene.time.delayedCall(rint(30000,60000),spawnShip); }
 function spawnShip(){
@@ -1181,7 +1219,10 @@ const ENEMY={
   gnoll: {tex:'gnoll_walk',  ai:'gnoll-i',ar:'gnoll-r',hp:1,dmg:9, esc:0.6,  sp:66},         // rápido y débil (horda)
   pigrider:{tex:'pigrider_idle',ai:'prid-i',ar:'prid-r',hp:5,dmg:22,esc:0.5, sp:52},         // montado, tanque
   shaman:{tex:'shaman_idle', ai:'sham-i',ar:'sham-r',hp:2,dmg:16, esc:0.58, sp:40, ranged:true}, // lanza rayos a distancia
+  thief: {tex:'thief_idle',  ai:'thief-i',ar:'thief-r',hp:1,dmg:0, esc:0.58, sp:78, ladron:true}, // roba recursos y huye
+  troll: {tex:'troll_i',     ai:'troll-i',ar:'troll-r',hp:11,dmg:28,esc:0.42, sp:30},            // tanque pesado y lento
   pshark:{tex:'pshark_i',    ai:'pshark-i',ar:'pshark-r',hp:3,dmg:15,esc:0.62, sp:48},       // pirata (llega por mar)
+  bfish: {tex:'bfish_i',     ai:'bfish-i',ar:'bfish-r',hp:2,dmg:34,esc:0.6,  sp:44, ranged:true, bomba:true}, // pez bomba naval
   toro:  {tex:'minotaur_idle',ai:'toro-i',ar:'toro-r',hp:16,dmg:30,esc:0.62,boss:true, sp:38},
 };
 function costaTiles(){                             // tiles de tierra pegados al agua (borde de la isla)
@@ -1200,7 +1241,7 @@ function spawnEnemy(kind,tx,ty){
   s.play(e.ar); revelar(gx,gy,3);
   const boostHp=e.hp + (e.boss?Math.floor(S.wave/5)*6:Math.floor(S.wave/4));   // más vida en oleadas altas
   const boostDmg=Math.round(e.dmg*(1+S.wave*0.05));                            // más daño con el tiempo
-  const g={spr:s,kind,ai:e.ai,ar:e.ar,hp:boostHp,maxhp:boostHp,dmg:boostDmg,sp:e.sp||46,ranged:!!e.ranged,boss:!!e.boss,target:null,atkT:0,dead:false};
+  const g={spr:s,kind,ai:e.ai,ar:e.ar,hp:boostHp,maxhp:boostHp,dmg:boostDmg,sp:e.sp||46,ranged:!!e.ranged,bomba:!!e.bomba,ladron:!!e.ladron,boss:!!e.boss,target:null,atkT:0,dead:false};
   if(e.boss){ g.glow=scene.add.image(gx,gy-6,'dot').setTint(0xff3a2a).setScale(6).setAlpha(0.28).setDepth(gy-1);
     scene.tweens.add({targets:g.glow,scale:8,alpha:0.14,duration:700,yoyo:true,repeat:-1}); }
   S.raid.gob.push(g);
@@ -1214,7 +1255,7 @@ function oleadaNaval(cnt,costa){                   // piratas que desembarcan de
     if(!S.over){ cañonazo(boat.x,boat.y-20); scene.time.delayedCall(1400,()=>{ if(boat.active&&!S.over) cañonazo(boat.x,boat.y-20); }); }  // bombardeo naval
     scene.tweens.add({targets:boat,x:fromX,alpha:0,delay:2600,duration:4500,onComplete:()=>boat.destroy()});
   }});
-  for(let i=0;i<cnt;i++){ const tt=pick(costa); spawnEnemy('pshark',tt.x,tt.y); }
+  for(let i=0;i<cnt;i++){ const tt=pick(costa); spawnEnemy(S.wave>=6&&Math.random()<0.4?'bfish':'pshark',tt.x,tt.y); }
 }
 function cañonazo(fx,fy){                            // el barco pirata dispara una bomba a un edificio
   const cand=S.buildings.filter(b=>b.estado==='ok'&&!b.danado);
@@ -1241,13 +1282,14 @@ function componerOleada(w){                          // devuelve {flavor, spawns
   else flavor=pick(FLAVORS.filter(f=> (f!=='bestias'||w>=4) && (f!=='horda'||w>=2) ));
   const spawns=[];
   const add=(k,n)=>{ for(let i=0;i<n;i++) spawns.push(k); };
-  const canTnt=w>=3, canGnoll=w>=2, canRider=w>=4, canSham=w>=5;
-  if(flavor==='horda'){ add('gnoll',Math.ceil(costaN*1.3)); if(canTnt)add('tnt',1); }
-  else if(flavor==='bestias'){ add(canRider?'pigrider':'spear',Math.ceil(costaN*0.5)); add('gnoll',Math.ceil(costaN*0.5)); if(canSham)add('shaman',1); }
-  else if(flavor==='piratas'||flavor==='jefe'){ add(pick(['torch','spear']),Math.ceil(costaN*0.7)); if(canGnoll)add('gnoll',2); }
-  else if(flavor==='mixta'){ add('torch',2); add('spear',2); if(canGnoll)add('gnoll',2); if(canTnt)add('tnt',1); if(canRider)add('pigrider',1); if(canSham)add('shaman',1); }
+  const canTnt=w>=3, canGnoll=w>=2, canRider=w>=4, canSham=w>=5, canThief=w>=3, canTroll=w>=6;
+  if(flavor==='horda'){ add('gnoll',Math.ceil(costaN*1.3)); if(canTnt)add('tnt',1); if(canThief)add('thief',1); }
+  else if(flavor==='bestias'){ add(canRider?'pigrider':'spear',Math.ceil(costaN*0.5)); add('gnoll',Math.ceil(costaN*0.5)); if(canSham)add('shaman',1); if(canTroll)add('troll',1); }
+  else if(flavor==='piratas'||flavor==='jefe'){ add(pick(['torch','spear']),Math.ceil(costaN*0.7)); if(canGnoll)add('gnoll',2); if(flavor==='jefe'&&canTroll)add('troll',1); }
+  else if(flavor==='mixta'){ add('torch',2); add('spear',2); if(canGnoll)add('gnoll',2); if(canTnt)add('tnt',1); if(canRider)add('pigrider',1); if(canSham)add('shaman',1); if(canThief&&Math.random()<0.5)add('thief',1); }
   else { // goblins clásicos
-    for(let i=0;i<costaN;i++) add(canTnt&&Math.random()<Math.min(0.5,0.08*w)?'tnt':pick(['torch','torch','spear']),1); }
+    for(let i=0;i<costaN;i++) add(canTnt&&Math.random()<Math.min(0.5,0.08*w)?'tnt':pick(['torch','torch','spear']),1);
+    if(canThief&&Math.random()<0.4)add('thief',1); }
   const naval = flavor==='piratas' || (w>=3 && Math.random()<0.25);
   // El Black Bull: seguro en oleadas jefe (5,10,...) y con chance en otras (desde la 4)
   let bossCount = flavor==='jefe' ? 1+Math.floor(w/10) : (w>=4 && Math.random()<0.16 ? 1 : 0);
@@ -1337,6 +1379,32 @@ function dañarEdificio(b,dmg,color){                 // aplica daño a un edifi
   }
   return false;
 }
+function escapaLadron(g){                            // el ladrón se va del mapa (sin puntos ni explosión)
+  if(g.dead) return; g.dead=true; g.spr.destroy();
+  if(S.raid.gob.length&&S.raid.gob.every(x=>x.dead)) finOleada();
+}
+function tickLadron(g,dtReal){
+  if(g.huyendo){
+    const ex=g.spr.x<WORLD_W/2?-100:WORLD_W+100, ang=Math.atan2(0,ex-g.spr.x);
+    g.spr.x+=Math.cos(ang)*g.sp*1.25*dtReal; g.spr.setFlipX(Math.cos(ang)<0); g.spr.setDepth(g.spr.y);
+    if(g.spr.x<-60||g.spr.x>WORLD_W+60) escapaLadron(g);
+    return;
+  }
+  if(!g.target||g.target.estado!=='ok'){ const cands=S.buildings.filter(b=>b.estado==='ok');
+    g.target=cands.length?cands.reduce((m,b)=>Phaser.Math.Distance.Between(g.spr.x,g.spr.y,b.x,b.y)<Phaser.Math.Distance.Between(g.spr.x,g.spr.y,m.x,m.y)?b:m,cands[0]):null;
+    if(!g.target){ g.huyendo=true; return; } }
+  const d=Phaser.Math.Distance.Between(g.spr.x,g.spr.y,g.target.x,g.target.y-20);
+  if(d>34){ const sp=g.sp*dtReal, ang=Math.atan2(g.target.y-20-g.spr.y,g.target.x-g.spr.x);
+    g.spr.x+=Math.cos(ang)*sp; g.spr.y+=Math.sin(ang)*sp; g.spr.setFlipX(Math.cos(ang)<0); g.spr.setDepth(g.spr.y);
+    if(g.spr.anims.currentAnim&&g.spr.anims.currentAnim.key!==g.ar) g.spr.play(g.ar,true);
+  } else {
+    const ro=Math.min(S.oro,rint(25,60)), rm=Math.min(S.madera,rint(25,60));
+    S.oro-=ro; S.madera-=rm; g.huyendo=true;
+    flyText(g.spr.x,g.spr.y-30,'-'+(ro+rm)+'💰','#ff9a8a'); sfx('coins',0.5);
+    toast('🦝 ¡Un ladrón te robó '+ro+' oro y '+rm+' madera! Cazalo antes de que escape.');
+    cronica('🦝 Robo: -'+ro+' oro · -'+rm+' madera',randAv()); refreshHUD();
+  }
+}
 function raidTick(dtReal){
   const R=S.raid;
   const vivos=R.gob.filter(g=>!g.dead);
@@ -1344,6 +1412,7 @@ function raidTick(dtReal){
   const tc=byTC();
   for(const g of vivos){
     if(g.glow){ g.glow.x=g.spr.x; g.glow.y=g.spr.y-6; g.glow.setDepth(g.spr.y-1); }
+    if(g.ladron){ tickLadron(g,dtReal); continue; }
     if(!g.target||g.target.danado||g.target.estado!=='ok'){
       const cands=S.buildings.filter(b=>b.estado==='ok'&&!b.danado);
       g.target = cands.length ? cands.reduce((m,b)=>Phaser.Math.Distance.Between(g.spr.x,g.spr.y,b.x,b.y)<Phaser.Math.Distance.Between(g.spr.x,g.spr.y,m.x,m.y)?b:m,cands[0])
@@ -1360,7 +1429,11 @@ function raidTick(dtReal){
       g.atkT+=dtReal;
       if(g.atkT>(g.ranged?2.0:1.1)){ g.atkT=0;
         g.spr.play(g.ai,true);
-        if(g.ranged){                                 // rayo mágico a distancia
+        if(g.bomba){                                  // pez bomba: lanza una bomba que estalla
+          const tgt=g.target, p=scene.add.sprite(g.spr.x,g.spr.y-20,'bomb').play('bomb-a').setDepth(99990).setScale(0.6);
+          sfx('latch',0.35);
+          scene.tweens.add({targets:p,x:tgt.x,y:tgt.y-16,duration:520,ease:'Quad.easeIn',onComplete:()=>{p.destroy(); explosionAt(tgt.x,tgt.y-12,1.1); dañarEdificio(tgt,g.dmg,0xffb03a);}});
+        } else if(g.ranged){                          // rayo mágico a distancia (shaman)
           const p=scene.add.image(g.spr.x,g.spr.y-20,'dot').setTint(0xb060ff).setDepth(99998).setScale(1.4);
           const tgt=g.target; sfx('bell',0.3);
           scene.tweens.add({targets:p,x:tgt.x,y:tgt.y-16,duration:280,onComplete:()=>{p.destroy(); dañarEdificio(tgt,g.dmg,0xb060ff);}});
