@@ -114,6 +114,7 @@ function preload(){
   const TSB='assets/img/ts/';
   this.load.spritesheet('ground',TSB+'ground.png',{frameWidth:64,frameHeight:64});
   this.load.spritesheet('elev',TSB+'elevation.png',{frameWidth:64,frameHeight:64});
+  this.load.spritesheet('gelev',TSB+'grass_elev.png',{frameWidth:64,frameHeight:64});   // meseta con cima de PASTO (derivado del pack)
   this.load.image('water',TSB+'water.png');
   this.load.spritesheet('foam',TSB+'foam.png',{frameWidth:192,frameHeight:192});
   this.load.spritesheet('tree',TSB+'tree_anim.png',{frameWidth:192,frameHeight:192});
@@ -428,15 +429,11 @@ function create(){
     if(!S.land[y][x]||S.elev[y][x]) continue;
     if(!isLand(x-1,y)||!isLand(x+1,y)||!isLand(x,y-1)||!isLand(x,y+1)) rt.drawFrame('ground',16,(BX+x)*T,(BY+y)*T);
   }
-  // meseta: la CIMA es pasto verde; los bordes conservan el reborde de piedra (se lee como terraza)
-  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++) if(S.elev[y][x]){
-    const ef=eIdx(x,y);
-    if(ef===5) rt.drawFrame('ground',11,(BX+x)*T,(BY+y)*T);   // interior = pasto
-    else rt.drawFrame('elev',ef,(BX+x)*T,(BY+y)*T);           // borde = piedra
-  }
+  // meseta con cima de PASTO verde + reborde/cara de piedra (tileset grass-on-elevation derivado del pack)
+  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++) if(S.elev[y][x]) rt.drawFrame('gelev',eIdx(x,y),(BX+x)*T,(BY+y)*T);
   for(let y=0;y<GH;y++)for(let x=0;x<GW;x++) if(S.cliff[y][x]){
     const l=isIn(x-1,y)&&S.cliff[y][x-1], r=isIn(x+1,y)&&S.cliff[y][x+1];
-    rt.drawFrame('elev', l&&r?13 : r?12 : l?14 : 15, (BX+x)*T,(BY+y)*T);
+    rt.drawFrame('gelev', l&&r?13 : r?12 : l?14 : 15, (BX+x)*T,(BY+y)*T);
   }
   paintGrassPatches(rt);   // variación de tono sobre el pasto (menos chato)
   // snapshot del terreno real → base del minimapa (no procedural)
@@ -455,10 +452,16 @@ function create(){
     onRepeat:()=>{shark.y=pick([rint(1,BY-1),rint(HT-BY+1,HT-1)])*T;}});
   const duck=this.add.sprite(WORLD_W+60,(HT-2)*T,'duck').play('duck-a').setDepth(-23).setScale(1.5);
   this.tweens.add({targets:duck,x:'-=140',y:'-=60',duration:12000,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
-  for(let i=0;i<9;i++){
-    const c=this.add.image(rint(-MAR,WORLD_W+MAR),rint(-200,WORLD_H+200),'cloud'+(i%4+1)).setAlpha(Phaser.Math.FloatBetween(0.22,0.36)).setDepth(89000).setScale(Phaser.Math.FloatBetween(0.8,1.6));
-    this.tweens.add({targets:c,x:'+='+(WORLD_W+MAR),duration:rint(90000,160000),repeat:-1,
-      onRepeat:()=>{c.x=-MAR;c.y=rint(-200,WORLD_H+200);}});
+  // nubes: más densidad y variedad (dos capas — altas tenues y bajas más marcadas, tamaños/velocidades variados)
+  for(let i=0;i<22;i++){
+    const alta=i%3===0;                                  // algunas más altas y tenues (parallax)
+    const esc=alta?Phaser.Math.FloatBetween(1.4,2.4):Phaser.Math.FloatBetween(0.6,1.5);
+    const c=this.add.image(rint(-MAR,WORLD_W+MAR),rint(-260,WORLD_H+220),'cloud'+rint(1,4))
+      .setAlpha(Phaser.Math.FloatBetween(alta?0.12:0.22, alta?0.22:0.42)).setDepth(alta?88500:89200)
+      .setScale(esc).setFlipX(Math.random()<0.5);
+    this.tweens.add({targets:c,x:'+='+(WORLD_W+MAR*2),duration:rint(alta?130000:70000, alta?220000:150000),repeat:-1,
+      onRepeat:()=>{c.x=-MAR;c.y=rint(-260,WORLD_H+220);c.setScale(esc*Phaser.Math.FloatBetween(0.85,1.15));}});
+    this.tweens.add({targets:c,y:'+='+rint(-24,24),duration:rint(9000,16000),yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
   }
 
   ghostG=this.add.graphics().setDepth(95000);
@@ -813,7 +816,7 @@ function mandarConstruir(a,b){
   moverA(a,b.tx,b.ty,()=>{
     a.estado='obrero'; a.bId=b.id;
     if(b.estado==='esperando') b.estado='obra';
-    a.dustEv=scene.time.addEvent({delay:900,loop:true,callback:()=>{ dustAt(b.x,b.y-10,1); sfxAt('chop',0.22,b.x,b.y); }});   // martilleo siempre audible, según cámara
+    a.dustEv=scene.time.addEvent({delay:900,loop:true,callback:()=>{ dustAt(b.x,b.y-10,1); chispasObra(b.x,b.y-18); sfxAt('chop',0.22,b.x,b.y); }});   // martilleo + chispas, siempre audible según cámara
     a.tool='hammer'; a.spr.setTexture('pawn_hammer',0).setScale(0.7); a.spr.play('phammer',true);  // martillando
     if(S.sel&&S.sel.ref===a) renderSel();
   });
@@ -1120,6 +1123,8 @@ function addBuilding(tipo,tx,ty,opt){
 function destroySprites(b){
   b.sprs.forEach(s=>s.destroy());
   ['badge','barG','pileSpr','fireSpr','hpBar','dmgFire'].forEach(k=>{ if(b[k]){ b[k].destroy(); b[k]=null; } });
+  if(b._chimEv){ b._chimEv.remove(); b._chimEv=null; }
+  if(b._orbs){ b._orbs.forEach(o=>o.destroy()); b._orbs=null; }
 }
 function refreshBuilding(b){
   destroySprites(b);
@@ -1470,6 +1475,33 @@ function spawnFlock(){
     scene.tweens.add({targets:b,x:toX-dir*i*22,y:'+='+rint(-30,30),duration:rint(15000,24000),ease:'Sine.easeInOut',onComplete:()=>b.destroy()});
   }
   scheduleBirds();
+}
+/* ===== partículas de edificios (humo de chimenea, orbes de torre, chispas de obra) ===== */
+function humoChimenea(b){
+  if(b._chimEv) return;
+  const c=CAT[b.tipo];
+  b._chimEv=scene.time.addEvent({delay:1300,loop:true,callback:()=>{
+    if(!b.sprs||b.estado!=='ok') return;
+    const x=b.x+rint(-10,c.fw*T*0.2), y=b.y-c.fh*T*0.82;
+    const p=scene.add.image(x,y,'dot').setTint(0xd9d3c6).setAlpha(0.5).setScale(1.4).setDepth(b.y+2);
+    scene.tweens.add({targets:p,y:y-36,x:x+rint(-12,16),scaleX:3.4,scaleY:3.4,alpha:0,duration:2300,ease:'Sine.easeOut',onComplete:()=>p.destroy()});
+  }});
+}
+function orbesTorre(b){
+  if(b._orbs) return; b._orbs=[];
+  const cx=b.x, cy=b.y-CAT.torre.fh*T*0.72;
+  for(let k=0;k<3;k++){
+    const o=scene.add.image(cx,cy,'dot').setTint(0xffe36b).setBlendMode(Phaser.BlendModes.ADD).setScale(1.7).setDepth(99000);
+    const rad=13+k*5;
+    scene.tweens.add({targets:o,alpha:0.3,duration:640+k*130,yoyo:true,repeat:-1});
+    scene.tweens.add({targets:o,x:cx+rad,duration:1500+k*220,yoyo:true,repeat:-1,ease:'Sine.easeInOut',delay:k*140});
+    scene.tweens.add({targets:o,y:cy-rad*0.7,duration:1250+k*180,yoyo:true,repeat:-1,ease:'Sine.easeInOut',delay:k*90});
+    b._orbs.push(o);
+  }
+}
+function chispasObra(x,y){                              // chispas doradas al construir
+  for(let i=0;i<3;i++){ const s=scene.add.image(x+rint(-16,16),y-rint(0,20),'dot').setTint(0xffe36b).setBlendMode(Phaser.BlendModes.ADD).setDepth(99998).setScale(0.8);
+    scene.tweens.add({targets:s,y:s.y-rint(10,26),alpha:0,scale:0.1,duration:rint(400,700),ease:'Quad.easeOut',onComplete:()=>s.destroy()}); }
 }
 /* fogatas de ambiente (fuego + resplandor cálido) */
 function scatterCampfires(n){
@@ -2055,7 +2087,15 @@ function update(time,delta){
     moveMark(a);
     if(a.hp<a.maxhp||(S.sel&&S.sel.ref===a)) drawHp(a,a.hp/a.maxhp,32,a.spr.y-a.markOff+12); else hideBar(a);
   }
-  for(const u of S.units){ moveMark(u);
+  for(const u of S.units){
+    if(!u.dead&&!S.raid.on){                              // fuera de oleada las unidades SÍ obedecen órdenes de movimiento
+      seguirRuta(u,dtReal);
+      const moving=(u.path&&u.path.length)||u.moveT, key=u.spr.anims.currentAnim&&u.spr.anims.currentAnim.key;
+      if(moving){ if(key!==uAnim(u.tipo,'r')) u.spr.play(uAnim(u.tipo,'r'),true);
+        const tk=Math.floor(u.spr.x/T)+','+Math.floor(u.spr.y/T); if(tk!==u.lastTile){ u.lastTile=tk; revelar(u.spr.x,u.spr.y,4); } }
+      else if(key===uAnim(u.tipo,'r')) u.spr.play(uAnim(u.tipo,'i'),true);
+    }
+    moveMark(u);
     if(u.hp!=null&&(u.hp<u.maxhp||(S.sel&&S.sel.ref===u))) drawHp(u,u.hp/u.maxhp,30,u.spr.y-58); else hideBar(u); }
 
   updateAnimals(dtReal,dt);
@@ -2109,6 +2149,8 @@ function update(time,delta){
     }
     // ---- vida del edificio: barra + fuego de daño + reparación gradual ----
     if(b.estado==='ok'&&!b.danado){
+      if(b.tipo==='house'||b.tipo==='castle') humoChimenea(b);   // humo de chimenea
+      else if(b.tipo==='torre') orbesTorre(b);                   // orbes mágicos en la torre
       const mx=b.maxhp||100;
       if(b.reparando){
         b.hp=Math.min(mx, b.hp + mx*dt/3.2);                          // se recupera en ~3s

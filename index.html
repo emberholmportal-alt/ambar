@@ -94,17 +94,20 @@
   .agepop .t2{font-family:var(--title);font-size:30px;color:#3a2a12;line-height:1}
   @keyframes agepop{0%{opacity:0;transform:translate(-50%,-50%) scale(.7)}15%{opacity:1;transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-58%) scale(1)}}
   .toast{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);color:#2e2214;font-family:var(--flavor);font-weight:600;
-    background:url('assets/img/ui/paper2.png') center/100% 100% no-repeat;image-rendering:pixelated;
-    padding:11px 26px;font-size:12.5px;z-index:30;opacity:0;transition:.3s;pointer-events:none;text-shadow:0 1px 0 rgba(255,246,214,.5);min-width:200px;text-align:center}
+    background:linear-gradient(180deg,#efe2c0,#dcc99b);border:2px solid #7a5a34;border-radius:8px;
+    box-shadow:0 3px 10px rgba(0,0,0,.4),inset 0 0 0 1px #b89a63;
+    padding:10px 22px;font-size:13px;z-index:30;opacity:0;transition:.3s;pointer-events:none;text-shadow:0 1px 0 rgba(255,246,214,.5);max-width:62vw;text-align:center}
   .toast.on{opacity:1}
   /* ==== diálogo grande en primer plano ==== */
   .dialog{position:absolute;left:50%;bottom:22px;transform:translateX(-50%) translateY(22px);z-index:40;
     display:flex;align-items:center;gap:15px;max-width:min(74vw,640px);
-    background:url('assets/img/ui/paper2.png') center/100% 100% no-repeat;image-rendering:pixelated;
-    padding:16px 30px 18px;opacity:0;pointer-events:none;transition:opacity .28s ease,transform .28s ease}
+    background:linear-gradient(180deg,#efe2c0,#dcc99b);border:3px solid #7a5a34;border-radius:12px;
+    box-shadow:0 4px 16px rgba(0,0,0,.45),inset 0 0 0 1px #b89a63;
+    padding:14px 26px;opacity:0;pointer-events:none;transition:opacity .28s ease,transform .28s ease}
   .dialog.on{opacity:1;transform:translateX(-50%) translateY(0)}
-  .dialog .dlgPort{flex:0 0 auto;width:76px;height:76px;border:3px solid #7a5a34;border-radius:9px;background:#2a2016;overflow:hidden;box-shadow:0 2px 7px rgba(0,0,0,.45)}
-  .dialog .dlgPort img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated}
+  .dialog .dlgPort{flex:0 0 auto;width:76px;height:76px;border:3px solid #7a5a34;border-radius:9px;
+    background:radial-gradient(circle at 50% 40%,#3a2c1c,#241a10);overflow:hidden;box-shadow:inset 0 0 8px rgba(0,0,0,.6)}
+  .dialog .dlgPort img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated}
   .dialog .dlgBody{min-width:0}
   .dialog .dlgWho{font-family:var(--display);font-weight:700;font-size:15px;color:#7a3410;letter-spacing:.02em;margin-bottom:3px}
   .dialog .dlgTxt{font-family:var(--flavor);font-style:italic;font-size:19px;color:#2e2214;line-height:1.25}
