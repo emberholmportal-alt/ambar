@@ -30,24 +30,24 @@
   .frame{background:linear-gradient(180deg,var(--bg2),var(--bg3));border:1px solid var(--line2);
     box-shadow:inset 0 0 0 1px rgba(0,0,0,.55), inset 0 0 0 3px rgba(201,162,39,.10), 0 3px 10px rgba(0,0,0,.5)}
 
-  /* ---- TOP: banner central de edad + botón menú ---- */
-  .hud{position:relative;display:flex;align-items:center;justify-content:center;padding:6px 12px;min-height:60px;
-    background:linear-gradient(180deg,#241a10,#140f0a);border-bottom:2px solid var(--brass-dim);z-index:30}
-  .agebanner{min-width:340px;max-width:560px;text-align:center;padding:8px 40px 12px;
-    background:url('assets/img/ui/banner.png') center/100% 100% no-repeat;filter:drop-shadow(0 3px 6px rgba(0,0,0,.6));
-    image-rendering:pixelated}
-  .agebanner .game{font-family:var(--title);font-size:22px;line-height:1;color:#3a2a12;letter-spacing:.02em;
-    text-shadow:0 1px 0 rgba(255,235,180,.35)}
-  .agebanner .game b{color:#6b3410}
-  .agebanner .age{font-family:var(--display);font-weight:700;font-size:12.5px;color:#5a3f18;margin-top:2px;letter-spacing:.06em}
-  .iconbtn{position:absolute;top:10px;right:12px;width:42px;height:42px;font-size:19px;color:#f4ecda;cursor:pointer;
+  /* ---- TOP flotante: título chico + botón menú en la esquina (sin barra) ---- */
+  .titlechip{position:absolute;top:9px;left:50%;transform:translateX(-50%);z-index:30;padding:4px 20px 6px;border-radius:9px;text-align:center;pointer-events:none}
+  .titlechip .game{font-family:var(--title);font-size:18px;line-height:1;color:var(--brass-hi);letter-spacing:.03em;text-shadow:0 2px 0 #000,0 0 8px rgba(0,0,0,.6)}
+  .titlechip .game b{color:#f0d564}
+  .titlechip .sub{font-family:var(--flavor);font-style:italic;font-size:10px;color:var(--muted);margin-top:1px}
+  .menuwrap{position:absolute;top:9px;right:12px;z-index:40}
+  .iconbtn{width:44px;height:44px;font-size:20px;color:#f4ecda;cursor:pointer;display:block;
     background:url('assets/img/ui/ribbon_yellow.png') center/100% 100% no-repeat;border:none;image-rendering:pixelated;
     text-shadow:0 1px 2px rgba(10,20,40,.8)}
   .iconbtn:hover{filter:brightness(1.15)}
-  .menu{position:absolute;top:56px;right:12px;width:210px;display:none;flex-direction:column;gap:6px;padding:10px;
-    border-radius:8px;z-index:40}
+  .menu{position:absolute;top:50px;right:0;width:210px;display:none;flex-direction:column;gap:6px;padding:10px;border-radius:8px;z-index:41}
   .menu.open{display:flex}
   .menu button{width:100%}
+  /* panel de OLEADA arriba del minimapa */
+  .wavebar{padding:6px 9px 7px;border-radius:6px;font-size:11px;line-height:1.35;text-align:center;font-variant-numeric:tabular-nums;
+    background:linear-gradient(180deg,#241a10,#140f0a);border:1px solid var(--line)}
+  .wavebar b{color:var(--brass)} .wavebar .pts{color:var(--brass-hi)}
+  .wavebar.enwave{border-color:var(--ember);color:#ffd9d0;animation:rpulse 1.3s ease-in-out infinite}
   button.ghost{font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.05em;color:#f4ecda;
     background:url('assets/img/ui/ribbon_blue.png') center/100% 100% no-repeat;border:none;padding:9px 12px 11px;cursor:pointer;
     min-width:60px;image-rendering:pixelated;text-shadow:0 1px 2px rgba(10,20,40,.85)}
@@ -59,7 +59,7 @@
   #game{position:absolute;inset:0} #game canvas{display:block}
   .hint{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(18,13,9,.85);border:1px solid var(--line);border-radius:4px;padding:6px 14px;font-size:11px;z-index:10;pointer-events:none;opacity:0;transition:.25s}
   .hint.on{opacity:1}
-  .qbox{position:absolute;right:12px;top:12px;width:200px;border-radius:8px;padding:10px 11px;z-index:11}
+  .qbox{position:absolute;right:12px;top:62px;width:200px;border-radius:8px;padding:10px 11px;z-index:11}
   .qbox .qh{font-family:var(--display);font-weight:700;font-size:11px;letter-spacing:.18em;color:var(--brass);margin-bottom:4px}
   .qbox .qt{font-size:11px;line-height:1.45;margin-bottom:7px}
   .qbox button{width:100%;font-size:10px;padding:7px 6px 9px}
@@ -137,23 +137,23 @@
 </head>
 <body>
 <div class="app">
-  <div class="hud">
-    <div class="agebanner" id="ageBanner">
-      <div class="game">AGE OF <b>ANSEM</b></div>
-      <div class="age" id="ageTxt">🛡️ Preparación…</div>
-    </div>
-    <button class="iconbtn" id="btnMenu" title="Menú">☰</button>
-    <div class="menu frame" id="menu">
-      <button class="ghost" id="btnOleada" title="Adelantar la oleada por puntos extra">⚔️ OLEADA YA</button>
-      <button class="ghost" id="btnIdle" title="Ir al próximo aldeano ocioso">💤 IDLE (0)</button>
-      <button class="ghost" id="btnCaravana" title="+250 del recurso más bajo">◆ CARAVANA (8)</button>
-      <button class="ghost" id="btnMercen" style="display:none">◆ MERCENARIOS (10)</button>
-      <button class="ghost" id="btnTiempo">⏱ ×1</button>
-      <button class="ghost" id="btnAudio" title="Música / ambiente">🔊 SONIDO</button>
-    </div>
-  </div>
   <div class="stage">
     <div id="game"></div>
+    <div class="titlechip" id="ageBanner">
+      <div class="game">AGE OF <b>ANSEM</b></div>
+      <div class="sub">The Black Bull</div>
+    </div>
+    <div class="menuwrap">
+      <button class="iconbtn" id="btnMenu" title="Menú">☰</button>
+      <div class="menu frame" id="menu">
+        <button class="ghost" id="btnOleada" title="Adelantar la oleada por puntos extra">⚔️ OLEADA YA</button>
+        <button class="ghost" id="btnIdle" title="Ir al próximo aldeano ocioso">💤 IDLE (0)</button>
+        <button class="ghost" id="btnCaravana" title="+250 del recurso más bajo">◆ CARAVANA (8)</button>
+        <button class="ghost" id="btnMercen" style="display:none">◆ MERCENARIOS (10)</button>
+        <button class="ghost" id="btnTiempo">⏱ ×1</button>
+        <button class="ghost" id="btnAudio" title="Música / ambiente">🔊 SONIDO</button>
+      </div>
+    </div>
     <div class="hint" id="hint"></div>
     <div class="qbox frame" id="qBox">
       <div class="qh">⚑ MISIÓN</div>
@@ -167,6 +167,7 @@
   </div>
   <div class="bottom">
     <div class="leftcol">
+      <div class="wavebar" id="waveBar">🛡️ Preparación…</div>
       <div class="mapbox"><canvas id="minimap" width="220" height="132"></canvas></div>
       <div class="resbar">
         <div class="res" id="rOro"><img src="assets/img/ts/res_gold.png" alt="oro"><span id="vOro">0</span><span class="cap" id="cOro"></span></div>

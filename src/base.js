@@ -16,7 +16,8 @@ const randAv=()=>'av'+String(rint(1,10)).padStart(2,'0');   // nombre de archivo
 const CAP=2000;
 const MAXLVL={castle:3, def:2};
 const CAT={
-  castle:    {nom:'Ayuntamiento', fw:5,fh:2, costo:{oro:300,madera:300}, dur:120, reqAge:1, unico:true, skins:true, esTC:true},
+  castle:    {nom:'Ayuntamiento', fw:5,fh:2, costo:{oro:300,madera:300}, dur:120, reqAge:1, unico:true, skins:true, esTC:true, hp:300},
+  muralla:   {nom:'Muralla',      fw:1,fh:1, costo:{madera:30},         dur:12,   muro:true, hp:260},
   house:     {nom:'Casa',         fw:2,fh:2, costo:{madera:100},        dur:120,  reqAge:1, skins:true, up:[{costo:{madera:200},dur:120}]},
   granja:    {nom:'Granja',       fw:3,fh:2, costo:{madera:120},        dur:180,  reqAge:1, prod:'comida', reserva:400, up:[{costo:{oro:250},dur:200}]},
   cuartel:   {nom:'Cuartel',      fw:3,fh:2, costo:{madera:300},        dur:300, reqAge:2, skins:true, up:[{costo:{oro:600},dur:360}]},
@@ -33,7 +34,7 @@ const UNIDADES={
 };
 const POPCAP=()=>5+2*S.buildings.filter(b=>b.tipo==='house'&&b.estado==='ok').length;
 const popTotal=()=>S.ald.length+S.units.length;
-const CARD_IMG={castle:'castle_blue',house:'house1_blue',granja:'sheep',
+const CARD_IMG={castle:'castle_blue',house:'house1_blue',granja:'sheep',muralla:'wall',
   torre:'tower_blue',cuartel:'barracks_blue',arqueria:'archery_blue',monasterio:'monastery_blue'};
 const RES_IMG={oro:'res_gold',madera:'res_wood',comida:'res_meat'};
 
@@ -98,6 +99,7 @@ function preload(){
   this.load.spritesheet('tree',TSB+'tree_anim.png',{frameWidth:192,frameHeight:192});
   this.load.spritesheet('sheep','assets/img/sheep.png',{frameWidth:64,frameHeight:64});
   this.load.spritesheet('fence',TSB+'fence.png',{frameWidth:64,frameHeight:64});
+  this.load.spritesheet('wall',TSB+'wall.png',{frameWidth:64,frameHeight:64});   // muralla de madera
   this.load.spritesheet('dust1',TSB+'dust1.png',{frameWidth:64,frameHeight:64});
   this.load.spritesheet('dust2',TSB+'dust2.png',{frameWidth:64,frameHeight:64});
   this.load.spritesheet('fire',TSB+'fire.png',{frameWidth:128,frameHeight:128});
@@ -167,7 +169,8 @@ function makeFogBrush(s){
 /* ===== mapa continental (tierra grande + costa irregular + mar/lagos + mesetas) ===== */
 const isIn=(x,y)=>x>=0&&x<GW&&y>=0&&y<GH;
 const isLand=(x,y)=>isIn(x,y)&&S.land[y][x];
-const walkable=(x,y)=>isLand(x,y)&&!S.cliff[y][x];
+const ocupado=(x,y)=>isIn(x,y)&&S.grid[y][x]!==null;         // edificio / nodo / escenario ocupan la celda
+const walkable=(x,y)=>isLand(x,y)&&!S.cliff[y][x]&&!ocupado(x,y);   // no se atraviesan edificios ni objetos
 function buildMap(){
   const cx=GW/2-0.5, cy=GH/2-0.5, p1=Math.random()*6.28, p2=Math.random()*6.28, p3=Math.random()*6.28;
   // continente: casi todo tierra, con costa irregular que toca los bordes en partes
@@ -391,17 +394,20 @@ function create(){
   $('btnMenu').onclick=()=>$('menu').classList.toggle('open');
   $('btnOleada')&&($('btnOleada').onclick=()=>{ if(S.phase==='prep'&&!S.over){ S.score+=Math.ceil(S.phaseT)*3; toast('¡Adelantás la oleada! +'+Math.ceil(S.phaseT)*3+' pts.'); lanzarOleada(); } });
   toast('EL ASEDIO · Preparate: construí defensas y entrená tropas. La primera oleada llega en '+PREP0+'s.');
+  cronica('Fundás tu pueblo. Que empiece el asedio.',randAv());
+  cronica('Tip: construí Murallas y Torres antes de la 1ª oleada.',randAv());
   window.__raid=()=>lanzarOleada();
   window.__over=()=>gameOver();
 }
 const byTC=()=>S.buildings.find(b=>b.tipo==='castle');
 /* ===== BANNER de asedio (oleada / puntaje) ===== */
 function updateBanner(){
-  const t=$('ageTxt'); if(!t) return;
-  if(S.over){ t.textContent='☠️ Derrota · '+S.score+' pts (récord '+S.best+')'; return; }
+  const t=$('waveBar'); if(!t) return;
+  t.classList.toggle('enwave', S.phase==='wave'&&!S.over);
+  if(S.over){ t.innerHTML='☠️ Derrota · <span class="pts">'+S.score+'</span> pts (récord '+S.best+')'; return; }
   if(S.phase==='wave'){ const v=S.raid.gob.filter(g=>!g.dead).length;
-    t.textContent='⚔️ OLEADA '+S.wave+' · enemigos '+v+' · '+S.score+' pts'; }
-  else { t.textContent='🛡️ Preparación · oleada '+(S.wave+1)+' en '+Math.max(0,Math.ceil(S.phaseT))+'s · '+S.score+' pts'; }
+    t.innerHTML='⚔️ <b>OLEADA '+S.wave+'</b> · enemigos '+v+' · <span class="pts">'+S.score+'</span> pts'; }
+  else { t.innerHTML='🛡️ Oleada <b>'+(S.wave+1)+'</b> en <b>'+Math.max(0,Math.ceil(S.phaseT))+'s</b> · <span class="pts">'+S.score+'</span> pts'; }
 }
 
 /* ===== cámara ===== */
@@ -526,11 +532,14 @@ function setTool(a,tool){ a.tool=tool;
   else { a.spr.setTexture('pawn_blue',0).setScale(0.7); }
 }
 function moverA(a,tx,ty,cb){
+  // soltar la tarea anterior (interrumpir orden en curso)
+  if(a.dustEv){a.dustEv.remove();a.dustEv=null;}
+  if(a.tween){a.tween.remove();a.tween=null;}
+  a.bId=null; a.task=null; a.objAnimal=null; a.objPile=null;
   const cur=tileOfPx(a.spr.x,a.spr.y);
   let dx=tx,dy=ty, path=findPath(cur.x,cur.y,tx,ty);
   if(!path){ const adj=adjWalkable(tx,ty); if(adj){ dx=adj.x; dy=adj.y; path=findPath(cur.x,cur.y,dx,dy); } }
   setTool(a,null);
-  if(a.tween){a.tween.remove();a.tween=null;}
   a.estado='yendo'; a.onArrive=cb||null;
   a.path=(path&&path.length)?path:[{x:(BX+dx)*T+T/2,y:(BY+dy)*T+T/2}];
   const p0=a.path.shift(); a.tx=p0.x; a.ty=p0.y;
@@ -752,6 +761,8 @@ function makeSprites(b){
     }
     sprs.push(scene.add.sprite(x-14,y-T*0.7,'sheep').play('sheep-a').setOrigin(0.5,0.9).setDepth(y-T*0.7));
     sprs.push(scene.add.sprite(x+20,y-T*0.55,'pig_idle').play('cerdo-i').setOrigin(0.5,0.72).setScale(0.42).setDepth(y-T*0.55));
+  } else if(b.tipo==='muralla'){
+    sprs.push(scene.add.image(x,y+6,'wall',5).setOrigin(0.5,1).setScale(1.05).setDepth(y));
   } else {
     sprs.push(scene.add.image(x,y,texOf(b)).setOrigin(0.5,1).setDepth(y));
   }
@@ -782,7 +793,7 @@ function addBuilding(tipo,tx,ty,opt){
   opt=opt||{};
   const c=CAT[tipo];
   const b={id:S.nextId++, tipo, nivel:1, tx, ty, skin:'blue', var:tipo==='house'?rint(1,3):0,
-    estado:opt.listo?'ok':'esperando', obraT:0, obraDur:c.dur, mejorando:false, hp:100, danado:false,
+    estado:opt.listo?'ok':'esperando', obraT:0, obraDur:c.dur, mejorando:false, hp:c.hp||100, maxhp:c.hp||100, danado:false,
     buf:0, reserva:c.reserva||0, pileSpr:null, badge:null, barG:null, fireSpr:null};
   const m=makeSprites(b); b.sprs=m.sprs; b.x=m.x; b.y=m.y;
   setGrid(b,b.id);
@@ -840,9 +851,12 @@ function entrenar(tipoU,b){
 }
 const uAnim=(tipo,m)=>tipo==='guerrero'?'war-'+m:tipo==='monje'?'monk-'+m:'arq-'+m;
 function moverMilitar(u,wx,wy){
-  const t=tileOfPx(wx,wy); const dst=walkable(t.x,t.y)?t:(adjWalkable(t.x,t.y)||t);
-  u.home={x:(BX+dst.x)*T+T/2,y:(BY+dst.y)*T+T/2};
-  u.moveT=u.home;
+  u.forced=null;
+  const t=tileOfPx(wx,wy), cur=tileOfPx(u.spr.x,u.spr.y);
+  const dst=walkable(t.x,t.y)?t:(adjWalkable(t.x,t.y)||t);
+  const path=findPath(cur.x,cur.y,dst.x,dst.y);           // rodear edificios/objetos
+  u.path=(path&&path.length)?path:[{x:(BX+dst.x)*T+T/2,y:(BY+dst.y)*T+T/2}];
+  u.home={x:(BX+dst.x)*T+T/2,y:(BY+dst.y)*T+T/2}; u.moveT=null;
   if(!S.raid.on) u.spr.play(uAnim(u.tipo,'r'),true);
 }
 function despedirMilitar(u){
@@ -856,7 +870,13 @@ function despedirMilitar(u){
 function ordenar(p){
   const sel=S.sel; if(!sel) return;
   const wp=scene.cameras.main.getWorldPoint(p.x,p.y);
-  if(sel.t==='militar'){ moverMilitar(sel.ref,wp.x,wp.y); marcaOrden(wp.x,wp.y); return; }
+  if(sel.t==='militar'){
+    const u=sel.ref;
+    const en=S.raid.gob.find(g=>!g.dead&&Phaser.Math.Distance.Between(wp.x,wp.y,g.spr.x,g.spr.y)<44);
+    if(en){ u.forced=en; u.target=en; u.moveT=null; u.path=null; marcaOrden(en.spr.x,en.spr.y); toast('⚔️ ¡Al ataque!'); }
+    else { moverMilitar(u,wp.x,wp.y); marcaOrden(wp.x,wp.y); }
+    return;
+  }
   if(sel.t!=='aldeano') return;
   const a=sel.ref;
   const an=S.animals.find(m=>!m.dead&&Phaser.Math.Distance.Between(wp.x,wp.y,m.spr.x,m.spr.y)<40);
@@ -989,7 +1009,7 @@ function renderSelEdificio(b){
   $('selNom').textContent=c.nom;
   if(c.esTC) $('selLvl').textContent='Corazón del pueblo · si cae, perdés el asedio'+(b.danado?' · 🔥 DAÑADO':'');
   else $('selLvl').textContent='Nivel '+b.nivel+(b.estado==='esperando'?' · ESPERANDO ALDEANO':'')+(b.estado==='obra'?' · EN OBRA':'')+(b.danado?' · 🔥 DAÑADO':'')+(b.skin==='red'?' · roja':'');
-  setHp(b.hp,100);
+  setHp(b.hp,b.maxhp||100);
   if(b.danado){ accion('REPARAR (60 oro)',()=>repararB(b),S.oro<60); }
   else {
     const uCrear=Object.keys(UNIDADES).find(k=>UNIDADES[k].de.includes(b.tipo));
@@ -1004,7 +1024,7 @@ function renderSelEdificio(b){
   if(!c.esTC) accion('DEMOLER (40 mad.)',()=>limpiarRestos(b),S.madera<40);
 }
 function repararB(b){ if(!b.danado||S.oro<60) return;
-  S.oro-=60; b.danado=false; b.hp=100; refreshBuilding(b); sfx('bong',0.5); toast(CAT[b.tipo].nom+' reparado.'); refreshHUD(); renderSel(); }
+  S.oro-=60; b.danado=false; b.hp=b.maxhp||100; refreshBuilding(b); sfx('bong',0.5); toast(CAT[b.tipo].nom+' reparado.'); refreshHUD(); renderSel(); }
 function mejorarB(b){ const up=CAT[b.tipo].up[b.nivel-1];
   if(!pagar(up.costo)){ sfx('creak',0.4); toast('No te alcanza para la mejora.'); return; }
   b.estado='esperando'; b.obraT=0; b.obraDur=up.dur; b.mejorando=true; refreshBuilding(b);
@@ -1271,6 +1291,14 @@ function raidTick(dtReal){
   pelear(S.units,vivos,dtReal,true);
   pelear(R.war,vivos,dtReal,false);
 }
+function seguirRuta(u,dtReal){                        // seguir la ruta (rodeando edificios) o el punto destino
+  let pt=null;
+  if(u.path&&u.path.length){ pt=u.path[0]; if(Phaser.Math.Distance.Between(u.spr.x,u.spr.y,pt.x,pt.y)<6){ u.path.shift(); pt=u.path[0]||null; } }
+  else if(u.moveT){ pt=u.moveT; if(Phaser.Math.Distance.Between(u.spr.x,u.spr.y,pt.x,pt.y)<6){ u.moveT=null; pt=null; } }
+  if(!pt) return;
+  const sp=58*dtReal, ang=Math.atan2(pt.y-u.spr.y,pt.x-u.spr.x);
+  u.spr.x+=Math.cos(ang)*sp; u.spr.y+=Math.sin(ang)*sp; u.spr.setFlipX(Math.cos(ang)<0); u.spr.setDepth(u.spr.y);
+}
 function muereUnidad(u,esUnidad){
   u.dead=true; killMark(u); killBar(u); if(esUnidad) S.units=S.units.filter(x=>x!==u);
   const d2=scene.add.sprite(u.spr.x,u.spr.y,'dead').play('dead-a').setOrigin(0.5,0.72).setScale(0.5).setDepth(u.spr.y);
@@ -1282,10 +1310,10 @@ function pelear(lista,vivos,dtReal,esUnidad){
     if(u.tipo==='monje'){ curarCerca(u,dtReal); continue; }   // el monje no pelea: sana
     const arquero=u.tipo==='arquero';
     const alcance=arquero?T*4.5:26;
-    if(!u.target||u.target.dead) u.target=vivos.find(g=>!g.dead)||null;
-    if(!u.target){ if(u.moveT){ const d=Phaser.Math.Distance.Between(u.spr.x,u.spr.y,u.moveT.x,u.moveT.y);
-        if(d>6){ const sp=58*dtReal, ang=Math.atan2(u.moveT.y-u.spr.y,u.moveT.x-u.spr.x); u.spr.x+=Math.cos(ang)*sp; u.spr.y+=Math.sin(ang)*sp; u.spr.setFlipX(Math.cos(ang)<0); u.spr.setDepth(u.spr.y);} else u.moveT=null; }
-      continue; }
+    if(u.forced&&!u.forced.dead) u.target=u.forced;            // orden manual de atacar
+    else { if(u.forced&&u.forced.dead) u.forced=null;
+      if(!u.target||u.target.dead) u.target=vivos.find(g=>!g.dead)||null; }
+    if(!u.target){ seguirRuta(u,dtReal); continue; }
     const d=Phaser.Math.Distance.Between(u.spr.x,u.spr.y,u.target.spr.x,u.target.spr.y);
     if(d>alcance){
       const sp=(arquero?50:58)*dtReal, ang=Math.atan2(u.target.spr.y-u.spr.y,u.target.spr.x-u.spr.x);
@@ -1308,8 +1336,7 @@ function pelear(lista,vivos,dtReal,esUnidad){
   }
 }
 function curarCerca(u,dtReal){                      // monje: sana la unidad/aldeano más herido cerca
-  if(u.moveT){ const d=Phaser.Math.Distance.Between(u.spr.x,u.spr.y,u.moveT.x,u.moveT.y);
-    if(d>6){ const sp=52*dtReal, ang=Math.atan2(u.moveT.y-u.spr.y,u.moveT.x-u.spr.x); u.spr.x+=Math.cos(ang)*sp; u.spr.y+=Math.sin(ang)*sp; u.spr.setFlipX(Math.cos(ang)<0); u.spr.setDepth(u.spr.y);} else u.moveT=null; }
+  seguirRuta(u,dtReal);
   u.healCd=(u.healCd||0)-dtReal; if(u.healCd>0) return;
   const cerca=[...S.units.filter(x=>!x.dead&&x!==u&&x.hp<x.maxhp), ...S.ald.filter(a=>a.hp<a.maxhp)]
     .filter(t=>Phaser.Math.Distance.Between(u.spr.x,u.spr.y,t.spr.x,t.spr.y)<T*4)
@@ -1501,12 +1528,14 @@ function update(time,delta){
         b.barG.fillStyle(0x6a6154,1).fillRect(bx,by,bw*0.04,6); }
     }
     else if(b.estado==='obra'){
-      b.obraT+=dt; const p=Math.min(1,b.obraT/b.obraDur);
+      const obreros=S.ald.filter(a=>a.bId===b.id&&a.estado==='obrero').length;   // más obreros = más rápido
+      if(obreros>0) b.obraT+=dt*obreros;                                          // sin obreros la obra se pausa
+      const p=Math.min(1,b.obraT/b.obraDur);
       if(b.barG){ b.barG.clear(); const bx=b.x-c.fw*T*0.4, by=b.y-c.fh*T-14, bw=c.fw*T*0.8;
         b.barG.fillStyle(0x120d09,0.85).fillRect(bx-2,by-2,bw+4,10);
-        b.barG.fillStyle(0xc9a227,1).fillRect(bx,by,bw*p,6); }
+        b.barG.fillStyle(obreros>1?0x6fd06f:0xc9a227,1).fillRect(bx,by,bw*p,6); }
       if(b.obraT>=b.obraDur){
-        b.estado='ok'; b.hp=100;
+        b.estado='ok'; b.hp=b.maxhp||100;
         const obrero=S.ald.find(a=>a.bId===b.id&&(a.estado==='obrero'||a.estado==='yendo'));
         if(obrero) parar(obrero);
         if(b.mejorando){ b.nivel++; b.mejorando=false; }
