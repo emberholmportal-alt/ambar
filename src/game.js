@@ -10,21 +10,92 @@ function pushChronicle(tag,color,text,major,av){const e=document.createElement('
 function setWatching(t){$('watch').textContent=t} function setViewers(n){$('viewers').textContent=nf(n)}
 function reticleLock(on){reticleEl.classList.toggle('lock',on)} function setClock(s){clockStr=s;$('clock').textContent=s}
 
+/* ===== i18n ===== */
+let LANG=(localStorage.getItem('ambar_lang')||'es');
+const L=(es,en)=>LANG==='en'?en:es;
+const hex=c=>'#'+c.toString(16).padStart(6,'0');
+
 /* ===== datos ===== */
-const T=64, COLS=48, ROWS=30, WORLD_W=COLS*T, WORLD_H=ROWS*T;
+const T=64, COLS=58, ROWS=36, WORLD_W=COLS*T, WORLD_H=ROWS*T;   // reino más grande
+// Cada gremio: nombre + lema + lore (para el reino dividido). name/lema/lore son getters bilingües.
 const GUILDS=[
-  {id:'guardia',name:'Guardia de Hierro',tex:'blue',  color:0x4a90c2, cx:13,      cy:10},
-  {id:'yunque', name:'Orden del Yunque', tex:'red',   color:0xd64545, cx:COLS-14, cy:10},
-  {id:'sombra', name:'Los Sin Nombre',   tex:'purple',color:0x9b6fce, cx:13,      cy:ROWS-11},
-  {id:'sol',    name:'Casa del Sol',      tex:'yellow',color:0xd8b53a, cx:COLS-14, cy:ROWS-11},
+  {id:'guardia',tex:'blue',  color:0x4a90c2, cx:15,      cy:12,
+   _n:['Guardia de Hierro','Iron Guard'], _l:['“El muro es la palabra.”','“The wall is the word.”'],
+   _lore:['Defienden la muralla norte y desconfían de todo lo que venga del mar.','They hold the north wall and distrust all that comes from the sea.']},
+  {id:'yunque', tex:'red',   color:0xd64545, cx:COLS-16, cy:12,
+   _n:['Orden del Yunque','Order of the Anvil'], _l:['“Lo que se forja, manda.”','“What is forged, rules.”'],
+   _lore:['Herreros y mercaderes: controlan la forja y el oro de la isla.','Smiths and traders: they command the forge and the isle’s gold.']},
+  {id:'sombra', tex:'purple',color:0x9b6fce, cx:15,      cy:ROWS-13,
+   _n:['Los Sin Nombre','The Nameless'], _l:['“Nadie nos vio venir.”','“No one saw us coming.”'],
+   _lore:['Contrabandistas de la Necrópolis; juran lealtad sólo a la sombra.','Smugglers of the Necropolis; loyal only to the shadow.']},
+  {id:'sol',    tex:'yellow',color:0xd8b53a, cx:COLS-16, cy:ROWS-13,
+   _n:['Casa del Sol','House of the Sun'], _l:['“Ámbar arde al alba.”','“Amber burns at dawn.”'],
+   _lore:['Nobles del Jardín Colgante que sueñan con reunir la isla bajo una corona.','Nobles of the Hanging Garden who dream of one crown over the isle.']},
 ];
+GUILDS.forEach(g=>{Object.defineProperty(g,'name',{get(){return L(g._n[0],g._n[1]);}});
+  Object.defineProperty(g,'lema',{get(){return L(g._l[0],g._l[1]);}});
+  Object.defineProperty(g,'lore',{get(){return L(g._lore[0],g._lore[1]);}});});
 const guildById=Object.fromEntries(GUILDS.map(g=>[g.id,g]));
-const RACES=['humano','elfo','enano','orco','no-muerto','bestia'];
-const CLASSES=['guerrera','caballero','pícaro','clériga','bardo','mercenario','cazadora','herrera'];
+const RACES=()=>L(['humano','elfo','enano','orco','no-muerto','bestia'],['human','elf','dwarf','orc','undead','beast']);
+const CLASSES=()=>L(['guerrera','caballero','pícaro','clériga','bardo','mercenario','cazadora','herrera'],['warrior','knight','rogue','cleric','bard','sellsword','hunter','smith']);
 const NAME_A=['Kael','Mirena','Dorn','Sylva','Bram','Ysolde','Korrin','Vael','Thane','Nixa','Ordo','Rhea','Grael','Selka','Auber','Wynn','Tovar','Isha','Draven','Mora','Halin','Perla'];
-const NAME_B=['','','','el Tuerto','de la Sombra','Manohierro','la Pálida','el Cuervo','de Ámbar','Rompeyunques','la Zurda','Sangrefría','el Descalzo'];
-const ITEMS=['un grimorio prohibido','reliquias de la Vieja Corona','oro maldito','una espada rúnica','un huevo de dragón','barriles de cerveza enana','mapas de las Profundidades','una máscara de hueso'];
-const DISTRICTS=['el Barrio de la Forja','el Mercado Alto','los Muelles','la Necrópolis','la Plaza del Rey','el Jardín Colgante'];
+const NAME_B=()=>L(['','','','el Tuerto','de la Sombra','Manohierro','la Pálida','el Cuervo','de Ámbar','Rompeyunques','la Zurda','Sangrefría','el Descalzo'],
+                   ['','','','the One-Eyed','of the Shadow','Ironhand','the Pale','the Crow','of Amber','Anvilbreaker','the Left','Coldblood','the Barefoot']);
+const ITEMS=()=>L(['un grimorio prohibido','reliquias de la Vieja Corona','oro maldito','una espada rúnica','un huevo de dragón','barriles de cerveza enana','mapas de las Profundidades','una máscara de hueso'],
+                  ['a forbidden grimoire','relics of the Old Crown','cursed gold','a runed sword','a dragon egg','barrels of dwarven ale','maps of the Deep','a bone mask']);
+const DISTRICTS=()=>L(['el Barrio de la Forja','el Mercado Alto','los Muelles','la Necrópolis','la Plaza del Rey','el Jardín Colgante'],
+                     ['the Forge Quarter','the High Market','the Docks','the Necropolis','the King’s Square','the Hanging Garden']);
+// líneas de diálogo: las unidades hablan del reino partido en gremios (burbujas flotantes)
+const DIALOGO={
+  guardia:[['Mientras el muro aguante, Ámbar respira.','As long as the wall holds, Amber breathes.'],['El Yunque cobra peajes hasta por respirar.','The Anvil taxes even our breathing.'],['Vi luces en la Necrópolis otra vez.','Saw lights in the Necropolis again.']],
+  yunque:[['Sin nuestra forja, no habría espadas ni corona.','Without our forge, no swords, no crown.'],['La Guardia se cree dueña del mar.','The Guard thinks it owns the sea.'],['Todo se paga en oro, hasta la paz.','Everything’s paid in gold — even peace.']],
+  sombra:[['Cuatro gremios, mil secretos.','Four guilds, a thousand secrets.'],['El Sol sueña con una corona que no existe.','The Sun dreams of a crown that isn’t.'],['Nadie manda sobre la sombra.','No one rules the shadow.']],
+  sol:[['Un día Ámbar tendrá un solo estandarte.','One day Amber will fly one banner.'],['La isla está partida y sangra por la grieta.','The isle is split and bleeds at the seam.'],['Al alba se ve mejor quién traiciona.','At dawn you see who betrays.']],
+  comun:[['Cuatro estandartes, una sola isla. Nunca alcanza.','Four banners, one island. Never enough.'],['Dicen que hubo un rey. Ahora sólo hay gremios.','They say there was a king. Now only guilds.'],['La crónica lo cuenta todo, hasta lo que callamos.','The chronicle tells all — even what we hush.'],['¿Paz? En Ámbar eso dura hasta la próxima campana.','Peace? Here it lasts till the next bell.']],
+};
+
+/* ===== puntos por gremio (temporada en vivo, en memoria) ===== */
+const PUNTOS={}; GUILDS.forEach(g=>PUNTOS[g.id]=45+Math.floor(Math.random()*36));   // rint aún no está definido acá
+function sumarPuntos(gid,n){ if(gid==null||PUNTOS[gid]==null) return; PUNTOS[gid]=Math.max(0,PUNTOS[gid]+n); renderMarcador(); }
+function renderMarcador(){ const el=$('score'); if(!el) return;
+  const ord=[...GUILDS].sort((a,b)=>PUNTOS[b.id]-PUNTOS[a.id]), top=PUNTOS[ord[0].id]||1;
+  el.innerHTML=ord.map((g,i)=>`<div class="srow${i===0?' lead':''}"><span class="rk">${i+1}</span><span class="sw" style="background:${hex(g.color)}"></span><span class="gn">${g.name}</span><span class="pbar"><i style="width:${Math.round(100*PUNTOS[g.id]/top)}%;background:${hex(g.color)}"></i></span><span class="pt">${PUNTOS[g.id]}</span></div>`).join('');
+}
+// deltas de puntos según el evento y el gremio protagonista
+function puntuar(tpl,g,a){
+  const rivales=GUILDS.filter(x=>x.id!==g.id);
+  switch(tpl.tag){
+    case 'GUERRA': sumarPuntos(g.id,rint(3,6)); sumarPuntos(pick(rivales).id,-rint(2,5)); break;
+    case 'DUELO': case 'MAGNICIDIO': sumarPuntos(g.id,rint(2,4)); break;
+    case 'HALLAZGO': sumarPuntos(g.id,rint(4,7)); break;
+    case 'FIESTA': GUILDS.forEach(x=>sumarPuntos(x.id,1)); break;
+    case 'TRAICIÓN': sumarPuntos(g.id,rint(2,4)); sumarPuntos(pick(rivales).id,-rint(2,4)); break;
+    case 'INVASIÓN': case 'DRAGÓN': case 'BESTIA': GUILDS.forEach(x=>sumarPuntos(x.id,-rint(0,2))); break;
+    case 'GREMIO': case 'REFUERZO': sumarPuntos(g.id,1); break;
+  }
+}
+
+/* ===== diálogo: burbuja flotante con lore del reino dividido ===== */
+let dlgAcc=0, dlgNext=5000;
+function burbuja(n,txt){
+  if(!n||n.dead||!scene) return;
+  const w=Math.min(210,44+txt.length*6);
+  const box=scene.add.container(n.spr.x,n.spr.y-58).setDepth(100002);
+  const bg=scene.add.graphics(); bg.fillStyle(0x14100b,0.92); bg.lineStyle(1.5,0xc9a227,0.7);
+  bg.fillRoundedRect(-w/2,-24,w,30,7); bg.strokeRoundedRect(-w/2,-24,w,30,7);
+  bg.fillStyle(0x14100b,0.92); bg.fillTriangle(-5,5,5,5,0,13);
+  const t=scene.add.text(0,-9,txt,{fontFamily:'"IM Fell English",Georgia,serif',fontStyle:'italic',fontSize:'12px',color:'#ece3d0',align:'center',wordWrap:{width:w-14}}).setOrigin(0.5,0.5).setResolution(2);
+  box.add([bg,t]); box.setAlpha(0);
+  scene.tweens.add({targets:box,alpha:1,y:box.y-6,duration:260,ease:'Back.easeOut'});
+  scene.time.delayedCall(3200,()=>scene.tweens.add({targets:box,alpha:0,y:box.y-8,duration:400,onComplete:()=>box.destroy()}));
+  n._bub=box;
+}
+function decirAlgo(){
+  const living=livingNpcs().filter(n=>n.spr&&!n._bub);
+  if(!living.length) return;
+  const n=pick(living); const pool=(DIALOGO[n.guild]||[]).concat(DIALOGO.comun); const line=pick(pool);
+  burbuja(n, L(line[0],line[1])); scene.time.delayedCall(3700,()=>{ if(n) n._bub=null; });
+}
 
 let scene, obstacles, npcGroup, npcs=[], buildings=[], walkTiles=[], blocked=[], land=[];
 let treeSpots=[], gmPos=null;                 // sitios de trabajo (bosque y mina)
@@ -35,8 +106,8 @@ let evAcc=0, evNext=2200, worldMin=6*60, clkAcc=0, viewers=1204, tViewers=1204, 
 const rint=(a,b)=>Math.floor(Math.random()*(b-a+1))+a, pick=a=>a[Math.floor(Math.random()*a.length)];
 
 /* ===== parámetros (tuneables) ===== */
-const NPC_START=110, NPC_MAX=140;            // pobladores (guerreros+aldeanos) inicial / techo
-const N_MONSTERS=8;                          // bichos que merodean de fondo
+const NPC_START=150, NPC_MAX=200;            // pobladores (guerreros+aldeanos) inicial / techo — reino más poblado
+const N_MONSTERS=12;                         // bichos que merodean de fondo
 const WSCALE=0.72, PSCALE=0.62;              // escala guerreros (110×98) y pawns/goblins (frames 192)
 
 /* ===== catálogo de texturas Tiny Swords ===== */
@@ -128,7 +199,7 @@ function preload(){
   this.load.spritesheet('pig_run', TSB+'pig_run.png', {frameWidth:192,frameHeight:192});
   // efectos
   this.load.spritesheet('fire',TSB+'fire.png',{frameWidth:128,frameHeight:128});
-  this.load.spritesheet('explosion',TSB+'explosion.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('explosion',TSB+'explosion.png',{frameWidth:192,frameHeight:128});   // 6 frames de 192×128
   // partículas Tiny Swords (Particle FX del Free Pack)
   this.load.spritesheet('dust1',TSB+'dust1.png',{frameWidth:64,frameHeight:64});
   this.load.spritesheet('dust2',TSB+'dust2.png',{frameWidth:64,frameHeight:64});
@@ -205,7 +276,7 @@ function create(){
   for(let i=1;i<=4;i++) an.create({key:'bush'+i+'-a',frames:an.generateFrameNumbers('bush'+i,{start:0,end:7}),frameRate:6,repeat:-1});
   an.create({key:'cave-a',frames:an.generateFrameNumbers('cave',{start:0,end:7}),frameRate:6,repeat:-1});
   an.create({key:'fire-a',frames:an.generateFrameNumbers('fire',{start:0,end:6}),frameRate:10,repeat:-1});
-  an.create({key:'explosion-a',frames:an.generateFrameNumbers('explosion',{start:0,end:8}),frameRate:14,repeat:0});
+  an.create({key:'explosion-a',frames:an.generateFrameNumbers('explosion',{start:0,end:5}),frameRate:14,repeat:0});
   an.create({key:'dead-a',frames:an.generateFrameNumbers('dead',{start:0,end:6}),frameRate:9,repeat:0});
   an.create({key:'torch-idle',frames:an.generateFrameNumbers('goblin_torch',{start:0,end:6}),frameRate:8,repeat:-1});
   an.create({key:'torch-run', frames:an.generateFrameNumbers('goblin_torch',{start:7,end:12}),frameRate:10,repeat:-1});
@@ -434,7 +505,7 @@ function create(){
     cam.scrollY-=(p.y-p.prevPosition.y)/cam.zoom;
   });
   this.game.canvas.addEventListener('dblclick',()=>{ manualView=false; cameraBusy=false; fitCamera(); });
-  seedFeed();
+  renderMarcador();                                  // el marcador ya se sembró; refresca por si la escena tardó
 }
 
 /* ===== colocación ===== */
@@ -474,7 +545,7 @@ function placeTorch(tx,ty){                            // brasero: llama animada
   scene.add.sprite(x,y,'fire').play({key:'fire-a',startFrame:rint(0,6)}).setOrigin(0.5,1).setScale(0.34).setDepth(y);
   scene.tweens.add({targets:glow,alpha:{from:0.16,to:0.34},scaleX:{from:0.9,to:1.2},scaleY:{from:0.9,to:1.2},duration:560,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
 }
-function makeName(){const b=pick(NAME_B);return b?`${pick(NAME_A)} ${b}`:pick(NAME_A);}
+function makeName(){const b=pick(NAME_B());return b?`${pick(NAME_A)} ${b}`:pick(NAME_A);}
 
 /* ===== spawns ===== */
 function spawnNpc(gid,tipo){
@@ -483,7 +554,7 @@ function spawnNpc(gid,tipo){
   tipo=tipo||'warrior';
   const sp0=nearWalkable(Phaser.Math.Clamp(g.cx+rint(-3,3),1,COLS-2), Phaser.Math.Clamp(g.cy+rint(-2,3),1,ROWS-2));
   const sx=sp0.x, sy=sp0.y;
-  const n={sheep:false,monster:false,guild:g.id,tex:g.tex,tipo,name:makeName(),race:pick(RACES),cls:pick(CLASSES),
+  const n={sheep:false,monster:false,guild:g.id,tex:g.tex,tipo,name:makeName(),race:pick(RACES()),cls:pick(CLASSES()),
     av:'h'+String(rint(1,25)).padStart(2,'0'),
     faceUp:false,faceLeft:false,idle:0,stuck:0,label:null,dead:false};
   if(tipo==='warrior'){
@@ -688,28 +759,29 @@ function dropTreasure(x,y){                            // pila de oro Tiny Sword
   ring(x,y-8,0xc9a227); burst(x,y-8,0xc9a227,10,8);
 }
 
-/* ===== motor narrativo ===== */
+/* ===== motor narrativo (crónica bilingüe) ===== */
 const TPL=[
-  {tag:'MISIÓN',c:'#c9a227',major:false,t:x=>`${x.a}, ${x.cls} ${x.race}, acepta un contrato para limpiar las alcantarillas de ${x.d}.`},
-  {tag:'MERCADO',c:'#e2a24a',major:false,t:x=>`Una caravana entra por la Puerta Sur cargada de ${x.i}. Los precios tiemblan.`},
-  {tag:'TABERNA',c:'#d99a5a',major:false,t:x=>`${x.a} y ${x.b} se van a los gritos en la taberna de ${x.d}. Corre la cerveza, no la sangre… todavía.`},
-  {tag:'GREMIO',c:'#8fb4d6',major:false,t:x=>`El ${x.g} recluta a ${x.a}. Juramento sellado con hierro y silencio.`},
-  {tag:'RUMOR',c:'#a99a7a',major:false,t:x=>`Corre el rumor: ${x.a} le debe ${x.i} al ${x.g} y ya no responde a nadie.`},
-  {tag:'NOCHE',c:'#8c7f68',major:false,snd:'bell',t:x=>`Repican las campanas: la vigilia cambia de guardia en ${x.d}.`},
-  {tag:'REFUERZO',c:'#8fb4d6',major:false,spawn:true,snd:'door',t:x=>`Un barco atraca en los muelles: nuevos brazos para el ${x.g}.`},
-  {tag:'PASTOR',c:'#9fb06a',major:false,t:x=>`Las ovejas de ${x.d} escapan del corral. Alguien maldice en voz alta.`},
-  {tag:'LADRÓN',c:'#b8b8b8',major:false,thief:true,snd:'coins',t:x=>`Un ladrón se escurre entre los puestos de ${x.d}. Faltan monedas, sobran sospechas.`},
-  {tag:'FAUNA',c:'#c97b4a',major:false,fauna:true,t:x=>`¡Un oso bajó del monte! El rebaño corre en círculos y el pastor pide ayuda a gritos.`},
-  {tag:'GUERRA',c:'#e5533a',major:true,fx:'fire',kind:'ruin',snd:'fire',t:x=>`GUERRA DE FACCIONES. El ${x.g} asalta ${x.d}. El acero canta y las puertas arden.`},
-  {tag:'DRAGÓN',c:'#f2703a',major:true,fx:'fire',kind:'ruin',dragon:true,snd:'fire',t:x=>`¡DRAGÓN! Una sombra alada cae sobre ${x.d}. Fuego, ceniza y gritos.`},
-  {tag:'INVASIÓN',c:'#7fbf5a',major:true,fx:'clash',kind:'raid',snd:'latch',t:x=>`¡INVASIÓN! Una horda goblin sale de las Profundidades y cae sobre ${x.d}. ¡A las armas!`},
-  {tag:'BESTIA',c:'#c97b4a',major:true,fx:'clash',kind:'beast',snd:'latch',t:x=>`UNA BESTIA ancestral cruza la isla. El suelo tiembla bajo sus pezuñas.`},
-  {tag:'DUELO',c:'#ff6b6b',major:true,fx:'clash',kind:'kill',snd:'clash',t:x=>`DUELO A MUERTE: ${x.a} contra ${x.b}. Solo uno queda en pie sobre la hierba.`},
-  {tag:'MAGNICIDIO',c:'#9aa0a6',major:true,fx:'clash',kind:'kill',snd:'clash',t:x=>`MAGNICIDIO. ${x.a} cae sin vida en ${x.d}. El ${x.g} lo niega todo.`},
-  {tag:'HALLAZGO',c:'#c9a227',major:true,fx:'ring',kind:'none',treasure:true,snd:'coins',t:x=>`HALLAZGO. ${x.a} desentierra ${x.i} en las ruinas bajo ${x.d}. Todos lo quieren.`},
-  {tag:'FIESTA',c:'#c9a227',major:true,fx:'confetti',kind:'none',snd:'bong',t:x=>`FESTÍN en ${x.d}: música, antorchas y vino. Hasta el ${x.g} baja las armas.`},
-  {tag:'TRAICIÓN',c:'#9b6fce',major:true,fx:'clash',kind:'defect',snd:'clash',t:x=>`TRAICIÓN. ${x.a} abandona el ${x.g} y jura lealtad a otro estandarte.`},
+  {tag:'MISIÓN',tagE:'QUEST',c:'#c9a227',major:false,t:x=>L(`${x.a}, ${x.cls} ${x.race}, acepta un contrato para limpiar las alcantarillas de ${x.d}.`,`${x.a}, ${x.cls} ${x.race}, takes a contract to clear the sewers of ${x.d}.`)},
+  {tag:'MERCADO',tagE:'MARKET',c:'#e2a24a',major:false,t:x=>L(`Una caravana entra por la Puerta Sur cargada de ${x.i}. Los precios tiemblan.`,`A caravan rolls through the South Gate laden with ${x.i}. Prices tremble.`)},
+  {tag:'TABERNA',tagE:'TAVERN',c:'#d99a5a',major:false,t:x=>L(`${x.a} y ${x.b} se van a los gritos en la taberna de ${x.d}. Corre la cerveza, no la sangre… todavía.`,`${x.a} and ${x.b} come to blows in a tavern in ${x.d}. Ale flows, not blood… yet.`)},
+  {tag:'GREMIO',tagE:'GUILD',c:'#8fb4d6',major:false,t:x=>L(`El ${x.g} recluta a ${x.a}. Juramento sellado con hierro y silencio.`,`The ${x.g} recruits ${x.a}. An oath sealed in iron and silence.`)},
+  {tag:'RUMOR',tagE:'RUMOR',c:'#a99a7a',major:false,t:x=>L(`Corre el rumor: ${x.a} le debe ${x.i} al ${x.g} y ya no responde a nadie.`,`Word spreads: ${x.a} owes ${x.i} to the ${x.g} and answers to no one now.`)},
+  {tag:'NOCHE',tagE:'NIGHT',c:'#8c7f68',major:false,snd:'bell',t:x=>L(`Repican las campanas: la vigilia cambia de guardia en ${x.d}.`,`Bells toll: the watch changes over in ${x.d}.`)},
+  {tag:'REFUERZO',tagE:'REINFORCEMENT',c:'#8fb4d6',major:false,spawn:true,snd:'door',t:x=>L(`Un barco atraca en los muelles: nuevos brazos para el ${x.g}.`,`A ship docks at the quays: fresh arms for the ${x.g}.`)},
+  {tag:'PASTOR',tagE:'SHEPHERD',c:'#9fb06a',major:false,t:x=>L(`Las ovejas de ${x.d} escapan del corral. Alguien maldice en voz alta.`,`The sheep of ${x.d} break the pen. Someone curses out loud.`)},
+  {tag:'LADRÓN',tagE:'THIEF',c:'#b8b8b8',major:false,thief:true,snd:'coins',t:x=>L(`Un ladrón se escurre entre los puestos de ${x.d}. Faltan monedas, sobran sospechas.`,`A thief slips between the stalls of ${x.d}. Coins missing, suspicion plenty.`)},
+  {tag:'FAUNA',tagE:'WILDLIFE',c:'#c97b4a',major:false,fauna:true,t:x=>L(`¡Un oso bajó del monte! El rebaño corre en círculos y el pastor pide ayuda a gritos.`,`A bear came down from the hills! The flock scatters and the shepherd screams for help.`)},
+  {tag:'GUERRA',tagE:'WAR',c:'#e5533a',major:true,fx:'fire',kind:'ruin',snd:'fire',t:x=>L(`GUERRA DE GREMIOS. El ${x.g} asalta ${x.d}. El acero canta y las puertas arden.`,`GUILD WAR. The ${x.g} storms ${x.d}. Steel sings and gates burn.`)},
+  {tag:'DRAGÓN',tagE:'DRAGON',c:'#f2703a',major:true,fx:'fire',kind:'ruin',dragon:true,snd:'fire',t:x=>L(`¡DRAGÓN! Una sombra alada cae sobre ${x.d}. Fuego, ceniza y gritos.`,`DRAGON! A winged shadow falls on ${x.d}. Fire, ash and screams.`)},
+  {tag:'INVASIÓN',tagE:'INVASION',c:'#7fbf5a',major:true,fx:'clash',kind:'raid',snd:'latch',t:x=>L(`¡INVASIÓN! Una horda goblin sale de las Profundidades y cae sobre ${x.d}. ¡A las armas!`,`INVASION! A goblin horde pours from the Deep onto ${x.d}. To arms!`)},
+  {tag:'BESTIA',tagE:'BEAST',c:'#c97b4a',major:true,fx:'clash',kind:'beast',snd:'latch',t:x=>L(`UNA BESTIA ancestral cruza la isla. El suelo tiembla bajo sus pezuñas.`,`AN ANCIENT BEAST crosses the isle. The ground shakes under its hooves.`)},
+  {tag:'DUELO',tagE:'DUEL',c:'#ff6b6b',major:true,fx:'clash',kind:'kill',snd:'clash',t:x=>L(`DUELO A MUERTE: ${x.a} contra ${x.b}. Solo uno queda en pie sobre la hierba.`,`DUEL TO THE DEATH: ${x.a} against ${x.b}. Only one is left standing on the grass.`)},
+  {tag:'MAGNICIDIO',tagE:'ASSASSINATION',c:'#9aa0a6',major:true,fx:'clash',kind:'kill',snd:'clash',t:x=>L(`MAGNICIDIO. ${x.a} cae sin vida en ${x.d}. El ${x.g} lo niega todo.`,`ASSASSINATION. ${x.a} falls lifeless in ${x.d}. The ${x.g} denies everything.`)},
+  {tag:'HALLAZGO',tagE:'DISCOVERY',c:'#c9a227',major:true,fx:'ring',kind:'none',treasure:true,snd:'coins',t:x=>L(`HALLAZGO. ${x.a} desentierra ${x.i} en las ruinas bajo ${x.d}. Todos lo quieren.`,`DISCOVERY. ${x.a} unearths ${x.i} in the ruins beneath ${x.d}. Everyone wants it.`)},
+  {tag:'FIESTA',tagE:'FEAST',c:'#c9a227',major:true,fx:'confetti',kind:'none',snd:'bong',t:x=>L(`FESTÍN en ${x.d}: música, antorchas y vino. Hasta el ${x.g} baja las armas.`,`FEAST in ${x.d}: music, torches and wine. Even the ${x.g} lowers its arms.`)},
+  {tag:'TRAICIÓN',tagE:'BETRAYAL',c:'#9b6fce',major:true,fx:'clash',kind:'defect',snd:'clash',t:x=>L(`TRAICIÓN. ${x.a} abandona el ${x.g} y jura lealtad a otro estandarte.`,`BETRAYAL. ${x.a} abandons the ${x.g} and swears to another banner.`)},
 ];
+const tagL=tpl=>L(tpl.tag,tpl.tagE||tpl.tag);
 function livingNpcs(){return npcs.filter(n=>!n.sheep&&!n.monster&&!n.dead);}
 // pool automático: solo vida ambiente + hallazgos/fiestas/bichos. Los eventos destructivos
 // entre gremios (GUERRA/DUELO/MAGNICIDIO/TRAICIÓN/DRAGÓN) se lanzan a mano desde el director.
@@ -729,11 +801,12 @@ function applyConsequence(tpl,a,b,focus){
 function fireEvent(force){
   const tpl=force||pick(AUTO_POOL), living=livingNpcs(); if(!living.length)return;
   const a=pick(living); let b=pick(living),gd=0; while(b===a&&gd++<6) b=pick(living);
-  const gsel=pick(GUILDS);
-  const ctx={a:a.name,b:b.name,cls:a.cls,race:a.race,g:gsel.name,d:pick(DISTRICTS),i:pick(ITEMS)};
+  const gsel=guildById[a.guild]||pick(GUILDS);
+  const ctx={a:a.name,b:b.name,cls:a.cls,race:a.race,g:gsel.name,d:pick(DISTRICTS()),i:pick(ITEMS())};
   const enemyEv=tpl.kind==='raid'||tpl.kind==='beast'||tpl.thief;
   const av=enemyEv?'e'+String(rint(1,18)).padStart(2,'0'):(tpl.major?a.av:null);
-  const text=tpl.t(ctx); pushChronicle(tpl.tag,tpl.c,text,tpl.major,av);
+  const text=tpl.t(ctx); pushChronicle(tagL(tpl),tpl.c,text,tpl.major,av);
+  puntuar(tpl,gsel,a);                                   // el evento mueve el marcador de gremios
   if(tpl.snd) sfx(tpl.snd, tpl.major?0.55:0.35);
 
   if(tpl.spawn){ spawnNpc(gsel.id, pick(POPMIX)); return; }
@@ -815,7 +888,7 @@ function update(time,delta){
   clkAcc+=delta*m;
   if(clkAcc>800){ worldMin+=6*(clkAcc/1000); clkAcc=0;
     const d=Math.floor(worldMin/1440)+1, mm=Math.floor(worldMin%1440);
-    setClock(`Día ${d} · ${String(Math.floor(mm/60)).padStart(2,'0')}:${String(mm%60).padStart(2,'0')}`);
+    setClock(`${L('Día','Day')} ${d} · ${String(Math.floor(mm/60)).padStart(2,'0')}:${String(mm%60).padStart(2,'0')}`);
     const [col,al]=timeTint(worldMin); if(nightRect) nightRect.setFillStyle(col,al);
   }
   vAcc+=delta;
@@ -824,19 +897,51 @@ function update(time,delta){
 
   evAcc+=delta*m;
   if(evAcc>=evNext){ evAcc=0; evNext=rint(2400,4200); fireEvent(); }
+
+  dlgAcc+=delta*m;                                        // burbujas de diálogo con lore del reino
+  if(dlgAcc>=dlgNext){ dlgAcc=0; dlgNext=rint(4200,8000); decirAlgo(); }
 }
 
 function seedFeed(){
-  pushChronicle('NOCHE','#8c7f68','Amanece sobre la isla de Ámbar. El Ojo del Vigía abre la transmisión.',false);
-  pushChronicle('MERCADO','#e2a24a','El Mercado Alto enciende sus braseros; los muelles crujen con la marea.',false);
-  pushChronicle('GREMIO','#8fb4d6','Las cuatro facciones izan sus estandartes sobre las torres.',false);
+  renderMarcador();
+  pushChronicle(tagL(TPL_BY_TAG['NOCHE']),'#8c7f68',L('Amanece sobre Ámbar, la isla partida en cuatro gremios. El Ojo del Vigía abre la transmisión.','Dawn over Amber, the isle split among four guilds. The Watcher’s Eye opens the broadcast.'),false);
+  pushChronicle(tagL(TPL_BY_TAG['MERCADO']),'#e2a24a',L('El Mercado Alto enciende sus braseros; los muelles crujen con la marea.','The High Market lights its braziers; the docks creak with the tide.'),false);
+  pushChronicle(tagL(TPL_BY_TAG['GREMIO']),'#8fb4d6',L('Los cuatro gremios izan sus estandartes. Ninguno reconoce a otro rey.','The four guilds raise their banners. None bows to another’s king.'),false);
 }
-$('btnPause').addEventListener('click',()=>{paused=!paused;$('btnPause').textContent=paused?'SEGUIR':'PAUSA';});
-$('btnSpeed').addEventListener('click',()=>{speed=speed===1?2:speed===2?4:1;$('btnSpeed').textContent=speed+'×';});
-$('btnSound').addEventListener('click',()=>{
-  soundOn=!soundOn; $('btnSound').textContent=soundOn?'SONIDO ✓':'SONIDO';
+
+/* ===== controles: el espectador sólo cambia sonido e idioma. El resto es del dueño (?admin=1) ===== */
+const ADMIN=/[?&]admin=1/.test(location.search);
+function bind(id,fn){ const el=$(id); if(el) el.addEventListener('click',fn); }
+bind('btnSound',()=>{
+  soundOn=!soundOn; $('btnSound').textContent=soundOn?L('SONIDO ✓','SOUND ✓'):L('SONIDO','SOUND');
   if(soundOn&&scene){ const c=scene.sound.context; if(c&&c.state==='suspended') c.resume(); sfx('bell',0.3); }
 });
-// director de eventos: elegí y lanzá cualquier evento a mano
-TPL.forEach(t=>{ const o=document.createElement('option'); o.value=t.tag; o.textContent=(t.major?'★ ':'')+t.tag; $('evSel').appendChild(o); });
-$('btnEvent').addEventListener('click',()=>{ const t=TPL_BY_TAG[$('evSel').value]; if(t&&scene) fireEvent(t); });
+bind('btnLang',()=>{ LANG=LANG==='en'?'es':'en'; localStorage.setItem('ambar_lang',LANG); aplicarIdioma(); });
+
+// re-aplica el idioma a todo el chrome estático + dinámico
+function aplicarIdioma(){
+  document.documentElement.lang=LANG;
+  document.querySelectorAll('[data-es]').forEach(el=>{ el.textContent = LANG==='en'? (el.getAttribute('data-en')||el.textContent) : el.getAttribute('data-es'); });
+  const bl=$('btnLang'); if(bl) bl.textContent = LANG==='en'?'ESPAÑOL':'ENGLISH';
+  const bs=$('btnSound'); if(bs) bs.textContent = soundOn?L('SONIDO ✓','SOUND ✓'):L('SONIDO','SOUND');
+  const bp=$('btnPause'); if(bp) bp.textContent = paused?L('SEGUIR','RESUME'):L('PAUSA','PAUSE');
+  renderMarcador();
+  if(typeof feedEl!=='undefined'&&feedEl) feedEl.innerHTML='';                 // reinicia la crónica en el nuevo idioma
+  seedFeed();
+}
+
+// panel de dueño (pausa, velocidad y director de eventos): sólo visible con ?admin=1
+if(ADMIN){
+  const bar=document.querySelector('.ctrls');
+  if(bar){
+    const mk=(id,txt)=>{ const b=document.createElement('button'); b.className='ghost'; b.id=id; b.textContent=txt; return b; };
+    const sel=document.createElement('select'); sel.className='evsel'; sel.id='evSel';
+    TPL.forEach(t=>{ const o=document.createElement('option'); o.value=t.tag; o.textContent=(t.major?'★ ':'')+tagL(t); sel.appendChild(o); });
+    const bEv=mk('btnEvent',L('LANZAR','FIRE')), bPa=mk('btnPause',L('PAUSA','PAUSE')), bSp=mk('btnSpeed','1×');
+    bar.append(sel,bEv,bPa,bSp);
+    bEv.addEventListener('click',()=>{ const t=TPL_BY_TAG[sel.value]; if(t&&scene) fireEvent(t); });
+    bPa.addEventListener('click',()=>{ paused=!paused; bPa.textContent=paused?L('SEGUIR','RESUME'):L('PAUSA','PAUSE'); });
+    bSp.addEventListener('click',()=>{ speed=speed===1?2:speed===2?4:1; bSp.textContent=speed+'×'; });
+  }
+}
+aplicarIdioma();
