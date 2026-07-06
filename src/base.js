@@ -185,6 +185,9 @@ function preload(){
   this.load.image('dead_tree',TSB+'dead_tree.png');
   this.load.image('skull_spike',TSB+'skull_spike.png');
   this.load.image('bones1',TSB+'bones1.png');
+  this.load.spritesheet('seahorse',TSB+'seahorse.png',{frameWidth:192,frameHeight:192});   // barco caballito de mar (transporte pirata)
+  this.load.spritesheet('ptower',TSB+'pirate_tower.png',{frameWidth:128,frameHeight:192});  // torre pirata flotante (bombardea)
+  for(let i=1;i<=6;i++) this.load.image('goldstone'+i,TSB+'goldstone'+i+'.png');            // pepitas de oro (deco)
   this.load.image('banner_h',TSB+'banner_h.png');                                                // estandartes decorativos
   this.load.image('banner_v',TSB+'banner_v.png');
   this.load.spritesheet('spear_idle',TSB+'spear_idle.png',{frameWidth:256,frameHeight:256});
@@ -447,6 +450,8 @@ function create(){
   an.create({key:'panda-r',frames:an.generateFrameNumbers('panda_r',{start:0,end:5}),frameRate:10,repeat:-1});
   an.create({key:'hshark-i',frames:an.generateFrameNumbers('hshark_i',{start:0,end:7}),frameRate:8,repeat:-1});
   an.create({key:'hshark-r',frames:an.generateFrameNumbers('hshark_r',{start:0,end:-1}),frameRate:10,repeat:-1});
+  an.create({key:'seahorse-a',frames:an.generateFrameNumbers('seahorse',{start:0,end:-1}),frameRate:7,repeat:-1});
+  an.create({key:'ptower-a',frames:an.generateFrameNumbers('ptower',{start:0,end:-1}),frameRate:6,repeat:-1});
   for(const j of ['waxe','wpick']) an.create({key:j+'-r',frames:an.generateFrameNumbers(j+'_blue_r',{start:0,end:-1}),frameRate:10,repeat:-1});
   for(let i=1;i<=4;i++){ an.create({key:'wrock'+i+'-a',frames:an.generateFrameNumbers('wrock'+i,{start:0,end:7}),frameRate:5,repeat:-1});
     an.create({key:'bush'+i+'-a',frames:an.generateFrameNumbers('bush'+i,{start:0,end:7}),frameRate:6,repeat:-1}); }
@@ -1068,7 +1073,10 @@ function scatterEyeCandy(n){
     if(!isLand(tx,ty)||S.cliff[ty][tx]||S.grid[ty][tx]!==null) continue;
     const x=(BX+tx)*T+T/2+rint(-14,14), y=(BY+ty+1)*T-6;
     const r=Math.random();
-    if(r<0.22){ // roca (estática) con sombra
+    if(r<0.1){  // pepita de oro del pack (deco brillante)
+      scene.add.ellipse(x,y,26,10,0x000000,0.18).setDepth(y-1);
+      scene.add.image(x,y,'goldstone'+rint(1,6)).setOrigin(0.5,1).setScale(Phaser.Math.FloatBetween(0.42,0.6)).setDepth(y);
+    } else if(r<0.28){ // roca (estática) con sombra
       scene.add.ellipse(x,y,26,10,0x000000,0.18).setDepth(y-1);
       scene.add.image(x,y,'rock'+rint(1,4)).setOrigin(0.5,1).setScale(Phaser.Math.FloatBetween(0.7,1.05)).setDepth(y);
     } else {    // deco 1..15 (traen sombra pintada): hongos, cristales, arbustos, pasto, calabaza, huesos
@@ -1665,11 +1673,23 @@ function spawnEnemy(kind,tx,ty){
     scene.tweens.add({targets:g.glow,scale:8,alpha:0.14,duration:700,yoyo:true,repeat:-1}); }
   S.raid.gob.push(g);
 }
-function oleadaNaval(cnt,costa){                   // piratas que desembarcan desde el mar en un barco
+function spawnTorrePirata(t){                      // torre pirata flotante que bombardea desde el mar
+  const bx=(BX+t.x)*T+T/2, by=(BY+t.y)*T - T*1.6;  // mar afuera del borde
+  const tw=scene.add.sprite(bx,by,'ptower').play('ptower-a').setDepth(by).setScale(0.85);
+  let disparos=6;
+  const ev=scene.time.addEvent({delay:1600,loop:true,callback:()=>{
+    if(S.over||S.phase!=='wave'||disparos<=0){ ev.remove();
+      scene.tweens.add({targets:tw,y:by+20,alpha:0,duration:1500,onComplete:()=>tw.destroy()}); return; }
+    disparos--; cañonazo(tw.x,tw.y-10);
+  }});
+  scene.tweens.add({targets:tw,y:by-5,duration:1400,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});   // flota
+}
+function oleadaNaval(cnt,costa){                   // piratas que desembarcan desde el mar en un barco caballito
   if(!costa.length) return;
   const t=pick(costa), cx=(BX+t.x)*T+T/2, cy=(BY+t.y+1)*T-8;
   const desdeIzq=t.x<GW/2, fromX=desdeIzq?-MAR*0.3:WORLD_W+MAR*0.3;
-  const boat=scene.add.sprite(fromX,cy,'pboat').play('pboat-a').setDepth(cy-2).setScale(0.9).setFlipX(!desdeIzq);
+  const boat=scene.add.sprite(fromX,cy,'seahorse').play('seahorse-a').setDepth(cy-2).setScale(0.95).setFlipX(!desdeIzq);
+  if(S.wave>=5) spawnTorrePirata(pick(costa));     // torre pirata bombardea desde la 5
   scene.tweens.add({targets:boat,x:cx+(desdeIzq?-30:30),duration:3500,ease:'Sine.easeIn',onComplete:()=>{
     if(!S.over){ cañonazo(boat.x,boat.y-20); scene.time.delayedCall(1400,()=>{ if(boat.active&&!S.over) cañonazo(boat.x,boat.y-20); }); }  // bombardeo naval
     scene.tweens.add({targets:boat,x:fromX,alpha:0,delay:2600,duration:4500,onComplete:()=>boat.destroy()});
