@@ -83,9 +83,13 @@ const S={ oro:220, madera:260, comida:130, ambar:60,
   buildings:[], nodes:[], animals:[], critters:[], piles:[], ald:[], units:[], allies:[], dialogOn:true, nextId:1,
   aldElegido:null, colocando:null, sel:null,
   wave:0, phase:'prep', phaseT:120, score:0, best:0, kills:0, over:false,   // EL ASEDIO (primera oleada a los 2 min)
+  tSurv:0, recursos:0,                              // récord = tiempo aguantado + recursos obtenidos + enemigos derrotados
+  carne:{activo:false, t:0},                        // carnicería: por 100 de oro genera carne hasta 50
   qIx:0, stats:{talado:0,minado:0,cazado:0,cosechas:0,raids:0,skins:0,aldCreados:0,entrenados:0,casasBuilt:0,bull:0},
-  raid:{on:false,gob:[],war:[],t:0,cool:180} };
+  raid:{on:false,gob:[],war:[],t:0,cool:180,tLeft:0,dur:0} };
 const PREP0=120, PREPW=40;                          // preparación: 2 min la primera, 40s entre oleadas
+const DUR_OLEADA=w=>Math.min(90,45+w*4);            // el asedio dura un tiempo fijo (como en otros juegos), no hasta que barran todo
+function calcScore(){ return Math.floor(S.tSurv) + Math.floor(S.recursos) + S.kills*15; }  // récord por tiempo, recursos y bajas
 let scene, ghostG, ghostSpr=null, fogRT=null, homePos={x:0,y:0}, overview=false;
 // cursores REALES del pack (Cursor_01/02 + Icon_05 espada)
 const CUR={
@@ -628,7 +632,7 @@ function create(){
   $('btnMenu').onclick=()=>$('menu').classList.toggle('open');
   $('cronToggle')&&($('cronToggle').onclick=()=>{ const c=$('cronica'), min=c.classList.toggle('min'); $('cronToggle').textContent=min?'+':'–'; });
   $('btnDialog')&&($('btnDialog').onclick=()=>{ S.dialogOn=!S.dialogOn; $('btnDialog').textContent=(S.dialogOn?'💬':'🚫')+' DIÁLOGOS'; if(!S.dialogOn) ocultarDialogo(); });
-  $('btnOleada')&&($('btnOleada').onclick=()=>{ if(S.phase==='prep'&&!S.over){ S.score+=Math.ceil(S.phaseT)*3; toast('¡Adelantás la oleada! +'+Math.ceil(S.phaseT)*3+' pts.'); lanzarOleada(); } });
+  $('btnOleada')&&($('btnOleada').onclick=()=>{ if(S.phase==='prep'&&!S.over){ toast('¡Adelantás la oleada!'); lanzarOleada(); } });
   toast('EL ASEDIO · Preparate: construí defensas y entrená tropas. La primera oleada llega en '+PREP0+'s.');
   cronica('Fundás tu pueblo. Que empiece el asedio.',randAv());
   cronica('Tip: construí Murallas y Torres antes de la 1ª oleada.',randAv());
@@ -646,7 +650,7 @@ function updateBanner(){
   t.classList.toggle('enwave', S.phase==='wave'&&!S.over);
   if(S.over){ t.innerHTML='☠️ Derrota · <span class="pts">'+S.score+'</span> pts (récord '+S.best+')'; return; }
   if(S.phase==='wave'){ const v=S.raid.gob.filter(g=>!g.dead).length;
-    t.innerHTML='⚔️ <b>OLEADA '+S.wave+'</b> · enemigos '+v+' · <span class="pts">'+S.score+'</span> pts'; }
+    t.innerHTML='⚔️ <b>OLEADA '+S.wave+'</b> · resiste <b>'+Math.max(0,Math.ceil(S.raid.tLeft))+'s</b> · enemigos '+v+' · <span class="pts">'+S.score+'</span> pts'; }
   else { t.innerHTML='🛡️ Oleada <b>'+(S.wave+1)+'</b> en <b>'+Math.max(0,Math.ceil(S.phaseT))+'s</b> · <span class="pts">'+S.score+'</span> pts'; }
 }
 
@@ -1124,7 +1128,7 @@ function matarAnimal(m){
   sfx('bong',0.4);
 }
 function recogerPila(pile){
-  S.comida=Math.min(CAP,S.comida+pile.carne);
+  S.comida=Math.min(CAP,S.comida+pile.carne); S.recursos+=pile.carne;
   flyText(pile.x,pile.y-10,'+'+pile.carne+' 🍖','#ffd9b0');
   pile.spr.destroy(); S.piles=S.piles.filter(x=>x!==pile);
   sfx('coins',0.5); refreshHUD();
@@ -1226,7 +1230,7 @@ function clickBuilding(b){
 function cosechar(b){
   const res=CAT[b.tipo].prod, n=Math.floor(b.buf);
   if(n<1) return;
-  S[res]=Math.min(CAP,S[res]+n); b.buf-=n; S.stats.cosechas++;
+  S[res]=Math.min(CAP,S[res]+n); b.buf-=n; S.stats.cosechas++; S.recursos+=n;
   flyText(b.x,b.y-CAT[b.tipo].fh*T,'+'+n+' '+res);
   if(b.pileSpr){b.pileSpr.destroy();b.pileSpr=null;}
   sfx('coins',0.55); refreshHUD(); if(S.sel&&S.sel.ref===b) renderSel();
@@ -1285,6 +1289,13 @@ function putBadge(b){
 function entrenar(tipoU,b){
   const u=UNIDADES[tipoU];
   if(popTotal()>=POPCAP()){ toast('🏠 Cupo lleno ('+POPCAP()+'). Más Casas o despedí unidades.'); sfx('creak',0.4); return; }
+  // sin carne para el aldeano: por 100 de oro, la carnicería genera carne (1 cada 2s) hasta llegar a 50
+  if(tipoU==='aldeano' && S.comida<50){
+    if(S.carne.activo){ toast('🍖 La carnicería ya trabaja: '+Math.floor(S.comida)+'/50 carne. Esperá.'); sfx('creak',0.3); return; }
+    if(S.oro>=100){ S.oro-=100; S.carne.activo=true; S.carne.t=0; sfx('coins',0.6);
+      toast('🥩 Carnicería abierta (−100 oro): +1 carne cada 2s hasta 50. Después creás el aldeano.'); refreshHUD(); return; }
+    toast('Sin carne (necesitás 50) y sin 100 de oro para la carnicería.'); sfx('creak',0.4); return;
+  }
   if(!pagar(u.costo)){ toast('No te alcanza: '+costoTxt(u.costo)); sfx('creak',0.4); return; }
   if(tipoU==='aldeano'){ const a=spawnAldeano(b.x+rint(-30,30),b.y+rint(10,26)); if(a){S.stats.aldCreados++; revelar(a.spr.x,a.spr.y,4); dustAt(a.spr.x,a.spr.y,2); sfx('bong',0.5); toast('👤 Aldeano nuevo en el pueblo.');} refreshHUD(); renderSel(); return; }
   const idle=uAnim(tipoU,'i'), tex={guerrero:'warrior_i',arquero:'archer_blue_i',monje:'monk_i'}[tipoU];
@@ -1671,10 +1682,10 @@ function scatterCampfires(n){
 }
 // guerrero real (seleccionable/comandable), sin costo — para la guardia inicial
 function crearGuerrero(x,y){
-  const u=UNIDADES.guerrero;
+  const HP=110;   // la guardia inicial aguanta la pelea: bastante más vida que un goblin
   const s=scene.add.sprite(x,y,'warrior_i').setOrigin(0.5,0.72).setScale(0.72).setDepth(y).play('war-i');
   const un={id:'u'+S.nextId++, tipo:'guerrero', spr:s, home:{x,y}, target:null, cd:0, dead:false, wT:rint(3,8), moveT:null,
-    hp:u.hp, maxhp:u.hp, atkCd:0, healCd:0, av:randAv()};
+    hp:HP, maxhp:HP, atkCd:0, healCd:0, av:randAv()};
   s.setInteractive({useHandCursor:true});
   s.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'militar',ref:un}); });
   addMark(un,0x8ec8ff,66); S.units.push(un); return un;
@@ -1826,6 +1837,7 @@ function componerOleada(w){                          // devuelve {flavor, spawns
 function lanzarOleada(){
   if(S.phase==='wave'||S.over) return;
   S.wave++; S.raid.on=true; S.raid.t=0; S.raid.gob=[]; S.phase='wave';
+  S.raid.dur=DUR_OLEADA(S.wave); S.raid.tLeft=S.raid.dur;   // el asedio dura un tiempo fijo
   sfx('latch',0.65); scene.cameras.main.shake(240,0.005);
   $('raidbanner').classList.add('on'); $('btnMercen').style.display='inline-block';
   const costa=costaTiles(), comp=componerOleada(S.wave);
@@ -1840,17 +1852,25 @@ function lanzarOleada(){
   toast(msg); cronica(m, randAv());
   updateBanner();
 }
+function finOleadaPorTiempo(){                        // se acabó el tiempo del asedio: los sobrevivientes se retiran
+  if(S.phase!=='wave'||S.over) return;
+  S.raid.gob.filter(g=>!g.dead).forEach(g=>{ g.dead=true; killBar(g); if(g.glow){g.glow.destroy();g.glow=null;}
+    scene.tweens.add({targets:g.spr,alpha:0,y:'-=12',duration:900,onComplete:()=>g.spr.destroy()}); });
+  toast('⏳ ¡Aguantaste el asedio! Los enemigos se retiran.');
+  finOleada();
+}
 function finOleada(){
+  if(S.phase!=='wave') return;                       // evitá doble cierre (tiempo + última baja a la vez)
   S.raid.on=false; S.phase='prep'; S.phaseT=PREPW;
   $('raidbanner').classList.remove('on'); $('btnMercen').style.display='none';
   S.raid.war.forEach(w=>{ if(!w.dead){ scene.tweens.add({targets:w.spr,alpha:0,duration:1200,onComplete:()=>w.spr.destroy()}); } });
   S.raid.war=[];
   S.units.forEach(u=>{ if(!u.dead){ u.spr.play(uAnim(u.tipo,'i'),true); u.target=null; u.moveT=null; } });
-  const bono=100*S.wave; S.score+=bono; S.stats.raids++;
-  const oro=40+10*S.wave; S.oro=Math.min(CAP,S.oro+oro); S.ambar+=5;
-  if(S.score>S.best) S.best=S.score;
-  sfx('bong',0.7); toast('🛡️ ¡Oleada '+S.wave+' repelida! +'+bono+' pts · +'+oro+' oro. Reforzá para la próxima.');
-  cronica('🛡️ Oleada '+S.wave+' repelida · +'+bono+' pts',randAv());
+  S.stats.raids++;
+  const oro=40+10*S.wave; S.oro=Math.min(CAP,S.oro+oro); S.ambar+=5; S.recursos+=oro;
+  S.score=calcScore(); if(S.score>S.best) S.best=S.score;
+  sfx('bong',0.7); toast('🛡️ ¡Oleada '+S.wave+' resistida! +'+oro+' oro. Reforzá para la próxima.');
+  cronica('🛡️ Oleada '+S.wave+' resistida · '+S.score+' pts',randAv());
   // avisar desbloqueos de defensa nuevos
   const nuevos=Object.entries(CAT).filter(([k,c])=>c.reqWave===S.wave).map(([k,c])=>c.nom);
   if(nuevos.length){ toast('🔓 ¡Desbloqueaste: '+nuevos.join(' · ')+'!'); cronica('🔓 Nuevo: '+nuevos.join(', '),randAv()); }
@@ -1859,7 +1879,7 @@ function finOleada(){
 }
 function gameOver(){
   if(S.over) return; S.over=true; S.phase='over'; S.raid.on=false;
-  if(S.score>S.best) S.best=S.score;
+  S.score=calcScore(); if(S.score>S.best) S.best=S.score;
   sfx('creak',0.7); scene.cameras.main.shake(500,0.01);
   $('raidbanner').classList.remove('on'); $('btnMercen').style.display='none';
   updateBanner(); showGameOver();
@@ -1868,10 +1888,13 @@ function showGameOver(){
   let el=$('gameover');
   if(!el){ el=document.createElement('div'); el.id='gameover'; el.className='gameover';
     document.querySelector('.stage').appendChild(el); }
+  const mins=Math.floor(S.tSurv/60), segs=Math.floor(S.tSurv%60);
   el.innerHTML='<div class="gtitle">EL ASEDIO TERMINÓ</div>'+
     '<div class="gstat">Oleadas resistidas: <b>'+S.wave+'</b></div>'+
+    '<div class="gstat">Tiempo aguantado: <b>'+mins+'m '+segs+'s</b> (+'+Math.floor(S.tSurv)+')</div>'+
+    '<div class="gstat">Recursos obtenidos: <b>'+Math.floor(S.recursos)+'</b> (+'+Math.floor(S.recursos)+')</div>'+
+    '<div class="gstat">Enemigos derrotados: <b>'+S.kills+'</b> (+'+(S.kills*15)+')</div>'+
     '<div class="gstat">Puntaje: <b>'+S.score+'</b> · Récord: <b>'+S.best+'</b></div>'+
-    '<div class="gstat">Bajas: <b>'+S.kills+'</b></div>'+
     '<button class="ghost" id="btnRetry">JUGAR DE NUEVO</button>';
   el.classList.add('on');
   $('btnRetry').onclick=()=>location.reload();
@@ -1900,7 +1923,7 @@ function killGoblin(g){
   burstAt(g.spr.x,g.spr.y-14, g.kind==='pshark'?0x6ac0e0 : g.boss?0xc060ff : 0x7fbf5a); dustAt(g.spr.x,g.spr.y,2);
   if(g.kind==='tnt'||g.boss) explosionAt(g.spr.x,g.spr.y-10,g.boss?1.6:1.1);   // TNT/jefe estallan
   if(g.boss){ scene.cameras.main.flash(300,120,60,140); S.stats.bull++; cronica('🐂 ¡THE BLACK BULL derrotado!',randEnAv()); }
-  g.spr.destroy(); S.kills++; S.score+=g.boss?250:10;
+  g.spr.destroy(); S.kills++; if(g.boss) S.recursos+=200;   // el jefe deja un botín que suma al récord
   if(S.raid.gob.length&&S.raid.gob.every(x=>x.dead)) finOleada();
 }
 function dañarEdificio(b,dmg,color){                 // aplica daño a un edificio; devuelve true si cae el Ayuntamiento
@@ -1959,6 +1982,11 @@ function avanzarHacia(ent,tx,ty,sp){                  // mueve hacia (tx,ty) des
   ent.spr.setFlipX(dx<0); ent.spr.setDepth(ent.spr.y);
   return moved;
 }
+function objsEnemigo(){                               // objetivos de edificio: las torres van PRIMERO (el enemigo se les tira encima)
+  const todos=S.buildings.filter(b=>b.estado==='ok'&&!b.danado);
+  const torres=todos.filter(b=>b.tipo==='torre');
+  return torres.length?torres:todos;
+}
 function raidTick(dtReal){
   const R=S.raid;
   const vivos=R.gob.filter(g=>!g.dead);
@@ -1980,15 +2008,20 @@ function raidTick(dtReal){
       else if(g.esUnidad){ g.target=null; g.esUnidad=false; }
     }
     if(!g.target||(g.esUnidad&&g.target.dead)||(!g.esUnidad&&(g.target.danado||g.target.estado!=='ok'))){
-      const cands=S.buildings.filter(b=>b.estado==='ok'&&!b.danado);
+      const cands=objsEnemigo();   // primero las torres: el enemigo va directo a ellas
       g.target = cands.length ? cands.reduce((m,b)=>Phaser.Math.Distance.Between(g.spr.x,g.spr.y,b.x,b.y)<Phaser.Math.Distance.Between(g.spr.x,g.spr.y,m.x,m.y)?b:m,cands[0])
                               : (tc||null);
       g.esUnidad=false;
       if(!g.target){ continue; }
     }
     const txp=g.esUnidad?g.target.spr.x:g.target.x, typ=g.esUnidad?g.target.spr.y:g.target.y-2;   // apunta a la BASE del edificio (profundidad correcta)
-    const d=Phaser.Math.Distance.Between(g.spr.x,g.spr.y,txp,typ);
-    const rango=g.ranged?T*3.6:34;                   // el shaman ataca de lejos
+    let d, rango;
+    if(!g.esUnidad&&g.target.tipo&&CAT[g.target.tipo]){   // edificio: distancia al BORDE del footprint (así pega desde cualquier lado, no se traba)
+      const b=g.target, c=CAT[b.tipo];
+      const L=(BX+b.tx)*T, Tp=(BY+b.ty)*T, R=(BX+b.tx+c.fw)*T, B=(BY+b.ty+c.fh)*T;
+      const dx=Math.max(L-g.spr.x,0,g.spr.x-R), dy=Math.max(Tp-g.spr.y,0,g.spr.y-B);
+      d=Math.hypot(dx,dy); rango=g.ranged?T*3.6:T*0.75;
+    } else { d=Phaser.Math.Distance.Between(g.spr.x,g.spr.y,txp,typ); rango=g.ranged?T*3.6:34; }
     if(d>rango){
       const sp=(g.sp||46)*dtReal;
       const moved=avanzarHacia(g,txp,typ,sp);        // no atraviesa edificios ni cruza agua
@@ -1996,7 +2029,7 @@ function raidTick(dtReal){
       if(!moved){ g.stuck=(g.stuck||0)+dtReal;        // trabado: si hay un edificio al lado lo ataca; si no, re-evalúa objetivo
         if(g.stuck>0.5){ g.stuck=0;
           let near=null,bd=T*1.6;
-          for(const b of S.buildings){ if(b.estado!=='ok'||b.danado) continue; const dd=Phaser.Math.Distance.Between(g.spr.x,g.spr.y,b.x,b.y); if(dd<bd){bd=dd;near=b;} }
+          for(const b of objsEnemigo()){ const dd=Phaser.Math.Distance.Between(g.spr.x,g.spr.y,b.x,b.y); if(dd<bd){bd=dd;near=b;} }
           if(near){ g.target=near; g.esUnidad=false; } else { g.target=null; g.esUnidad=false; } } }
       else g.stuck=0;
     } else {
@@ -2020,14 +2053,15 @@ function raidTick(dtReal){
       }
     }
   }
+  // La torre es APOYO: SIEMPRE dispara (aunque esté sola) pero lento, y el enemigo la ataca como primer objetivo, así la desborda sin tropas que la cubran.
   for(const t of S.buildings.filter(b=>b.tipo==='torre'&&b.estado==='ok'&&!b.danado)){
     t.cd=(t.cd||0)-dtReal;
     if(t.cd<=0){
       const g=vivos.filter(g2=>!g2.dead).sort((a,b2)=>Phaser.Math.Distance.Between(t.x,t.y,a.spr.x,a.spr.y)-Phaser.Math.Distance.Between(t.x,t.y,b2.spr.x,b2.spr.y))[0];
-      if(g&&Phaser.Math.Distance.Between(t.x,t.y,g.spr.x,g.spr.y)<T*6){
-        t.cd=1.5+(t.nivel>1?-0.4:0);
+      if(g&&Phaser.Math.Distance.Between(t.x,t.y,g.spr.x,g.spr.y)<T*4){
+        t.cd=3.2+(t.nivel>1?-0.6:0);   // cadencia lenta
         const p=scene.add.image(t.x,t.y-CAT.torre.fh*T,'dot').setTint(0xffe9a0).setDepth(99998).setScale(1.1);
-        scene.tweens.add({targets:p,x:g.spr.x,y:g.spr.y-16,duration:220,ease:'Linear',onComplete:()=>{p.destroy(); if(!g.dead) golpearEnemigo(g,2,0xffe9a0);}});
+        scene.tweens.add({targets:p,x:g.spr.x,y:g.spr.y-16,duration:220,ease:'Linear',onComplete:()=>{p.destroy(); if(!g.dead) golpearEnemigo(g,1,0xffe9a0);}});
         sfxAt('clash',0.3,t.x,t.y);
       }
     }
@@ -2061,14 +2095,13 @@ function pelear(lista,vivos,dtReal,esUnidad){
     const alcance=arquero?T*4.5:26;
     if(u.forced&&!u.forced.dead) u.target=u.forced;            // orden manual de atacar
     else { if(u.forced&&u.forced.dead) u.forced=null;
-      if(!u.target||u.target.dead) u.target=vivos.find(g=>!g.dead)||null; }
+      if(!u.target||u.target.dead){                            // enganchá al enemigo MÁS CERCANO (no al primero de la lista)
+        u.target=vivos.reduce((m,g)=>!g.dead&&(!m||Phaser.Math.Distance.Between(u.spr.x,u.spr.y,g.spr.x,g.spr.y)<Phaser.Math.Distance.Between(u.spr.x,u.spr.y,m.spr.x,m.spr.y))?g:m,null); } }
     if(!u.target){ seguirRuta(u,dtReal); continue; }
     const d=Phaser.Math.Distance.Between(u.spr.x,u.spr.y,u.target.spr.x,u.target.spr.y);
     if(d>alcance){
-      const sp=(arquero?50:58)*dtReal, ang=Math.atan2(u.target.spr.y-u.spr.y,u.target.spr.x-u.spr.x);
-      const nx=u.spr.x+Math.cos(ang)*sp, ny=u.spr.y+Math.sin(ang)*sp;
-      if(landAtPx(nx,ny)){ u.spr.x=nx; u.spr.y=ny; }                  // las unidades no cruzan el agua
-      u.spr.setFlipX(Math.cos(ang)<0); u.spr.setDepth(u.spr.y);
+      // avanzarHacia rodea edificios/objetos y desliza contra los bordes: la unidad no se traba
+      avanzarHacia(u,u.target.spr.x,u.target.spr.y,(arquero?50:58)*dtReal);
     } else if(arquero){
       u.cd-=dtReal;
       if(u.cd<=0){ u.cd=1.8; const g=u.target, p=scene.add.image(u.spr.x,u.spr.y-20,'dot').setTint(0xd9c9a0).setDepth(99998);
@@ -2209,6 +2242,10 @@ function drawMinimap(){
 let hudAcc=0, qAcc=0, mmAcc=0, chatT=6;
 function update(time,delta){
   const dt=delta/1000*S.speed, dtReal=delta/1000;
+  if(!S.over){ S.tSurv+=dtReal; S.score=calcScore(); if(S.score>S.best) S.best=S.score;   // récord vivo: tiempo + recursos + bajas
+    if(S.carne.activo){ S.carne.t+=dtReal;                                                 // carnicería: +1 carne cada 2s hasta 50
+      if(S.carne.t>=2){ S.carne.t=0; S.comida=Math.min(CAP,S.comida+1); S.recursos+=1;
+        if(S.comida>=50){ S.carne.activo=false; toast('🍖 Ya hay carne para un aldeano.'); refreshHUD(); } } } }
 
   for(const a of S.ald){
     if(a.estado==='refugiado') continue;                 // a resguardo dentro del Ayuntamiento
@@ -2248,7 +2285,7 @@ function update(time,delta){
       if(!nd){ parar(a); }
       else { a.tarT+=dt;
         if(a.tarT>=1.5){ a.tarT=0;
-          const gan=Math.min(6,nd.reserva); nd.reserva-=gan;
+          const gan=Math.min(6,nd.reserva); nd.reserva-=gan; S.recursos+=gan;
           if(nd.res==='madera'){ S.madera=Math.min(CAP,S.madera+gan); S.stats.talado+=gan; }
           else { S.oro=Math.min(CAP,S.oro+gan); S.stats.minado+=gan; }
           flyText(nd.spr.x,nd.spr.y-40,'+'+gan+' '+nd.res); sfxAt(nd.res==='madera'?'chop':'chop',0.42,nd.spr.x,nd.spr.y);
@@ -2383,7 +2420,7 @@ function update(time,delta){
 
   // EL ASEDIO: preparación → oleada → preparación…
   if(!S.over){
-    if(S.phase==='wave') raidTick(dtReal);
+    if(S.phase==='wave'){ S.raid.tLeft-=dtReal; if(S.raid.tLeft<=0) finOleadaPorTiempo(); else raidTick(dtReal); }
     else { S.phaseT-=dtReal; if(S.phaseT<=0) lanzarOleada(); }
   }
 
