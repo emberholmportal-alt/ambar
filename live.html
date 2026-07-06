@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+<title>ÁMBAR · EN VIVO</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.80.1/phaser.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@500;700;800&family=MedievalSharp&family=IM+Fell+English:ital@0;1&family=Cinzel:wght@600;700&display=swap');
+  @font-face{font-family:'UnifrakturCook';src:url('UnifrakturCook-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
+  :root{
+    --bg:#16110c;--bg2:#221a11;--bg3:#120d09;--ink:#ece3d0;--muted:#9a8b6f;
+    --brass:#c9a227;--brass-hi:#f0d564;--brass-dim:#7a6420;--ember:#e5533a;
+    --line:rgba(201,162,39,.22);--line2:rgba(201,162,39,.4);
+    --g-guardia:#4a90c2;--g-yunque:#d64545;--g-sombra:#9b6fce;--g-sol:#d8b53a;
+    --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Courier New",monospace;
+    --display:"Grenze Gotisch","Iowan Old Style",Georgia,serif;
+    --title:"MedievalSharp","Grenze Gotisch",Georgia,serif;
+    --flavor:"IM Fell English","Iowan Old Style",Georgia,serif;
+  }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--mono);overflow:hidden;-webkit-font-smoothing:antialiased}
+  .app{height:100dvh;display:flex;flex-direction:column;position:relative}
+  .topbar{display:flex;align-items:center;gap:14px;padding:9px 16px;background:linear-gradient(180deg,var(--bg2),var(--bg3));border-bottom:1px solid var(--line);z-index:20}
+  .live{display:flex;align-items:center;gap:8px;font-weight:700;letter-spacing:.14em;font-size:12px;color:var(--ember)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--ember);box-shadow:0 0 10px var(--ember);animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.8)}}
+  .brand{display:flex;flex-direction:column;line-height:1.05;margin-right:auto}
+  .brand h1{margin:0;font-family:var(--title);font-weight:700;font-size:22px;letter-spacing:.04em;color:var(--brass-hi);text-shadow:0 2px 0 #000,0 0 10px rgba(0,0,0,.55)}
+  .brand h1 b{color:var(--ink);font-weight:700}
+  .brand span{font-family:var(--flavor);font-style:italic;font-size:11px;color:var(--muted);margin-top:2px}
+  .stat{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
+  .stat .k{font-size:9px;color:var(--muted);letter-spacing:.16em}
+  .stat .v{font-size:14px;font-variant-numeric:tabular-nums;color:var(--brass-hi)}
+  .ctrls{display:flex;gap:8px;margin-left:10px;align-items:center}
+  .evsel{font-family:var(--mono);font-size:11px;color:var(--ink);background:var(--bg3);border:1px solid var(--brass-dim);border-radius:3px;padding:7px 8px;max-width:150px}
+  button.ghost{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.08em;color:#f4ecda;background:url('assets/img/ui/ribbon_blue.png') center/100% 100% no-repeat;border:none;padding:10px 16px 12px;cursor:pointer;transition:.15s;min-width:88px;image-rendering:pixelated;text-shadow:0 1px 2px rgba(10,20,40,.8)}
+  button.ghost:hover{filter:brightness(1.15)}
+  button.ghost:active{filter:brightness(.85)}
+  button.ghost:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+  button.ghost.alt{background-image:url('assets/img/ui/ribbon_red.png')}
+  .stage{flex:1;display:flex;min-height:0}
+  .viewport{flex:1;position:relative;min-width:0;background:#123041;overflow:hidden}
+  #game{position:absolute;inset:0} #game canvas{display:block}
+  .grain{position:absolute;inset:0;pointer-events:none;z-index:8;background:radial-gradient(120% 120% at 50% 45%,transparent 60%,rgba(0,0,0,.5) 100%),repeating-linear-gradient(0deg,rgba(0,0,0,.12) 0 1px,transparent 1px 3px);mix-blend-mode:multiply;opacity:.5}
+  .reticle{position:absolute;inset:0;pointer-events:none;z-index:9}
+  .bracket{position:absolute;width:26px;height:26px;border:2px solid rgba(201,162,39,.35);transition:all .5s cubic-bezier(.2,.8,.2,1)}
+  .bracket.tl{top:5%;left:5%;border-right:none;border-bottom:none}.bracket.tr{top:5%;right:5%;border-left:none;border-bottom:none}
+  .bracket.bl{bottom:5%;left:5%;border-right:none;border-top:none}.bracket.br{bottom:5%;right:5%;border-left:none;border-top:none}
+  .cross{position:absolute;background:rgba(201,162,39,.12)}.cross.h{left:0;right:0;top:50%;height:1px}.cross.v{top:0;bottom:0;left:50%;width:1px}
+  .iris{position:absolute;top:50%;left:50%;width:180px;height:180px;border:1px solid rgba(201,162,39,.14);border-radius:50%;transform:translate(-50%,-50%);transition:.5s;opacity:.5}
+  .rec{position:absolute;top:calc(5% + 34px);left:5%;display:flex;align-items:center;gap:7px;font-size:10px;letter-spacing:.18em;color:var(--ember);opacity:0;transition:.4s}
+  .rec .rd{width:8px;height:8px;border-radius:50%;background:var(--ember);box-shadow:0 0 8px var(--ember)}
+  .reticle.lock .bracket{border-color:var(--ember);width:34px;height:34px}
+  .reticle.lock .bracket.tl{top:12%;left:12%}.reticle.lock .bracket.tr{top:12%;right:12%}
+  .reticle.lock .bracket.bl{bottom:12%;left:12%}.reticle.lock .bracket.br{bottom:12%;right:12%}
+  .reticle.lock .iris{border-color:rgba(229,83,58,.5);opacity:.9;box-shadow:0 0 26px rgba(229,83,58,.25) inset}
+  .reticle.lock .cross{background:rgba(229,83,58,.2)}.reticle.lock .rec{opacity:1}
+  .watching{position:absolute;left:0;right:0;bottom:0;z-index:10;pointer-events:none;padding:14px 18px;background:linear-gradient(0deg,rgba(9,7,5,.9),transparent)}
+  .watching .lbl{font-size:9.5px;letter-spacing:.22em;color:var(--brass)}
+  .watching .txt{font-family:var(--flavor);font-style:italic;font-size:15px;margin-top:3px;max-width:82%;text-shadow:0 1px 6px #000}
+  .side{width:360px;background:linear-gradient(180deg,var(--bg2),var(--bg3));border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+  .side header{padding:12px 16px 10px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;justify-content:space-between}
+  .side header .h{font-family:var(--display);font-size:14px;font-weight:800;color:#3a2b12;background:url('assets/img/ui/ribbon_yellow.png') center/100% 100% no-repeat;padding:8px 22px 10px;image-rendering:pixelated;letter-spacing:.02em}
+  .side header .clk{font-size:11px;color:var(--brass);font-variant-numeric:tabular-nums}
+  /* marcador de gremios */
+  .board{border-bottom:1px solid var(--line);padding:11px 14px 12px;background:rgba(18,13,9,.5)}
+  .board .bh{font-family:var(--display);font-weight:700;font-size:10px;letter-spacing:.2em;color:var(--brass);margin-bottom:9px;display:flex;justify-content:space-between}
+  .board .bh .sub{color:var(--muted);letter-spacing:.06em;font-weight:500}
+  #score{display:flex;flex-direction:column;gap:7px}
+  .srow{display:flex;align-items:center;gap:8px;font-size:12px}
+  .srow .rk{width:14px;text-align:center;color:var(--muted);font-variant-numeric:tabular-nums}
+  .srow.lead .rk{color:var(--brass-hi)}
+  .srow .sw{width:11px;height:11px;border-radius:2px;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.4)}
+  .srow .gn{flex:none;width:120px;color:#d9cfba;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .srow.lead .gn{color:var(--ink);font-weight:700}
+  .srow .pbar{flex:1;height:7px;background:rgba(0,0,0,.35);border-radius:4px;overflow:hidden}
+  .srow .pbar i{display:block;height:100%;border-radius:4px;transition:width .5s ease}
+  .srow .pt{width:26px;text-align:right;font-variant-numeric:tabular-nums;color:var(--brass-hi)}
+  .feed{flex:1;overflow-y:auto;padding:8px 10px 14px;scrollbar-width:thin;scrollbar-color:var(--brass-dim) transparent}
+  .feed::-webkit-scrollbar{width:8px}.feed::-webkit-scrollbar-thumb{background:var(--brass-dim);border-radius:4px}
+  .entry{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.04);font-size:12px;line-height:1.5;animation:slin .35s ease}
+  @keyframes slin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+  .entry .av{width:30px;height:30px;float:left;margin:2px 8px 2px 0;image-rendering:pixelated;border:1px solid var(--line);border-radius:4px;background:var(--bg3)}
+  .entry::after{content:"";display:block;clear:both}
+  .entry .meta{display:flex;gap:8px;align-items:center;margin-bottom:2px}
+  .entry .t{font-size:9.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .entry .tag{font-size:9.5px;letter-spacing:.1em;font-weight:700}
+  .entry.major{background:rgba(229,83,58,.06);border-left:2px solid var(--ember);padding-left:8px}
+  .entry .body{color:#d9cfba}.entry.major .body{color:var(--ink)}
+  .key{border-top:1px solid var(--line);padding:11px 14px 6px;background:var(--bg3)}
+  .key .kh{font-family:var(--display);font-weight:700;font-size:9.5px;letter-spacing:.2em;color:var(--muted);margin-bottom:9px}
+  .guild{display:flex;gap:9px;align-items:flex-start;margin-bottom:9px}
+  .guild .sw{width:11px;height:11px;border-radius:2px;flex:none;margin-top:3px;box-shadow:0 0 0 1px rgba(0,0,0,.4)}
+  .guild .gt{font-family:var(--display);font-weight:700;font-size:12px;color:#e6dcc6;line-height:1.1}
+  .guild .gl{font-family:var(--flavor);font-style:italic;font-size:11px;color:var(--muted);margin-top:1px}
+  .credit{font-size:9px;color:#6d6350;padding:8px 14px 12px;background:var(--bg3);line-height:1.4}
+  @media(max-width:900px){.stage{flex-direction:column}.viewport{height:52%}.side{width:auto;height:48%;border-left:none;border-top:1px solid var(--line)}.brand h1{font-size:18px}.iris{width:120px;height:120px}.srow .gn{width:96px}}
+  @media(prefers-reduced-motion:reduce){.dot{animation:none}.entry{animation:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="live"><span class="dot"></span><span data-es="EN VIVO" data-en="LIVE">EN VIVO</span></div>
+    <div class="brand">
+      <h1>ÁMBAR<b> · </b><span data-es="La Isla Partida" data-en="The Divided Isle">La Isla Partida</span></h1>
+      <span data-es="Crónica perpetua de cuatro gremios · transmitida por el Ojo del Vigía" data-en="A perpetual chronicle of four guilds · streamed by the Watcher’s Eye">Crónica perpetua de cuatro gremios · transmitida por el Ojo del Vigía</span>
+    </div>
+    <div class="stat"><span class="k" data-es="ESPECTADORES" data-en="VIEWERS">ESPECTADORES</span><span class="v" id="viewers">1.204</span></div>
+    <div class="ctrls">
+      <button class="ghost" id="btnSound">SONIDO</button>
+      <button class="ghost alt" id="btnLang">ENGLISH</button>
+    </div>
+  </div>
+  <div class="stage">
+    <div class="viewport">
+      <div id="game"></div><div class="grain"></div>
+      <div class="reticle" id="reticle">
+        <div class="bracket tl"></div><div class="bracket tr"></div><div class="bracket bl"></div><div class="bracket br"></div>
+        <div class="cross h"></div><div class="cross v"></div><div class="iris"></div>
+        <div class="rec"><span class="rd"></span><span data-es="OBSERVANDO" data-en="WATCHING">OBSERVANDO</span></div>
+      </div>
+      <div class="watching"><div class="lbl" data-es="AHORA OBSERVANDO" data-en="NOW WATCHING">AHORA OBSERVANDO</div><div class="txt" id="watch">El Ojo del Vigía sobrevuela la isla de Ámbar…</div></div>
+    </div>
+    <aside class="side">
+      <header><span class="h" data-es="La Crónica" data-en="The Chronicle">La Crónica</span><span class="clk" id="clock">Día 1 · 06:00</span></header>
+      <div class="board">
+        <div class="bh"><span data-es="PODER DE LOS GREMIOS" data-en="GUILD POWER">PODER DE LOS GREMIOS</span><span class="sub" data-es="temporada en vivo" data-en="live season">temporada en vivo</span></div>
+        <div id="score"></div>
+      </div>
+      <div class="feed" id="feed"></div>
+      <div class="key">
+        <div class="kh" data-es="LOS CUATRO GREMIOS DE ÁMBAR" data-en="THE FOUR GUILDS OF AMBER">LOS CUATRO GREMIOS DE ÁMBAR</div>
+        <div class="guild"><span class="sw" style="background:var(--g-guardia)"></span><div><div class="gt">Guardia de Hierro</div><div class="gl" data-es="Defienden la muralla norte y desconfían del mar." data-en="They hold the north wall and distrust the sea.">Defienden la muralla norte y desconfían del mar.</div></div></div>
+        <div class="guild"><span class="sw" style="background:var(--g-yunque)"></span><div><div class="gt">Orden del Yunque</div><div class="gl" data-es="Herreros y mercaderes: dueños de la forja y el oro." data-en="Smiths and traders: masters of forge and gold.">Herreros y mercaderes: dueños de la forja y el oro.</div></div></div>
+        <div class="guild"><span class="sw" style="background:var(--g-sombra)"></span><div><div class="gt">Los Sin Nombre</div><div class="gl" data-es="Contrabandistas de la Necrópolis, leales a la sombra." data-en="Necropolis smugglers, loyal only to the shadow.">Contrabandistas de la Necrópolis, leales a la sombra.</div></div></div>
+        <div class="guild"><span class="sw" style="background:var(--g-sol)"></span><div><div class="gt">Casa del Sol</div><div class="gl" data-es="Nobles que sueñan con reunir la isla bajo una corona." data-en="Nobles dreaming of one crown over the isle.">Nobles que sueñan con reunir la isla bajo una corona.</div></div></div>
+      </div>
+      <div class="credit" data-es="Arte: Tiny Swords · Pixel Frog (uso libre; no redistribuir el pack suelto). Sonido: Kenney (CC0)." data-en="Art: Tiny Swords · Pixel Frog (free use; do not redistribute the pack). Sound: Kenney (CC0).">Arte: Tiny Swords · Pixel Frog (uso libre; no redistribuir el pack suelto). Sonido: Kenney (CC0).</div>
+    </aside>
+  </div>
+</div>
+<script src="src/game.js"></script>
+</body>
+</html>
