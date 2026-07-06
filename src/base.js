@@ -138,7 +138,8 @@ new Phaser.Game({type:Phaser.AUTO,backgroundColor:'#060a0d',   // oscuro: fuera 
 
 function preload(){
   // barra de carga del splash: avanza con el progreso real del preload
-  this.load.on('progress',p=>{ const b=document.getElementById('splashBar'); if(b) b.style.width=Math.round(p*100)+'%'; });
+  this.load.on('progress',p=>{ const b=document.getElementById('splashBar'); if(b) b.style.width=Math.round(p*100)+'%';
+    const r=document.getElementById('splashRunner'); if(r) r.style.left=Math.round(p*100)+'%'; });   // el jinete avanza con la barra
   const TSB='assets/img/ts/';
   this.load.spritesheet('ground',TSB+'ground.png',{frameWidth:64,frameHeight:64});
   this.load.spritesheet('elev',TSB+'elevation.png',{frameWidth:64,frameHeight:64});
@@ -668,6 +669,7 @@ function create(){
   window.__over=()=>gameOver();
   // el mundo ya está armado: completá la barra y disolvé el splash (timer del DOM, siempre corre)
   const sb=document.getElementById('splashBar'); if(sb) sb.style.width='100%';
+  const sr=document.getElementById('splashRunner'); if(sr) sr.style.left='100%';   // el jinete llega al final
   const sp=document.getElementById('splash');
   if(sp) setTimeout(()=>{ sp.classList.add('hide'); setTimeout(()=>sp.remove(),700); },380);
 }
@@ -934,8 +936,10 @@ function depositar(a){                                // deja la carga en el Ayu
 }
 function irADepositar(a){                             // camina al Ayuntamiento con la carga; al llegar deposita y vuelve a la fuente
   const tc=byTC(); if(!tc){ a.carga=null; parar(a); return; }
-  const cur=tileOfPx(a.spr.x,a.spr.y), t=tileOfPx(tc.x,tc.y);
-  const dst=walkable(t.x,t.y)?t:(adjWalkable(t.x,t.y)||t);
+  const cur=tileOfPx(a.spr.x,a.spr.y);
+  // apuntar a la puerta de en medio: columna central del Ayuntamiento, en la fila de adelante (al sur del edificio)
+  const cc=CAT.castle, dc=tc.tx+Math.floor(cc.fw/2), dr=tc.ty+cc.fh, t=tileOfPx(tc.x,tc.y);
+  const dst=(walkable(dc,dr)&&S.grid[dr]&&S.grid[dr][dc]===null)?{x:dc,y:dr}:(adjWalkable(dc,dr)||adjWalkable(t.x,t.y)||t);
   let path=findPath(cur.x,cur.y,dst.x,dst.y); a.cruza=false;
   if(!path||!path.length){ const relax=findPath(cur.x,cur.y,dst.x,dst.y,true); if(relax&&relax.length){path=relax;a.cruza=true;} }
   a.path=(path&&path.length)?path:[{x:(BX+dst.x)*T+T/2,y:(BY+dst.y)*T+T/2}];
@@ -1356,10 +1360,9 @@ function setBuildingZone(b){                           // zona de click que cubr
 }
 // que ninguna unidad propia quede tapada por un edificio: si pisa su cuerpo visible, la subimos por encima (no la perdemos)
 function depthSobreEdificios(spr){
-  let d=spr.y;
-  for(const b of S.buildings){ const z=b.zone; if(!z) continue;
-    if(Math.abs(spr.x-z.x)<=z.width/2 && Math.abs(spr.y-z.y)<=z.height/2) d=Math.max(d, b.y+2); }
-  spr.setDepth(d);
+  // orden por posición de los pies: la unidad tapa al edificio sólo si está por delante (más al sur).
+  // Si pasa por detrás/al costado, el techo la tapa como corresponde y no parece caminar sobre los techos.
+  spr.setDepth(spr.y);
 }
 function clickBuilding(b){
   seleccionar({t:'edificio',ref:b});

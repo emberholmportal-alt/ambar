@@ -18,10 +18,18 @@
     color:#e7c766;margin-top:-8px;letter-spacing:.02em;text-shadow:0 3px 0 #000,0 0 18px rgba(0,0,0,.7);
     animation:splashIn 1s .15s cubic-bezier(.2,.9,.25,1) both}
   @keyframes splashIn{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
-  #splashBarWrap{width:min(52vw,300px);height:18px;background:#1a1208;border:2px solid #6b5226;border-radius:10px;
+  #splashBarZone{position:relative;width:min(52vw,300px)}
+  #splashBarWrap{width:100%;height:18px;background:#1a1208;border:2px solid #6b5226;border-radius:10px;
     box-shadow:inset 0 2px 6px rgba(0,0,0,.65),0 0 0 3px #100b06;overflow:hidden}
   #splashBar{height:100%;width:0%;border-radius:8px;transition:width .25s ease;
     background:linear-gradient(180deg,#ffb04a 0%,#e5533a 55%,#b5312a 100%);box-shadow:0 0 8px rgba(255,150,60,.45)}
+  /* jinete corriendo sobre la barra: el goblin montado avanza con la carga (sprite del pack, animado por CSS) */
+  #splashRunner{position:absolute;left:0%;bottom:6px;width:60px;height:60px;margin-left:-30px;pointer-events:none;
+    background:url('assets/img/ts/pigrider_run.png') 0 0/240px 60px no-repeat;image-rendering:pixelated;
+    filter:drop-shadow(0 4px 5px rgba(0,0,0,.55));transition:left .25s ease;
+    animation:pigGallop .5s steps(4) infinite,pigBob .5s ease-in-out infinite}
+  @keyframes pigGallop{to{background-position-x:-240px}}
+  @keyframes pigBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
   :root{
     --bg:#16110c;--bg2:#221a11;--bg3:#120d09;--ink:#ece3d0;--muted:#9a8b6f;
     --brass:#c9a227;--brass-hi:#f0d564;--brass-dim:#7a6420;--ember:#e5533a;
@@ -191,7 +199,7 @@
 <div id="splash">
   <img id="splashLogo" src="assets/img/aoa_logo.png" alt="Age of Ansem"/>
   <div id="splashSub">The Black Bull</div>
-  <div id="splashBarWrap"><div id="splashBar"></div></div>
+  <div id="splashBarZone"><div id="splashBarWrap"><div id="splashBar"></div></div><div id="splashRunner"></div></div>
 </div>
 <div class="app">
   <div class="stage">
