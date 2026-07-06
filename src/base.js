@@ -992,11 +992,16 @@ function mandarNodo(a,nd){
   });
 }
 function mandarConstruir(a,b){
-  moverA(a,b.tx,b.ty,()=>{
-    a.estado='obrero'; a.bId=b.id;
+  // repartir a los obreros en tiles distintos del borde, así construyen a la par y no se amontonan
+  const bs=bordesEdificio(b);
+  const cnt=S.ald.filter(o=>o!==a&&o.bId===b.id&&(o.estado==='obrero'||o.estado==='yendo')).length;
+  const slot=bs.length?bs[cnt%bs.length]:{x:b.tx,y:b.ty};
+  moverA(a,slot.x,slot.y,()=>{
+    a.estado='obrero'; a.bId=b.id;                     // queda en su tile del borde: pegado al edificio y separado de los otros obreros
     if(b.estado==='esperando') b.estado='obra';
-    a.dustEv=scene.time.addEvent({delay:900,loop:true,callback:()=>{ dustAt(b.x,b.y-10,1); chispasObra(b.x,b.y-18); sfxAt('chop',0.22,b.x,b.y); }});   // martilleo + chispas, siempre audible según cámara
+    a.dustEv=scene.time.addEvent({delay:900,loop:true,callback:()=>{ dustAt(a.spr.x,a.spr.y-10,1); chispasObra(a.spr.x,a.spr.y-16); sfxAt('chop',0.22,a.spr.x,a.spr.y); }});   // martilleo + chispas EN el obrero
     a.tool='hammer'; a.spr.setTexture('pawn_hammer',0).setScale(0.7); a.spr.play('phammer',true);  // martillando
+    a.spr.setFlipX(a.spr.x>b.x); a.spr.setDepth(a.spr.y);
     if(S.sel&&S.sel.ref===a) renderSel();
   });
 }
@@ -1094,7 +1099,7 @@ function updateAllies(dtReal){
   for(const u of S.allies){ if(u.dead) continue;
     nieblaAlMover(u,4);                                    // bestia leal también despeja niebla al caminar
     if(escaparSiAtascado(u,54*dtReal)){ moveMark(u); continue; }   // bestia leal atrapada: sale
-    u.spr.setDepth(u.spr.y);
+    depthSobreEdificios(u.spr);
     moveMark(u);
     if(u.hp<u.maxhp) drawHp(u,u.hp/u.maxhp,30,u.spr.y-u.spr.originY*u.spr.displayHeight*0.8); else hideBar(u);
     // objetivo: 1) ataque forzado por vos  2) durante oleada, el más cercano  3) nada
@@ -1276,9 +1281,24 @@ function makeSprites(b){
   } else {
     sprs.push(scene.add.image(x,y,texOf(b)).setOrigin(0.5,1).setDepth(y));
   }
-  hitEdificio(sprs[0]);
-  sprs[0].on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) clickBuilding(b); });
   return {sprs,x,y};
+}
+function setBuildingZone(b){                           // zona de click que cubre TODO el edificio (footprint + cuerpo), no un solo sprite
+  if(b.zone){ b.zone.destroy(); b.zone=null; }
+  const c=CAT[b.tipo], s0=b.sprs&&b.sprs[0];
+  const cx=(BX+b.tx)*T + c.fw*T/2, base=(BY+b.ty+c.fh)*T;
+  const zw=Math.max(c.fw*T, (b.tipo!=='granja'&&s0)?s0.displayWidth:0);
+  const zh=Math.max(c.fh*T, (b.tipo!=='granja'&&s0)?s0.displayHeight:0);
+  const z=scene.add.zone(cx, base - zh/2, zw, zh).setInteractive({useHandCursor:true});
+  z.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) clickBuilding(b); });
+  b.zone=z;
+}
+// que ninguna unidad propia quede tapada por un edificio: si pisa su cuerpo visible, la subimos por encima (no la perdemos)
+function depthSobreEdificios(spr){
+  let d=spr.y;
+  for(const b of S.buildings){ const z=b.zone; if(!z) continue;
+    if(Math.abs(spr.x-z.x)<=z.width/2 && Math.abs(spr.y-z.y)<=z.height/2) d=Math.max(d, b.y+2); }
+  spr.setDepth(d);
 }
 function clickBuilding(b){
   if(b.estado==='ok'&&CAT[b.tipo].prod&&b.buf>=10){ cosechar(b); return; }
@@ -1307,7 +1327,7 @@ function addBuilding(tipo,tx,ty,opt){
     estado:opt.listo?'ok':'esperando', obraT:0, obraDur:c.dur, mejorando:false, hp:c.hp||100, maxhp:c.hp||100, danado:false,
     buf:0, reserva:c.reserva||0, pileSpr:null, badge:null, barG:null, fireSpr:null};
   const m=makeSprites(b); b.sprs=m.sprs; b.x=m.x; b.y=m.y;
-  setGrid(b,b.id);
+  setGrid(b,b.id); setBuildingZone(b);
   if(scene&&scene.sys) desalojarZona(b);              // si construyeron encima de una unidad/animal, lo sacamos (no queda atrapado)
   S.buildings.push(b);
   revelar(b.x,b.y-c.fh*T*0.5,4);
@@ -1324,13 +1344,13 @@ function addBuilding(tipo,tx,ty,opt){
 }
 function destroySprites(b){
   b.sprs.forEach(s=>s.destroy());
-  ['badge','barG','pileSpr','fireSpr','hpBar','dmgFire'].forEach(k=>{ if(b[k]){ b[k].destroy(); b[k]=null; } });
+  ['badge','barG','pileSpr','fireSpr','hpBar','dmgFire','zone'].forEach(k=>{ if(b[k]){ b[k].destroy(); b[k]=null; } });
   if(b._chimEv){ b._chimEv.remove(); b._chimEv=null; }
   if(b._orbs){ b._orbs.forEach(o=>o.destroy()); b._orbs=null; }
 }
 function refreshBuilding(b){
   destroySprites(b);
-  const m=makeSprites(b); b.sprs=m.sprs; b.x=m.x; b.y=m.y;
+  const m=makeSprites(b); b.sprs=m.sprs; b.x=m.x; b.y=m.y; setBuildingZone(b);
   if(b.estado!=='ok'){ b.sprs.forEach(s=>s.setAlpha(b.estado==='esperando'?0.4:0.55)); b.barG=scene.add.graphics().setDepth(96000); }
   else {
     if(b.nivel>1) putBadge(b);
@@ -2095,6 +2115,15 @@ function tileBordeEdificio(b,fromX,fromY){            // tile transitable pegado
   }
   return best;
 }
+function bordesEdificio(b){                            // TODOS los tiles transitables pegados al footprint (frente/costados primero)
+  const c=CAT[b.tipo], out=[];
+  for(let y=b.ty-1;y<=b.ty+c.fh;y++)for(let x=b.tx-1;x<=b.tx+c.fw;x++){
+    const borde=(x<b.tx||x>=b.tx+c.fw||y<b.ty||y>=b.ty+c.fh);
+    if(borde&&walkable(x,y)) out.push({x,y, frente:(y>=b.ty+c.fh)});
+  }
+  out.sort((p,q)=>(q.frente-p.frente));                // el frente (sur) primero: se ve la obra
+  return out;
+}
 function desalojarZona(b){                            // saca del footprint de un edificio nuevo a cualquier entidad viva atrapada
   const c=CAT[b.tipo];
   const dentro=s=>{ const t=tileOfPx(s.x,s.y); return t.x>=b.tx&&t.x<b.tx+c.fw&&t.y>=b.ty&&t.y<b.ty+c.fh; };
@@ -2348,7 +2377,7 @@ function aplicarIdioma(){
   // encabezados / paneles
   const rh=document.querySelector('.recordsH'); if(rh) rh.textContent='🏆 '+L('RÉCORDS','RECORDS');
   const qh=document.querySelector('.qh'); if(qh) qh.textContent='⚑ '+L('MISIÓN','QUEST');
-  const ch=document.querySelector('.cronica .ch'); if(ch) ch.childNodes[0].nodeValue='⚜ '+L('CRÓNICA','CHRONICLE');
+  set('cronTitle','⚜ '+L('CRÓNICA','CHRONICLE'));
   setHTML('raidbanner','⚔️ '+L('¡ASALTO GOBLIN EN CURSO!','GOBLIN ASSAULT UNDERWAY!'));
   set('agePop1',L('NUEVA EDAD','NEW AGE'));
   setHTML('splashSub','The Black Bull');
@@ -2510,7 +2539,7 @@ function update(time,delta){
     // niebla: revelar al moverse
     const tk=Math.floor(a.spr.x/T)+','+Math.floor(a.spr.y/T);
     if(tk!==a.lastTile){ a.lastTile=tk; revelar(a.spr.x,a.spr.y,4); }
-    a.spr.setDepth(a.spr.y);
+    depthSobreEdificios(a.spr);
     moveMark(a);
     if(a.hp<a.maxhp||(S.sel&&S.sel.ref===a)) drawHp(a,a.hp/a.maxhp,32,a.spr.y-a.markOff+12); else hideBar(a);
   }
@@ -2537,7 +2566,7 @@ function update(time,delta){
         else if(key===uAnim(u.tipo,'r')) u.spr.play(uAnim(u.tipo,'i'),true);
       }
     }
-    u.spr.setDepth(u.spr.y);                             // profundidad al día: nunca detrás del edificio si está adelante
+    depthSobreEdificios(u.spr);                          // nunca tapada por un edificio
     moveMark(u);
     if(u.hp!=null&&(u.hp<u.maxhp||(S.sel&&S.sel.ref===u))) drawHp(u,u.hp/u.maxhp,30,u.spr.y-58); else hideBar(u); }
 
