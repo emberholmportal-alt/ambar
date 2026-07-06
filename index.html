@@ -18,11 +18,10 @@
     color:#e7c766;margin-top:-8px;letter-spacing:.02em;text-shadow:0 3px 0 #000,0 0 18px rgba(0,0,0,.7);
     animation:splashIn 1s .15s cubic-bezier(.2,.9,.25,1) both}
   @keyframes splashIn{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
-  #splashBarWrap{position:relative;width:min(60vw,360px);aspect-ratio:320/64;image-rendering:pixelated}
-  #splashFrame{position:absolute;inset:0;background:url('assets/img/ui/bar_base.png') center/100% 100% no-repeat;image-rendering:pixelated;pointer-events:none}
-  #splashTrack{position:absolute;left:11%;right:11%;top:40%;bottom:40%;overflow:hidden;border-radius:3px}
-  #splashBar{height:100%;width:0%;transition:width .25s ease;background:linear-gradient(180deg,#ff9a3a 0%,#e5533a 55%,#b5312a 100%);box-shadow:0 0 4px rgba(255,150,60,.5)}
-  #splashTxt{font-family:'IM Fell English',serif;font-style:italic;color:#c9b48a;font-size:15px;letter-spacing:.5px}
+  #splashBarWrap{width:min(52vw,300px);height:18px;background:#1a1208;border:2px solid #6b5226;border-radius:10px;
+    box-shadow:inset 0 2px 6px rgba(0,0,0,.65),0 0 0 3px #100b06;overflow:hidden}
+  #splashBar{height:100%;width:0%;border-radius:8px;transition:width .25s ease;
+    background:linear-gradient(180deg,#ffb04a 0%,#e5533a 55%,#b5312a 100%);box-shadow:0 0 8px rgba(255,150,60,.45)}
   :root{
     --bg:#16110c;--bg2:#221a11;--bg3:#120d09;--ink:#ece3d0;--muted:#9a8b6f;
     --brass:#c9a227;--brass-hi:#f0d564;--brass-dim:#7a6420;--ember:#e5533a;
@@ -43,8 +42,10 @@
   *::-webkit-scrollbar-thumb{background:linear-gradient(var(--brass-dim),#5a4a18);border-radius:4px;border:1px solid rgba(0,0,0,.35)}
   *::-webkit-scrollbar-thumb:hover{background:var(--brass)}
   /* marcos con doble filete dorado (estética AoE) */
-  .frame{border-style:solid;border-width:17px;border-image:url('assets/img/ui/paper_spec.png') 56 fill / 17px stretch;
-    image-rendering:pixelated;box-shadow:0 3px 12px rgba(0,0,0,.55)}
+  /* panel tema obsidiana+latón (CSS sólido: el border-image del pack se fragmenta en este render) */
+  .frame{position:relative;background:linear-gradient(180deg,rgba(32,24,15,.97),rgba(17,12,8,.98));border:2px solid #6b5226;border-radius:9px;
+    box-shadow:inset 0 0 0 1px rgba(201,162,39,.22), inset 0 0 22px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.55)}
+  .frame::before{content:'';position:absolute;inset:3px;border-radius:6px;border:1px solid rgba(201,162,39,.14);pointer-events:none}
 
   /* ---- TOP flotante: título chico + botón menú en la esquina (sin barra) ---- */
   .titlechip{position:absolute;top:9px;left:50%;transform:translateX(-50%);z-index:30;padding:4px 20px 6px;border-radius:9px;text-align:center;pointer-events:none}
@@ -181,8 +182,7 @@
 <div id="splash">
   <img id="splashLogo" src="assets/img/aoa_logo.png" alt="Age of Ansem"/>
   <div id="splashSub">The Black Bull</div>
-  <div id="splashBarWrap"><div id="splashFrame"></div><div id="splashTrack"><div id="splashBar"></div></div></div>
-  <div id="splashTxt">Forjando el reino…</div>
+  <div id="splashBarWrap"><div id="splashBar"></div></div>
 </div>
 <div class="app">
   <div class="stage">
