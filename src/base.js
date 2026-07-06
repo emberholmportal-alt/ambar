@@ -10,7 +10,9 @@ const WT=GW+BX*2, HT=GH+BY*2, WORLD_W=WT*T, WORLD_H=HT*T;
 const MAR=2600;                                   // mar extra alrededor del mundo (cubre pantallas anchas: nada de vacío negro)
 const FOGR=224;                                   // radio del pincel de niebla (px)
 const rint=(a,b)=>Math.floor(Math.random()*(b-a+1))+a, pick=a=>a[Math.floor(Math.random()*a.length)];
-const randAv=()=>'av'+String(rint(1,10)).padStart(2,'0');   // nombre de archivo del avatar (av01..av10)
+const randAv=()=>'av'+String(rint(1,25)).padStart(2,'0');   // avatar humano real del pack (av01..av25)
+const EN_AV=[1,6,7,8,9,10,11,12,13];
+const randEnAv=()=>'en'+String(pick(EN_AV)).padStart(2,'0');  // avatar de enemigo real (crónica de asaltos)
 
 /* ===== catálogo de edificios (mina/leñador = nodos naturales; castle = Ayuntamiento/TC) ===== */
 const CAP=2000;
@@ -83,20 +85,13 @@ const S={ oro:220, madera:260, comida:130, ambar:60,
   raid:{on:false,gob:[],war:[],t:0,cool:180} };
 const PREP0=120, PREPW=40;                          // preparación: 2 min la primera, 40s entre oleadas
 let scene, ghostG, ghostSpr=null, fogRT=null, homePos={x:0,y:0}, overview=false;
-const CUR={def:'auto',sword:'auto',hand:'auto'};
-function makeCursors(){
-  const mk=(draw,hx,hy)=>{ const c=document.createElement('canvas'); c.width=32;c.height=32; const x=c.getContext('2d'); draw(x); return 'url('+c.toDataURL('image/png')+') '+hx+' '+hy+', auto'; };
-  CUR.def=mk(x=>{ x.fillStyle='#120d09';                    // flecha clásica con contorno oscuro
-    x.beginPath();x.moveTo(1,1);x.lineTo(1,21);x.lineTo(6.5,15.5);x.lineTo(10.5,24);x.lineTo(14,22.5);x.lineTo(10,14.5);x.lineTo(18,14.5);x.closePath();x.fill();
-    x.fillStyle='#f0d564';
-    x.beginPath();x.moveTo(3.5,4);x.lineTo(3.5,17);x.lineTo(7.5,13);x.lineTo(11.5,20.5);x.lineTo(12.6,20);x.lineTo(8.8,12.6);x.lineTo(14,12.6);x.closePath();x.fill(); },1,1);
-  CUR.hand=mk(x=>{ x.fillStyle='#120d09'; x.fillRect(6,3,4,13); x.fillRect(4,10,12,10);   // manito señaladora simple
-    x.fillStyle='#e7c766'; x.fillRect(7,5,2,10); x.fillRect(6,12,9,7); },8,2);
-  CUR.sword=mk(x=>{                                          // espada (militar seleccionado → atacar)
-    x.fillStyle='#120d09'; x.fillRect(12,1,7,18); x.fillRect(7,17,15,5); x.fillRect(12,21,7,9);
-    x.fillStyle='#d8dde6'; x.fillRect(14,2,3,15); x.fillStyle='#f2f5fa'; x.fillRect(14,2,1,15);
-    x.fillStyle='#c9a227'; x.fillRect(9,18,13,3); x.fillStyle='#7a5a34'; x.fillRect(14,22,3,6); },15,3);
-}
+// cursores REALES del pack (Cursor_01/02 + Icon_05 espada)
+const CUR={
+  def:"url('assets/img/ui/cur_arrow.png') 1 1, auto",
+  hand:"url('assets/img/ui/cur_hand.png') 3 1, pointer",
+  sword:"url('assets/img/ui/cur_sword.png') 15 15, auto"
+};
+function makeCursors(){ /* los cursores ahora son PNG del pack (ver CUR) */ }
 function applyCursor(){ if(!scene||!scene.game) return;
   const k=(S.sel&&S.sel.t==='militar')?CUR.sword:CUR.def;
   scene.game.canvas.style.cursor=k; }
@@ -114,7 +109,7 @@ function preload(){
   const TSB='assets/img/ts/';
   this.load.spritesheet('ground',TSB+'ground.png',{frameWidth:64,frameHeight:64});
   this.load.spritesheet('elev',TSB+'elevation.png',{frameWidth:64,frameHeight:64});
-  this.load.spritesheet('gelev',TSB+'grass_elev.png',{frameWidth:64,frameHeight:64});   // meseta con cima de PASTO (derivado del pack)
+  this.load.spritesheet('tmg',TSB+'tilemap_grass.png',{frameWidth:64,frameHeight:64});   // Tilemap_color1 del pack: grass-on-elevation real (cima verde + cara de piedra)
   this.load.image('water',TSB+'water.png');
   this.load.spritesheet('foam',TSB+'foam.png',{frameWidth:192,frameHeight:192});
   this.load.spritesheet('tree',TSB+'tree_anim.png',{frameWidth:192,frameHeight:192});
@@ -173,6 +168,23 @@ function preload(){
   this.load.spritesheet('troll_a',TSB+'troll_a.png',{frameWidth:384,frameHeight:384});
   this.load.spritesheet('bfish_i',TSB+'bfish_i.png',{frameWidth:192,frameHeight:192});           // pez bomba (naval)
   this.load.spritesheet('bfish_r',TSB+'bfish_r.png',{frameWidth:192,frameHeight:192});
+  // ---- assets REALES del pack: partículas, íconos, enemigos nuevos, deco ----
+  this.load.spritesheet('pfx_dust',TSB+'pfx_dust.png',{frameWidth:64,frameHeight:64});
+  this.load.spritesheet('pfx_boom',TSB+'pfx_boom.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('pfx_fire',TSB+'pfx_fire.png',{frameWidth:64,frameHeight:64});
+  this.load.spritesheet('pfx_splash',TSB+'pfx_splash.png',{frameWidth:192,frameHeight:192});
+  for(let i=1;i<=12;i++) this.load.image('ic'+i,'assets/img/ui/ic'+String(i).padStart(2,'0')+'.png');
+  this.load.spritesheet('gnome_i',TSB+'gnome_i.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('gnome_r',TSB+'gnome_r.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('skull_i',TSB+'skull_i.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('skull_r',TSB+'skull_r.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('panda_i',TSB+'panda_i.png',{frameWidth:256,frameHeight:256});
+  this.load.spritesheet('panda_r',TSB+'panda_r.png',{frameWidth:256,frameHeight:256});
+  this.load.spritesheet('hshark_i',TSB+'hshark_i.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('hshark_r',TSB+'hshark_r.png',{frameWidth:192,frameHeight:192});
+  this.load.image('dead_tree',TSB+'dead_tree.png');
+  this.load.image('skull_spike',TSB+'skull_spike.png');
+  this.load.image('bones1',TSB+'bones1.png');
   this.load.image('banner_h',TSB+'banner_h.png');                                                // estandartes decorativos
   this.load.image('banner_v',TSB+'banner_v.png');
   this.load.spritesheet('spear_idle',TSB+'spear_idle.png',{frameWidth:256,frameHeight:256});
@@ -336,13 +348,20 @@ function gIdx(x,y){
   if(!n&&!w) return 0; if(!n&&!e) return 2; if(!s&&!w) return 20; if(!s&&!e) return 22;
   if(!n) return 1; if(!s) return 21; if(!w) return 10; if(!e) return 12; return 11;
 }
-function eIdx(x,y){
+// cima de meseta con pasto: autotile del Tilemap_color1 (frames 5-35 = grass-on-elevation)
+function geIdx(x,y){
   const lv=S.elev[y][x];
-  const inE=(a,b)=>isIn(a,b)&&S.elev[b][a]>=lv;   // conecta con el mismo nivel o más alto; corta contra el escalón de abajo
+  const inE=(a,b)=>isIn(a,b)&&S.elev[b][a]>=lv;
   const n=inE(x,y-1), s=inE(x,y+1), w=inE(x-1,y), e=inE(x+1,y);
-  if(n&&s&&w&&e) return 5;
-  if(!n&&!w) return 0; if(!n&&!e) return 2; if(!s&&!w) return 8; if(!s&&!e) return 10;
-  if(!n) return 1; if(!s) return 9; if(!w) return 4; if(!e) return 6; return 5;
+  if(n&&s&&w&&e) return 15;                          // interior (pasto lleno)
+  if(!n&&!w) return 5; if(!n&&!e) return 8; if(!s&&!w) return 32; if(!s&&!e) return 35;   // esquinas
+  if(!n) return 6; if(!s) return 33; if(!w) return 14; if(!e) return 17;                  // bordes
+  return 15;
+}
+// cara de acantilado (frames 41-44): piedra teal bajo el borde sur de la meseta
+function gcIdx(x,y){
+  const l=isIn(x-1,y)&&S.cliff[y][x-1], r=isIn(x+1,y)&&S.cliff[y][x+1];
+  return l&&r?42 : (!l&&r)?41 : (l&&!r)?44 : 43;
 }
 
 function create(){
@@ -406,6 +425,19 @@ function create(){
   an.create({key:'troll-a',frames:an.generateFrameNumbers('troll_a',{start:0,end:5}),frameRate:10,repeat:0});
   an.create({key:'bfish-r',frames:an.generateFrameNumbers('bfish_r',{start:0,end:5}),frameRate:10,repeat:-1});
   an.create({key:'bfish-i',frames:an.generateFrameNumbers('bfish_i',{start:0,end:7}),frameRate:8,repeat:-1});
+  // ---- partículas reales + enemigos nuevos ----
+  an.create({key:'pfxdust',frames:an.generateFrameNumbers('pfx_dust',{start:0,end:-1}),frameRate:14,repeat:0});
+  an.create({key:'pfxboom',frames:an.generateFrameNumbers('pfx_boom',{start:0,end:-1}),frameRate:16,repeat:0});
+  an.create({key:'pfxfire',frames:an.generateFrameNumbers('pfx_fire',{start:0,end:-1}),frameRate:12,repeat:-1});
+  an.create({key:'pfxsplash',frames:an.generateFrameNumbers('pfx_splash',{start:0,end:-1}),frameRate:14,repeat:0});
+  an.create({key:'gnome-i',frames:an.generateFrameNumbers('gnome_i',{start:0,end:7}),frameRate:8,repeat:-1});
+  an.create({key:'gnome-r',frames:an.generateFrameNumbers('gnome_r',{start:0,end:5}),frameRate:12,repeat:-1});
+  an.create({key:'skull-i',frames:an.generateFrameNumbers('skull_i',{start:0,end:7}),frameRate:8,repeat:-1});
+  an.create({key:'skull-r',frames:an.generateFrameNumbers('skull_r',{start:0,end:5}),frameRate:10,repeat:-1});
+  an.create({key:'panda-i',frames:an.generateFrameNumbers('panda_i',{start:0,end:-1}),frameRate:8,repeat:-1});
+  an.create({key:'panda-r',frames:an.generateFrameNumbers('panda_r',{start:0,end:5}),frameRate:10,repeat:-1});
+  an.create({key:'hshark-i',frames:an.generateFrameNumbers('hshark_i',{start:0,end:7}),frameRate:8,repeat:-1});
+  an.create({key:'hshark-r',frames:an.generateFrameNumbers('hshark_r',{start:0,end:-1}),frameRate:10,repeat:-1});
   for(const j of ['waxe','wpick']) an.create({key:j+'-r',frames:an.generateFrameNumbers(j+'_blue_r',{start:0,end:-1}),frameRate:10,repeat:-1});
   for(let i=1;i<=4;i++){ an.create({key:'wrock'+i+'-a',frames:an.generateFrameNumbers('wrock'+i,{start:0,end:7}),frameRate:5,repeat:-1});
     an.create({key:'bush'+i+'-a',frames:an.generateFrameNumbers('bush'+i,{start:0,end:7}),frameRate:6,repeat:-1}); }
@@ -429,12 +461,9 @@ function create(){
     if(!S.land[y][x]||S.elev[y][x]) continue;
     if(!isLand(x-1,y)||!isLand(x+1,y)||!isLand(x,y-1)||!isLand(x,y+1)) rt.drawFrame('ground',16,(BX+x)*T,(BY+y)*T);
   }
-  // meseta con cima de PASTO verde + reborde/cara de piedra (tileset grass-on-elevation derivado del pack)
-  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++) if(S.elev[y][x]) rt.drawFrame('gelev',eIdx(x,y),(BX+x)*T,(BY+y)*T);
-  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++) if(S.cliff[y][x]){
-    const l=isIn(x-1,y)&&S.cliff[y][x-1], r=isIn(x+1,y)&&S.cliff[y][x+1];
-    rt.drawFrame('gelev', l&&r?13 : r?12 : l?14 : 15, (BX+x)*T,(BY+y)*T);
-  }
+  // meseta con cima de PASTO verde + cara de piedra (Tilemap_color1 real del pack: grass-on-elevation)
+  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++) if(S.elev[y][x]) rt.drawFrame('tmg',geIdx(x,y),(BX+x)*T,(BY+y)*T);
+  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++) if(S.cliff[y][x]) rt.drawFrame('tmg',gcIdx(x,y),(BX+x)*T,(BY+y)*T);
   paintGrassPatches(rt);   // variación de tono sobre el pasto (menos chato)
   // snapshot del terreno real → base del minimapa (no procedural)
   try{ rt.snapshotArea(BX*T,BY*T,GW*T,GH*T,img=>{ mmBase=img; }); }catch(e){}
@@ -680,9 +709,13 @@ function burstAt(x,y,color){
   for(let i=0;i<10;i++){ const p=scene.add.image(x,y,'dot').setTint(color).setDepth(99999).setScale(Phaser.Math.FloatBetween(0.5,1.2));
     scene.tweens.add({targets:p,x:x+rint(-26,26),y:y-rint(4,30),alpha:0,scale:0.1,duration:rint(400,900),ease:'Quad.easeOut',onComplete:()=>p.destroy()}); }
 }
-function explosionAt(x,y,esc){
-  const e=scene.add.sprite(x,y,'explosion').setDepth(99997).setScale(esc||1.1).play('boom');
+function explosionAt(x,y,esc){                        // explosión real del pack (pfx_boom)
+  const e=scene.add.sprite(x,y,'pfx_boom').setDepth(99997).setScale((esc||1.1)*0.9).play('pfxboom');
   e.once('animationcomplete',()=>e.destroy()); sfx('explode',0.5);
+}
+function splashAt(x,y,esc){                           // salpicadura de agua real del pack (pfx_splash)
+  const s=scene.add.sprite(x,y,'pfx_splash').setDepth(-19).setScale(esc||0.8).play('pfxsplash');
+  s.once('animationcomplete',()=>s.destroy());
 }
 
 /* ===== niebla ===== */
@@ -1018,7 +1051,8 @@ function scatterEyeCandy(n){
 }
 // hitos más grandes y variados: espantapájaros, cartel, calavera en cruz
 function scatterLandmarks(){
-  const props=[['deco18',0.7],['deco18',0.7],['deco17',0.85],['deco16',0.85],['deco13',1.0]];
+  // hitos + deco real del pack (árbol muerto, pica con calavera, huesos)
+  const props=[['deco18',0.7],['deco17',0.85],['deco16',0.85],['dead_tree',0.7],['dead_tree',0.7],['skull_spike',0.7],['bones1',0.7],['deco13',1.0]];
   for(const [tex,esc] of props){
     for(let tr=0;tr<60;tr++){ const tx=rint(1,GW-2), ty=rint(1,GH-2);
       if(!isLand(tx,ty)||S.cliff[ty][tx]||S.grid[ty][tx]!==null) continue;
@@ -1185,7 +1219,7 @@ function ordenar(p){
   if(sel.t==='militar'){
     const u=sel.ref;
     const en=S.raid.gob.find(g=>!g.dead&&Phaser.Math.Distance.Between(wp.x,wp.y,g.spr.x,g.spr.y)<44);
-    if(en){ u.forced=en; u.target=en; u.moveT=null; u.path=null; ordenIcono(en.spr.x,en.spr.y,'sword','¡Ataque!','#ff9a6a',1); }
+    if(en){ u.forced=en; u.target=en; u.moveT=null; u.path=null; ordenIcono(en.spr.x,en.spr.y,'ic5','¡Ataque!','#ff9a6a',0.6); }
     else { moverMilitar(u,wp.x,wp.y); marcaOrden(wp.x,wp.y); }
     return;
   }
@@ -1204,7 +1238,7 @@ function ordenar(p){
       return; } }
   const b=S.buildings.find(bb=>occ===bb.id);
   if(b){
-    if(b.estado==='esperando'||b.estado==='obra'){ mandarConstruir(a,b); ordenIcono(b.x,b.y,'res_wood','Construir','#e8c07a'); return; }
+    if(b.estado==='esperando'||b.estado==='obra'){ mandarConstruir(a,b); ordenIcono(b.x,b.y,'ic1','Construir','#e8c07a',0.6); return; }
     if(b.tipo==='granja'&&b.estado==='ok'&&!b.danado){ mandarTrabajar(a,b); marcaOrden(b.x,b.y); return; }
   }
   if(walkable(t.x,t.y)){ moverA(a,t.x,t.y,()=>parar(a)); marcaOrden((BX+t.x)*T+T/2,(BY+t.y)*T+T/2); }
@@ -1576,6 +1610,10 @@ const ENEMY={
   spider:{tex:'spider_run',  ai:'spider-i',ar:'spider-r',hp:1,dmg:7, esc:0.55, sp:78},        // araña rapidísima
   snake: {tex:'snake_run',   ai:'snake-i',ar:'snake-r',hp:2,dmg:12, esc:0.5,  sp:58},         // víbora
   turtle:{tex:'turtle_walk', ai:'turtle-w',ar:'turtle-w',hp:9,dmg:14, esc:0.5,  sp:24},        // tortuga acorazada (tanque lento)
+  gnome: {tex:'gnome_r',     ai:'gnome-i',ar:'gnome-r',hp:1,dmg:10, esc:0.6,  sp:68},          // gnomo de gorro rojo (enjambre)
+  skull: {tex:'skull_r',     ai:'skull-i',ar:'skull-r',hp:2,dmg:13, esc:0.6,  sp:52},          // no-muerto
+  panda: {tex:'panda_r',     ai:'panda-i',ar:'panda-r',hp:6,dmg:18, esc:0.55, sp:44},          // luchador pesado
+  hshark:{tex:'hshark_r',    ai:'hshark-i',ar:'hshark-r',hp:3,dmg:20, esc:0.62, sp:46, ranged:true}, // arponero (naval, tira a distancia)
 };
 function costaTiles(){                             // tiles de tierra pegados al agua (borde de la isla)
   const out=[];
@@ -1607,7 +1645,10 @@ function oleadaNaval(cnt,costa){                   // piratas que desembarcan de
     if(!S.over){ cañonazo(boat.x,boat.y-20); scene.time.delayedCall(1400,()=>{ if(boat.active&&!S.over) cañonazo(boat.x,boat.y-20); }); }  // bombardeo naval
     scene.tweens.add({targets:boat,x:fromX,alpha:0,delay:2600,duration:4500,onComplete:()=>boat.destroy()});
   }});
-  for(let i=0;i<cnt;i++){ const tt=pick(costa); spawnEnemy(S.wave>=6&&Math.random()<0.4?'bfish':'pshark',tt.x,tt.y); }
+  for(let i=0;i<cnt;i++){ const tt=pick(costa);
+    const k=S.wave>=6&&Math.random()<0.35?'bfish':(S.wave>=4&&Math.random()<0.35?'hshark':'pshark');   // arponero desde la 4
+    splashAt((BX+tt.x)*T+T/2,(BY+tt.y+1)*T,0.9);      // salpicadura al desembarcar
+    spawnEnemy(k,tt.x,tt.y); }
 }
 function cañonazo(fx,fy){                            // el barco pirata dispara una bomba a un edificio
   const cand=S.buildings.filter(b=>b.estado==='ok'&&!b.danado);
@@ -1636,10 +1677,11 @@ function componerOleada(w){                          // devuelve {flavor, spawns
   const add=(k,n)=>{ for(let i=0;i<n;i++) spawns.push(k); };
   const canTnt=w>=3, canGnoll=w>=2, canRider=w>=4, canSham=w>=5, canThief=w>=3, canTroll=w>=6;
   const canLiz=w>=2, canSpider=w>=4, canSnake=w>=3, canTurtle=w>=5;
-  if(flavor==='horda'){ add('gnoll',Math.ceil(costaN*1.0)); if(canLiz)add('lizard',Math.ceil(costaN*0.4)); if(canSpider)add('spider',2); if(canTnt)add('tnt',1); if(canThief)add('thief',1); }
-  else if(flavor==='bestias'){ add(canRider?'pigrider':'spear',Math.ceil(costaN*0.4)); if(canSnake)add('snake',2); if(canSpider)add('spider',2); if(canLiz)add('lizard',2); if(canTurtle)add('turtle',1); if(canSham)add('shaman',1); if(canTroll)add('troll',1); }
-  else if(flavor==='piratas'||flavor==='jefe'){ add(pick(['torch','spear']),Math.ceil(costaN*0.7)); if(canGnoll)add('gnoll',2); if(canSnake)add('snake',1); if(flavor==='jefe'&&canTroll)add('troll',1); if(flavor==='jefe'&&canTurtle)add('turtle',1); }
-  else if(flavor==='mixta'){ add('torch',2); add('spear',2); if(canGnoll)add('gnoll',2); if(canLiz)add('lizard',2); if(canTnt)add('tnt',1); if(canRider)add('pigrider',1); if(canSham)add('shaman',1); if(canThief&&Math.random()<0.5)add('thief',1); }
+  const canGnome=w>=2, canSkull=w>=4, canPanda=w>=6;
+  if(flavor==='horda'){ add('gnoll',Math.ceil(costaN*0.9)); if(canGnome)add('gnome',Math.ceil(costaN*0.4)); if(canLiz)add('lizard',2); if(canSpider)add('spider',2); if(canTnt)add('tnt',1); if(canThief)add('thief',1); }
+  else if(flavor==='bestias'){ add(canRider?'pigrider':'spear',Math.ceil(costaN*0.4)); if(canSnake)add('snake',2); if(canSpider)add('spider',2); if(canLiz)add('lizard',2); if(canTurtle)add('turtle',1); if(canPanda)add('panda',1); if(canSham)add('shaman',1); if(canTroll)add('troll',1); }
+  else if(flavor==='piratas'||flavor==='jefe'){ add(pick(['torch','spear']),Math.ceil(costaN*0.7)); if(canGnoll)add('gnoll',2); if(canSkull)add('skull',2); if(flavor==='jefe'&&canTroll)add('troll',1); if(flavor==='jefe'&&canTurtle)add('turtle',1); if(flavor==='jefe'&&canPanda)add('panda',1); }
+  else if(flavor==='mixta'){ add('torch',2); add('spear',2); if(canGnome)add('gnome',2); if(canSkull)add('skull',2); if(canLiz)add('lizard',2); if(canTnt)add('tnt',1); if(canRider)add('pigrider',1); if(canSham)add('shaman',1); if(canThief&&Math.random()<0.5)add('thief',1); }
   else { // goblins clásicos
     for(let i=0;i<costaN;i++) add(canTnt&&Math.random()<Math.min(0.5,0.08*w)?'tnt':pick(['torch','torch','spear']),1);
     if(canThief&&Math.random()<0.4)add('thief',1); }
@@ -1716,7 +1758,7 @@ function killGoblin(g){
   if(g.glow){ g.glow.destroy(); g.glow=null; }
   burstAt(g.spr.x,g.spr.y-14, g.kind==='pshark'?0x6ac0e0 : g.boss?0xc060ff : 0x7fbf5a); dustAt(g.spr.x,g.spr.y,2);
   if(g.kind==='tnt'||g.boss) explosionAt(g.spr.x,g.spr.y-10,g.boss?1.6:1.1);   // TNT/jefe estallan
-  if(g.boss){ scene.cameras.main.flash(300,120,60,140); S.stats.bull++; cronica('🐂 ¡THE BLACK BULL derrotado!',randAv()); }
+  if(g.boss){ scene.cameras.main.flash(300,120,60,140); S.stats.bull++; cronica('🐂 ¡THE BLACK BULL derrotado!',randEnAv()); }
   g.spr.destroy(); S.kills++; S.score+=g.boss?250:10;
   if(S.raid.gob.length&&S.raid.gob.every(x=>x.dead)) finOleada();
 }
@@ -1756,7 +1798,7 @@ function tickLadron(g,dtReal){
     S.oro-=ro; S.madera-=rm; g.huyendo=true;
     flyText(g.spr.x,g.spr.y-30,'-'+(ro+rm)+'💰','#ff9a8a'); sfx('coins',0.5);
     toast('🦝 ¡Un ladrón te robó '+ro+' oro y '+rm+' madera! Cazalo antes de que escape.');
-    cronica('🦝 Robo: -'+ro+' oro · -'+rm+' madera',randAv()); refreshHUD();
+    cronica('🦝 Robo: -'+ro+' oro · -'+rm+' madera',randEnAv()); refreshHUD();
   }
 }
 const esBloqueante=gv=>typeof gv==='number'||(typeof gv==='string'&&gv[0]==='s');   // edificios/escenario cortan el paso (no los nodos)
