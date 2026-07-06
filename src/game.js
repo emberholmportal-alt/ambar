@@ -97,10 +97,49 @@ function decirAlgo(){
   burbuja(n, L(line[0],line[1])); scene.time.delayedCall(3700,()=>{ if(n) n._bub=null; });
 }
 
+/* ===== escenas absurdas: discusiones, peleas y chapuzones (vida ambiente del stream) ===== */
+let escAcc=0, escNext=8000;
+function ocupar(n,ms){ n.busy=true; n.path=null; if(n.spr.body) n.spr.body.setVelocity(0);
+  scene.time.delayedCall(ms,()=>{ if(n) n.busy=false; }); }
+function npcCerca(n,r){ return livingNpcs().find(o=>o!==n&&!o.busy&&Math.hypot(o.spr.x-n.spr.x,o.spr.y-n.spr.y)<r); }
+function aguaCercaPx(px,py){ const t=tileOf(px,py);
+  for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]]){ const x=t.x+dx,y=t.y+dy;
+    if(x>=0&&x<COLS&&y>=0&&y<ROWS&&!isLand(x,y)) return {x:x*T+T/2,y:y*T+T/2}; } return null; }
+function splashFx(x,y){ const f=scene.add.sprite(x,y,'foam').play({key:'foam-a'}).setScale(0.7).setDepth(y);
+  scene.time.delayedCall(700,()=>f.destroy()); burst(x,y-6,0x9fd3e0,10,8); sfx('door',0.2); }
+function encarar(a,b){ a.spr.setFlipX(b.spr.x<a.spr.x); b.spr.setFlipX(a.spr.x<b.spr.x); }
+function escenaAbsurda(){
+  const living=livingNpcs().filter(n=>!n.busy&&!n._bub); if(living.length<2) return;
+  const r=Math.random();
+  if(r<0.4){                                             // discusión: dos vecinos se cruzan de palabras
+    const a=pick(living), b=npcCerca(a,130); if(!b) return;
+    ocupar(a,1600); ocupar(b,1600); encarar(a,b);
+    burst(a.spr.x,a.spr.y-30,0xffcf5a,6,10);
+    burbuja(a,L('¡Retirá lo dicho!','Take that back!')); a._bub=b._bub=1;
+    scene.time.delayedCall(850,()=>{ if(!b.dead){ burbuja(b,L('¡Obligame!','Make me!')); } });
+    scene.time.delayedCall(1700,()=>{ a._bub=null; b._bub=null; });
+  } else if(r<0.68){                                     // pelea corta: chispas y polvareda
+    const a=pick(living), b=npcCerca(a,120); if(!b) return;
+    ocupar(a,1200); ocupar(b,1200); encarar(a,b);
+    const mx=(a.spr.x+b.spr.x)/2, my=(a.spr.y+b.spr.y)/2;
+    ring(mx,my-8,0xd64545); burst(mx,my-6,0xffffff,12,8); dustPuff(mx,my,2,0); sfx('clash',0.25);
+  } else {                                               // chapuzón: un aldeano se tira al agua y sale
+    const cand=living.filter(n=>n.tipo==='pawn'||n.tipo==='warrior'); const a=pick(cand)||pick(living);
+    const wp=aguaCercaPx(a.spr.x,a.spr.y); if(!wp) return;
+    const ox=a.spr.x, oy=a.spr.y; ocupar(a,2800);
+    burbuja(a,L('¡Al agua!','Cannonball!')); a._bub=1; scene.time.delayedCall(2600,()=>{ if(a) a._bub=null; });
+    scene.tweens.add({targets:a.spr,x:wp.x,y:wp.y,duration:620,ease:'Sine.easeIn',onComplete:()=>{
+      splashFx(wp.x,wp.y); a.spr.setVisible(false);
+      scene.time.delayedCall(700,()=>{ if(a.spr){ a.spr.setVisible(true); splashFx(wp.x,wp.y);
+        scene.tweens.add({targets:a.spr,x:ox,y:oy,duration:700,ease:'Sine.easeOut'}); } }); }});
+  }
+}
+
 let scene, obstacles, npcGroup, npcs=[], buildings=[], walkTiles=[], blocked=[], land=[];
 let treeSpots=[], gmPos=null;                 // sitios de trabajo (bosque y mina)
 let cameraBusy=false, baseZoom=1, baseCX=WORLD_W/2, baseCY=WORLD_H/2;
 let paused=false, speed=1, nightRect=null, soundOn=false, manualView=false;
+const SPDF=0.6;                              // factor global de velocidad: antes iban demasiado rápido
 function sfx(key,vol){ if(soundOn&&scene) scene.sound.play('s_'+key,{volume:vol||0.5}); }
 let evAcc=0, evNext=2200, worldMin=6*60, clkAcc=0, viewers=1204, tViewers=1204, vAcc=0;
 const rint=(a,b)=>Math.floor(Math.random()*(b-a+1))+a, pick=a=>a[Math.floor(Math.random()*a.length)];
@@ -612,6 +651,7 @@ function spawnMonster(kind,tx,ty,home){
 }
 /* ===== pathfinding (BFS por tiles): nadie camina por el agua ===== */
 const walkable=(x,y)=>x>=1&&x<COLS-1&&y>=1&&y<ROWS-1&&isLand(x,y)&&!blocked[y][x];
+function walkableAtPx(px,py){ const t=tileOf(px,py); return walkable(t.x,t.y); }   // ¿el píxel cae en tierra caminable?
 function findPath(x0,y0,x1,y1){
   if(!walkable(x1,y1)||(!walkable(x0,y0))) return null;
   if(x0===x1&&y0===y1) return [];
@@ -783,9 +823,11 @@ const TPL=[
 ];
 const tagL=tpl=>L(tpl.tag,tpl.tagE||tpl.tag);
 function livingNpcs(){return npcs.filter(n=>!n.sheep&&!n.monster&&!n.dead);}
-// pool automático: solo vida ambiente + hallazgos/fiestas/bichos. Los eventos destructivos
-// entre gremios (GUERRA/DUELO/MAGNICIDIO/TRAICIÓN/DRAGÓN) se lanzan a mano desde el director.
-const AUTO_POOL=TPL.filter(t=>!t.major).concat(TPL.filter(t=>['HALLAZGO','FIESTA','INVASIÓN','BESTIA'].includes(t.tag)));
+// pool automático del stream: como el espectador no tiene director, los eventos grandes
+// (GUERRA/DUELO/MAGNICIDIO/TRAICIÓN/DRAGÓN + invasión/bestia) también salen solos y disparan
+// el corte de cámara con zoom. La vida ambiente pesa el doble para que no sea todo drama.
+const _AMB=TPL.filter(t=>!t.major), _MAJ=TPL.filter(t=>t.major);
+const AUTO_POOL=[..._AMB,..._AMB,..._MAJ];
 const TPL_BY_TAG=Object.fromEntries(TPL.map(t=>[t.tag,t]));
 
 // La CONSECUENCIA corre SIEMPRE para eventos major (con o sin corte de cámara),
@@ -864,21 +906,28 @@ function update(time,delta){
     if(n.dead) continue;
     if(paused){ n.spr.body&&n.spr.body.setVelocity(0); n.spr.anims&&n.spr.anims.pause(); continue; }
     if(n.spr.anims&&n.spr.anims.isPaused) n.spr.anims.resume();
-    const spd=n.spd*m;
+    if(n.busy){ if(n.spr.body) n.spr.body.setVelocity(0); n.spr.setDepth(n.spr.y);   // en una escena (discusión/pelea/chapuzón)
+      if(n.label){ n.label.x=n.spr.x; n.label.y=n.spr.y-52; } continue; }
+    const spd=n.spd*m*SPDF;
     const dx=n.tx-n.spr.x, dy=n.ty-n.spr.y, d=Math.hypot(dx,dy);
     if(Math.hypot(n.spr.x-n.lx,n.spr.y-n.ly)<0.25) n.stuck+=delta; else n.stuck=0;
     n.lx=n.spr.x; n.ly=n.spr.y;
-    if(d<6&&n.path&&n.path.length){                        // siguiente waypoint de la ruta
-      const p=n.path.shift(); n.tx=p.x+rint(-10,10); n.ty=p.y+rint(-10,10);
+    if(d<6&&n.path&&n.path.length){                        // siguiente waypoint de la ruta (con jitter que no caiga en agua)
+      const p=n.path.shift(); let jx=p.x+rint(-6,6), jy=p.y+rint(-6,6);
+      if(!walkableAtPx(jx,jy)){ jx=p.x; jy=p.y; } n.tx=jx; n.ty=jy;
     } else if(d<6||n.stuck>700){
       n.stuck=0; n.spr.body.setVelocity(0); n.path=null;
       if(n.idle<=0){ n.idle=rint(400,1800);
         n.spr.play((n.faceUp&&n.animIB)?n.animIB:n.animI,true); n.spr.setFlipX(!!n.faceLeft); }
       else { n.idle-=delta*m; if(n.idle<=0) retarget(n); }
     } else {
-      const inv=spd/d; n.spr.body.setVelocity(dx*inv,dy*inv);
-      n.faceLeft=dx<0; n.faceUp=(Math.abs(dy)>Math.abs(dx))&&dy<0;
-      if(n.animR){ n.spr.play((n.faceUp&&n.animRB)?n.animRB:n.animR,true); n.spr.setFlipX(n.faceLeft); }
+      // guardia de colisión: no pisar agua ni muros/edificios. Si el paso siguiente no es tierra, frena y replanea.
+      const ax=n.spr.x+dx/d*12, ay=n.spr.y+dy/d*12;
+      if(walkableAtPx(ax,ay)||d<T*0.6){
+        const inv=spd/d; n.spr.body.setVelocity(dx*inv,dy*inv);
+        n.faceLeft=dx<0; n.faceUp=(Math.abs(dy)>Math.abs(dx))&&dy<0;
+        if(n.animR){ n.spr.play((n.faceUp&&n.animRB)?n.animRB:n.animR,true); n.spr.setFlipX(n.faceLeft); }
+      } else { n.spr.body.setVelocity(0); n.stuck=999; }   // frena antes del agua/muro → retarget
     }
     n.spr.setDepth(n.spr.y);
     if(n.label){ n.label.x=n.spr.x; n.label.y=n.spr.y-52; }
@@ -900,6 +949,9 @@ function update(time,delta){
 
   dlgAcc+=delta*m;                                        // burbujas de diálogo con lore del reino
   if(dlgAcc>=dlgNext){ dlgAcc=0; dlgNext=rint(4200,8000); decirAlgo(); }
+
+  escAcc+=delta*m;                                        // escenas absurdas: discusiones, peleas, chapuzones
+  if(escAcc>=escNext){ escAcc=0; escNext=rint(6500,13000); escenaAbsurda(); }
 }
 
 function seedFeed(){
