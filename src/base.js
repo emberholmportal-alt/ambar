@@ -91,12 +91,31 @@ let scene, ghostG, ghostSpr=null, fogRT=null, homePos={x:0,y:0}, overview=false;
 const CUR={
   def:"url('assets/img/ui/cur_arrow.png') 1 1, auto",
   hand:"url('assets/img/ui/cur_hand.png') 3 1, pointer",
-  sword:"url('assets/img/ui/cur_sword.png') 15 15, auto"
+  sword:"url('assets/img/ui/cur_sword.png') 15 15, auto",
+  meat:"url('assets/img/ui/cur_meat.png') 15 12, auto",
+  wood:"url('assets/img/ui/cur_wood.png') 15 12, auto"
 };
 function makeCursors(){ /* los cursores ahora son PNG del pack (ver CUR) */ }
+let curCtx=null;   // cursor contextual por hover (pisa al base mientras esté sobre un objetivo)
 function applyCursor(){ if(!scene||!scene.game) return;
-  const k=(S.sel&&S.sel.t==='militar')?CUR.sword:CUR.def;
-  scene.game.canvas.style.cursor=k; }
+  const base=(S.sel&&S.sel.t==='militar')?CUR.sword:CUR.def;
+  scene.game.canvas.style.cursor=curCtx||base; }
+// al pasar el mouse con una unidad seleccionada: carne sobre animal (aldeano), espada sobre animal/enemigo (militar), madera/oro sobre nodo
+function hoverCursor(p){
+  const sel=S.sel; curCtx=null;
+  if(sel&&(sel.t==='aldeano'||sel.t==='militar'||sel.t==='allie')){
+    const wp=scene.cameras.main.getWorldPoint(p.x,p.y);
+    const enAnimal=S.animals.some(m=>!m.dead&&Phaser.Math.Distance.Between(wp.x,wp.y,m.spr.x,m.spr.y)<40);
+    const enEnemigo=S.raid.gob.some(g=>!g.dead&&Phaser.Math.Distance.Between(wp.x,wp.y,g.spr.x,g.spr.y)<40);
+    if(sel.t==='militar'||sel.t==='allie'){ if(enAnimal||enEnemigo) curCtx=CUR.sword; }
+    else if(sel.t==='aldeano'){
+      if(enAnimal) curCtx=CUR.meat;
+      else { const t=tileAt(p); if(t){ const occ=S.grid[t.y][t.x];
+        if(typeof occ==='string'&&occ[0]==='n'){ const nd=S.nodes.find(n=>n.id===occ); if(nd) curCtx=nd.res==='madera'?CUR.wood:CUR.def; } } }
+    }
+  }
+  applyCursor();
+}
 let baseZoom=1, mmCtx=null, mmBase=null, mmBlink=false;
 function sfx(k,v){ try{ scene&&scene.sound.play('s_'+k,{volume:v||0.5}); }catch(e){} }
 
@@ -589,6 +608,7 @@ function create(){
   });
   let dragMoved=false;
   this.input.on('pointermove',p=>{
+    if(!S.colocando && !(p.isDown&&!p.rightButtonDown())) hoverCursor(p);   // cursor contextual (carne/espada/madera)
     if(!p.isDown||S.colocando||p.rightButtonDown()) return;
     if(Math.abs(p.x-p.downX)+Math.abs(p.y-p.downY)>8) dragMoved=true;
     if(dragMoved){ const cam=this.cameras.main;
@@ -1002,10 +1022,12 @@ function convertirBestia(m,costo){
   if(S.ambar<costo){ sfx('creak',0.4); toast('Convertir cuesta ◆ '+costo+'.'); return; }
   S.ambar-=costo; m.hunter=null; killBar(m);
   S.animals=S.animals.filter(x=>x!==m);
-  m.spr.disableInteractive(); m.spr.setTint(0x9fd2ff);          // aura leal
+  m.spr.setTint(0x9fd2ff);          // aura leal
   const perHit=cfg.jefe?8:cfg.dmg>=10?5:3;
   const ally={spr:m.spr, tipo:'bestia', beast:m.tipo, nom:cfg.nom, hp:m.hp, maxhp:m.maxhp, dmg:perHit,
-              dead:false, atkCd:0, target:null, run:cfg.run, idle:cfg.anim};
+              dead:false, atkCd:0, target:null, forced:null, moveT:null, wT:rint(3,7), run:cfg.run, idle:cfg.anim};
+  m.spr.removeAllListeners('pointerdown'); m.spr.setInteractive({useHandCursor:true});   // ahora es una unidad tuya: seleccionable
+  m.spr.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'allie',ref:ally}); });
   addMark(ally,0x8ad0ff, m.spr.displayHeight*m.spr.originY+10);   // marcador celeste = tuyo
   S.allies.push(ally);
   burstAt(m.spr.x,m.spr.y-20,0x8ad0ff); sfx('bell',0.5);
@@ -1016,18 +1038,25 @@ function convertirBestia(m,costo){
 function updateAllies(dtReal){
   const vivos=(S.raid.on?S.raid.gob.filter(g=>!g.dead):[]);
   for(const u of S.allies){ if(u.dead) continue;
+    u.spr.setDepth(u.spr.y);
     moveMark(u);
     if(u.hp<u.maxhp) drawHp(u,u.hp/u.maxhp,30,u.spr.y-u.spr.originY*u.spr.displayHeight*0.8); else hideBar(u);
-    if(vivos.length){
-      if(!u.target||u.target.dead) u.target=vivos.reduce((a,g)=>Phaser.Math.Distance.Between(u.spr.x,u.spr.y,g.spr.x,g.spr.y)<Phaser.Math.Distance.Between(u.spr.x,u.spr.y,a.spr.x,a.spr.y)?g:a,vivos[0]);
+    // objetivo: 1) ataque forzado por vos  2) durante oleada, el más cercano  3) nada
+    if(u.forced&&!u.forced.dead) u.target=u.forced;
+    else { if(u.forced&&u.forced.dead) u.forced=null;
+      if((!u.target||u.target.dead)&&vivos.length) u.target=vivos.reduce((a,g)=>Phaser.Math.Distance.Between(u.spr.x,u.spr.y,g.spr.x,g.spr.y)<Phaser.Math.Distance.Between(u.spr.x,u.spr.y,a.spr.x,a.spr.y)?g:a,vivos[0]);
+      if(u.target&&u.target.dead) u.target=null; }
+    if(u.target){
       const d=Phaser.Math.Distance.Between(u.spr.x,u.spr.y,u.target.spr.x,u.target.spr.y);
-      if(d>30){ const sp=54*dtReal, ang=Math.atan2(u.target.spr.y-u.spr.y,u.target.spr.x-u.spr.x);
-        const nx=u.spr.x+Math.cos(ang)*sp, ny=u.spr.y+Math.sin(ang)*sp; if(landAtPx(nx,ny)){u.spr.x=nx;u.spr.y=ny;}
-        u.spr.setFlipX(Math.cos(ang)<0); u.spr.setDepth(u.spr.y);
+      if(d>30){ avanzarHacia(u,u.target.spr.x,u.target.spr.y,54*dtReal);
         if(u.run&&u.spr.anims.currentAnim&&u.spr.anims.currentAnim.key!==u.run) u.spr.play(u.run,true);
-      } else { u.atkCd-=dtReal; if(u.atkCd<=0){ u.atkCd=1.0; if(u.idle)u.spr.play(u.idle,true);
-        golpearEnemigo(u.target,u.dmg,0x8ad0ff); burstAt(u.target.spr.x,u.target.spr.y-14,0x8ad0ff); sfxAt('clash',0.3,u.spr.x,u.spr.y);
-        if(u.target.dead) u.target=null; } }
+      } else { u.moveT=null; u.atkCd-=dtReal; if(u.atkCd<=0){ u.atkCd=1.0; if(u.idle)u.spr.play(u.idle,true);
+        dañarObjetivo(u.target,u.dmg,0x8ad0ff); burstAt(u.target.spr.x,u.target.spr.y-14,0x8ad0ff); sfxAt('clash',0.3,u.spr.x,u.spr.y);
+        if(u.target.dead){ u.target=null; u.forced=null; } } }
+    } else if(u.moveT){                               // orden de moverse a un punto
+      const d=Phaser.Math.Distance.Between(u.spr.x,u.spr.y,u.moveT.x,u.moveT.y);
+      if(d<8){ u.moveT=null; if(u.idle)u.spr.play(u.idle,true); }
+      else { avanzarHacia(u,u.moveT.x,u.moveT.y,54*dtReal); if(u.run&&u.spr.anims.currentAnim&&u.spr.anims.currentAnim.key!==u.run) u.spr.play(u.run,true); }
     } else if(u.idle&&(!u.spr.anims.currentAnim||u.spr.anims.currentAnim.key!==u.idle)) u.spr.play(u.idle,true);
   }
   if(S.allies.some(u=>u.dead)) S.allies=S.allies.filter(u=>!u.dead);
@@ -1111,13 +1140,15 @@ function scatterEyeCandy(n){
     if(!isLand(tx,ty)||S.cliff[ty][tx]||S.grid[ty][tx]!==null) continue;
     const x=(BX+tx)*T+T/2+rint(-14,14), y=(BY+ty+1)*T-6;
     const r=Math.random();
-    if(r<0.1){  // pepita de oro del pack (deco brillante)
+    if(r<0.1){  // pepita de oro del pack (deco brillante) — bloquea el paso (se rodea)
       scene.add.ellipse(x,y,26,10,0x000000,0.18).setDepth(y-1);
       scene.add.image(x,y,'goldstone'+rint(1,6)).setOrigin(0.5,1).setScale(Phaser.Math.FloatBetween(0.42,0.6)).setDepth(y);
-    } else if(r<0.28){ // roca (estática) con sombra
+      S.grid[ty][tx]='s'+S.nextId++;
+    } else if(r<0.24){ // roca (estática) con sombra — bloquea el paso
       scene.add.ellipse(x,y,26,10,0x000000,0.18).setDepth(y-1);
       scene.add.image(x,y,'rock'+rint(1,4)).setOrigin(0.5,1).setScale(Phaser.Math.FloatBetween(0.7,1.05)).setDepth(y);
-    } else {    // deco 1..15 (traen sombra pintada): hongos, cristales, arbustos, pasto, calabaza, huesos
+      S.grid[ty][tx]='s'+S.nextId++;
+    } else {    // deco 1..15 (traen sombra pintada): hongos, cristales, arbustos, pasto, calabaza, huesos (no bloquean)
       scene.add.image(x,y,'deco'+rint(1,15))
         .setOrigin(0.5,1).setScale(Phaser.Math.FloatBetween(0.65,1.0)).setDepth(y).setAlpha(0.96);
     }
@@ -1293,9 +1324,18 @@ function ordenar(p){
   const wp=scene.cameras.main.getWorldPoint(p.x,p.y);
   if(sel.t==='militar'){
     const u=sel.ref;
-    const en=S.raid.gob.find(g=>!g.dead&&Phaser.Math.Distance.Between(wp.x,wp.y,g.spr.x,g.spr.y)<44);
+    const en=S.raid.gob.find(g=>!g.dead&&Phaser.Math.Distance.Between(wp.x,wp.y,g.spr.x,g.spr.y)<44)
+          || S.animals.find(m=>!m.dead&&Phaser.Math.Distance.Between(wp.x,wp.y,m.spr.x,m.spr.y)<44);
     if(en){ u.forced=en; u.target=en; u.moveT=null; u.path=null; ordenIcono(en.spr.x,en.spr.y,'ic5','¡Ataque!','#ff9a6a',0.6); }
     else { moverMilitar(u,wp.x,wp.y); marcaOrden(wp.x,wp.y); }
+    return;
+  }
+  if(sel.t==='allie'){
+    const u=sel.ref;  // bestia convertida: obedece como una unidad propia
+    const en=S.raid.gob.find(g=>!g.dead&&Phaser.Math.Distance.Between(wp.x,wp.y,g.spr.x,g.spr.y)<44)
+          || S.animals.find(m=>!m.dead&&Phaser.Math.Distance.Between(wp.x,wp.y,m.spr.x,m.spr.y)<44);
+    if(en){ u.forced=en; u.target=en; u.moveT=null; ordenIcono(en.spr.x,en.spr.y,'ic5','¡Ataque!','#ff9a6a',0.6); }
+    else { u.forced=null; u.target=null; u.moveT={x:wp.x,y:wp.y}; marcaOrden(wp.x,wp.y); }
     return;
   }
   if(sel.t!=='aldeano') return;
@@ -1413,6 +1453,10 @@ function renderSel(){
     $('selNom').textContent=UNIDADES[u.tipo].nom; $('selLvl').textContent=UNIDADES[u.tipo].sana?'Sanador · en la retaguardia':'En guardia'; setHp(u.hp,u.maxhp); setAv(u.av);
     accion('DESPEDIR',()=>despedirMilitar(u),false);
     const t=$('selVacio'); t.style.display='block'; t.innerHTML='Clic derecho: reposicionar la unidad.';
+  } else if(sel.t==='allie'){
+    const u=sel.ref;
+    $('selNom').textContent=u.nom+' (leal)'; $('selLvl').textContent='Bestia doblegada por el monarca'; setHp(u.hp,u.maxhp);
+    const t=$('selVacio'); t.style.display='block'; t.innerHTML='Clic derecho: moverla o mandarla a atacar.<br>Lucha por vos en las oleadas.';
   } else if(sel.t==='nodo'){
     const nd=sel.ref, cfg=NODO[nd.kind];
     $('selNom').textContent=cfg.nom; $('selLvl').textContent='Reserva: '+Math.ceil(nd.reserva)+' '+cfg.res; setHp(nd.reserva,cfg.reserva);
@@ -1618,9 +1662,11 @@ function scatterCampfires(n){
     do{ tx=rint(1,GW-2); ty=rint(1,GH-2); tr++; ok=walkable(tx,ty)&&S.grid[ty][tx]===null&&Math.hypot((BX+tx)*T-homePos.x,(BY+ty)*T-homePos.y)>T*5; }while(!ok&&tr<60);
     if(!ok) continue;
     const x=(BX+tx)*T+T/2, y=(BY+ty+1)*T-6;
-    const glow=scene.add.circle(x,y-14,26,0xff8a3a,0.16).setDepth(y-1);
-    scene.tweens.add({targets:glow,scale:1.25,alpha:0.28,duration:900,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
-    scene.add.sprite(x,y,'fire').play('fire-a').setOrigin(0.5,1).setScale(0.42).setDepth(y);
+    S.grid[ty][tx]='s'+S.nextId++;                                   // la fogata ocupa su tile (no la pisan)
+    const glow=scene.add.circle(x,y-10,22,0xff8a3a,0.14).setDepth(y-1);
+    scene.tweens.add({targets:glow,scale:1.2,alpha:0.24,duration:900,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+    scene.add.image(x,y,'rock'+rint(1,4)).setOrigin(0.5,1).setScale(0.55).setDepth(y-0.2);   // base de piedras: no es una llama suelta
+    scene.add.sprite(x,y-6,'fire').play({key:'fire-a',startFrame:rint(0,6)}).setOrigin(0.5,1).setScale(0.34).setDepth(y);
   }
 }
 // guerrero real (seleccionable/comandable), sin costo — para la guardia inicial
@@ -1839,6 +1885,14 @@ function golpearEnemigo(g,dmg,color){              // daño con vida: bosses agu
   if(g.hp<=0) killGoblin(g);
   else { g.spr.setTint(0xffffff); scene.time.delayedCall(80,()=>{ if(g.spr&&g.spr.active){ if(ENEMY[g.kind].tint) g.spr.setTint(ENEMY[g.kind].tint); else g.spr.clearTint(); } }); }
 }
+function golpearAnimal(m,dmg,color){                // fauna recibe daño de una unidad militar
+  if(m.dead) return; m.hp-=dmg; burstAt(m.spr.x,m.spr.y-14,color||0xffffff);
+  if(m.hp<=0) matarAnimal(m);
+}
+function dañarObjetivo(t,dmg,color){                // despacha: enemigo de oleada o animal
+  if(t&&t.kind!==undefined&&ENEMY[t.kind]) golpearEnemigo(t,dmg,color);
+  else golpearAnimal(t,dmg,color);
+}
 function killGoblin(g){
   if(g.dead) return; g.dead=true;
   killBar(g);
@@ -1888,17 +1942,19 @@ function tickLadron(g,dtReal){
     cronica('🦝 Robo: -'+ro+' oro · -'+rm+' madera',randEnAv()); refreshHUD();
   }
 }
-const esBloqueante=gv=>typeof gv==='number'||(typeof gv==='string'&&gv[0]==='s');   // edificios/escenario cortan el paso (no los nodos)
-function avanzarHacia(ent,tx,ty,sp){                  // mueve hacia (tx,ty) deslizando contra edificios; devuelve si avanzó
+const esBloqueante=gv=>typeof gv==='number'||(typeof gv==='string'&&(gv[0]==='s'||gv[0]==='n'));   // edificios, escenario Y nodos (árbol/oro) cortan el paso
+// pisar bien: tierra o puente, sin acantilado, sin edificio/nodo/escenario. Los de tierra no cruzan agua.
+function pisoLibre(px,py){ const t=tileOfPx(px,py); if(!isIn(t.x,t.y)) return false;
+  return (S.land[t.y][t.x]||S.bridge[t.y][t.x]) && !S.cliff[t.y][t.x] && !esBloqueante(S.grid[t.y][t.x]); }
+function avanzarHacia(ent,tx,ty,sp){                  // mueve hacia (tx,ty) deslizando; no cruza agua/acantilado ni atraviesa edificios/nodos
   const ang=Math.atan2(ty-ent.spr.y,tx-ent.spr.x), dx=Math.cos(ang)*sp, dy=Math.sin(ang)*sp;
-  const libre=(px,py)=>{ const t=tileOfPx(px,py); return !(isIn(t.x,t.y)&&esBloqueante(S.grid[t.y][t.x])); };
   let moved=true;
-  if(libre(ent.spr.x+dx,ent.spr.y+dy)){ ent.spr.x+=dx; ent.spr.y+=dy; }
-  else if(libre(ent.spr.x+dx,ent.spr.y)){ ent.spr.x+=dx; }
-  else if(libre(ent.spr.x,ent.spr.y+dy)){ ent.spr.y+=dy; }
+  if(pisoLibre(ent.spr.x+dx,ent.spr.y+dy)){ ent.spr.x+=dx; ent.spr.y+=dy; }
+  else if(pisoLibre(ent.spr.x+dx,ent.spr.y)){ ent.spr.x+=dx; }
+  else if(pisoLibre(ent.spr.x,ent.spr.y+dy)){ ent.spr.y+=dy; }
   else { const px=Math.cos(ang+Math.PI/2)*sp, py=Math.sin(ang+Math.PI/2)*sp;   // bordear
-    if(libre(ent.spr.x+px,ent.spr.y+py)){ ent.spr.x+=px; ent.spr.y+=py; }
-    else if(libre(ent.spr.x-px,ent.spr.y-py)){ ent.spr.x-=px; ent.spr.y-=py; }
+    if(pisoLibre(ent.spr.x+px,ent.spr.y+py)){ ent.spr.x+=px; ent.spr.y+=py; }
+    else if(pisoLibre(ent.spr.x-px,ent.spr.y-py)){ ent.spr.x-=px; ent.spr.y-=py; }
     else moved=false; }
   ent.spr.setFlipX(dx<0); ent.spr.setDepth(ent.spr.y);
   return moved;
@@ -1935,12 +1991,13 @@ function raidTick(dtReal){
     const rango=g.ranged?T*3.6:34;                   // el shaman ataca de lejos
     if(d>rango){
       const sp=(g.sp||46)*dtReal;
-      const moved=avanzarHacia(g,txp,typ,sp);        // no atraviesa edificios
+      const moved=avanzarHacia(g,txp,typ,sp);        // no atraviesa edificios ni cruza agua
       if(g.spr.anims.currentAnim&&g.spr.anims.currentAnim.key!==g.ar) g.spr.play(g.ar,true);
-      if(!moved&&!g.esUnidad){ g.stuck=(g.stuck||0)+dtReal;    // si un muro/edificio le corta el paso, que la agarre con eso
-        if(g.stuck>0.6){ g.stuck=0; let near=null,bd=1e9;
+      if(!moved){ g.stuck=(g.stuck||0)+dtReal;        // trabado: si hay un edificio al lado lo ataca; si no, re-evalúa objetivo
+        if(g.stuck>0.5){ g.stuck=0;
+          let near=null,bd=T*1.6;
           for(const b of S.buildings){ if(b.estado!=='ok'||b.danado) continue; const dd=Phaser.Math.Distance.Between(g.spr.x,g.spr.y,b.x,b.y); if(dd<bd){bd=dd;near=b;} }
-          if(near){ g.target=near; g.esUnidad=false; } } }
+          if(near){ g.target=near; g.esUnidad=false; } else { g.target=null; g.esUnidad=false; } } }
       else g.stuck=0;
     } else {
       g.atkT+=dtReal;
@@ -2015,15 +2072,15 @@ function pelear(lista,vivos,dtReal,esUnidad){
     } else if(arquero){
       u.cd-=dtReal;
       if(u.cd<=0){ u.cd=1.8; const g=u.target, p=scene.add.image(u.spr.x,u.spr.y-20,'dot').setTint(0xd9c9a0).setDepth(99998);
-        scene.tweens.add({targets:p,x:g.spr.x,y:g.spr.y-14,duration:200,ease:'Linear',onComplete:()=>{p.destroy(); if(!g.dead) golpearEnemigo(g,1,0xd9c9a0);}});
+        scene.tweens.add({targets:p,x:g.spr.x,y:g.spr.y-14,duration:200,ease:'Linear',onComplete:()=>{p.destroy(); if(!g.dead) dañarObjetivo(g,1,0xd9c9a0);}});
         sfxAt('arrow',0.5,u.spr.x,u.spr.y); u.target=null; }
     } else {
       u.atkCd=(u.atkCd||0)-dtReal;
       if(u.atkCd<=0){ u.atkCd=0.85; sfxAt('sword',0.5,u.spr.x,u.spr.y);
         if(u.tipo==='guerrero'){ u.spr.play('war-a',true); u.spr.once('animationcomplete',()=>{ if(u.spr&&u.spr.active&&!u.dead) u.spr.play('war-r',true); }); }
-        golpearEnemigo(u.target,2,0xffffff);
+        dañarObjetivo(u.target,2,0xffffff);
         // el enemigo devuelve daño al cuerpo a cuerpo
-        if(u.target&&!u.target.dead){ u.hp=(u.hp||40)-u.target.dmg*0.35;
+        if(u.target&&!u.target.dead){ u.hp=(u.hp||40)-(u.target.dmg||0)*0.35;
           if(u.hp<=0){ muereUnidad(u,esUnidad); continue; } }
         if(u.target&&u.target.dead) u.target=null; }
     }
@@ -2230,11 +2287,24 @@ function update(time,delta){
   }
   for(const u of S.units){
     if(!u.dead&&!S.raid.on){                              // fuera de oleada las unidades SÍ obedecen órdenes de movimiento
-      seguirRuta(u,dtReal);
-      const moving=(u.path&&u.path.length)||u.moveT, key=u.spr.anims.currentAnim&&u.spr.anims.currentAnim.key;
-      if(moving){ if(key!==uAnim(u.tipo,'r')) u.spr.play(uAnim(u.tipo,'r'),true);
-        const tk=Math.floor(u.spr.x/T)+','+Math.floor(u.spr.y/T); if(tk!==u.lastTile){ u.lastTile=tk; revelar(u.spr.x,u.spr.y,4); } }
-      else if(key===uAnim(u.tipo,'r')) u.spr.play(uAnim(u.tipo,'i'),true);
+      if(u.forced&&u.forced.dead) u.forced=null;
+      if(u.forced&&u.tipo!=='monje'){                      // orden de atacar (típicamente un animal, sin oleada)
+        const tg=u.forced, arquero=u.tipo==='arquero', alcance=arquero?T*4.5:26;
+        const d=Phaser.Math.Distance.Between(u.spr.x,u.spr.y,tg.spr.x,tg.spr.y);
+        if(d>alcance){ u.moveT={x:tg.spr.x,y:tg.spr.y}; seguirRuta(u,dtReal);
+          const key=u.spr.anims.currentAnim&&u.spr.anims.currentAnim.key; if(key!==uAnim(u.tipo,'r')) u.spr.play(uAnim(u.tipo,'r'),true); }
+        else { u.moveT=null; u.atkCd=(u.atkCd||0)-dtReal;
+          if(u.atkCd<=0){ u.atkCd=0.85; sfxAt('sword',0.5,u.spr.x,u.spr.y);
+            if(u.tipo==='guerrero'){ u.spr.play('war-a',true); u.spr.once('animationcomplete',()=>{ if(u.spr&&u.spr.active&&!u.dead) u.spr.play('war-r',true); }); }
+            dañarObjetivo(tg,2,0xffffff);
+            if(tg.dead){ u.forced=null; u.spr.play(uAnim(u.tipo,'i'),true); } } }
+      } else {
+        seguirRuta(u,dtReal);
+        const moving=(u.path&&u.path.length)||u.moveT, key=u.spr.anims.currentAnim&&u.spr.anims.currentAnim.key;
+        if(moving){ if(key!==uAnim(u.tipo,'r')) u.spr.play(uAnim(u.tipo,'r'),true);
+          const tk=Math.floor(u.spr.x/T)+','+Math.floor(u.spr.y/T); if(tk!==u.lastTile){ u.lastTile=tk; revelar(u.spr.x,u.spr.y,4); } }
+        else if(key===uAnim(u.tipo,'r')) u.spr.play(uAnim(u.tipo,'i'),true);
+      }
     }
     u.spr.setDepth(u.spr.y);                             // profundidad al día: nunca detrás del edificio si está adelante
     moveMark(u);
@@ -2243,7 +2313,7 @@ function update(time,delta){
   updateAnimals(dtReal,dt);
   updateAllies(dtReal);
   if(dlgT>0){ dlgT-=dtReal; if(dlgT<=0) ocultarDialogo(); }
-  chatT-=dtReal; if(chatT<=0){ chatT=Phaser.Math.FloatBetween(32,58); soltarBocadillo(); }
+  chatT-=dtReal; if(chatT<=0){ chatT=Phaser.Math.FloatBetween(70,130); soltarBocadillo(); }
 
   for(const b of S.buildings){
     const c=CAT[b.tipo];
