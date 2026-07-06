@@ -768,6 +768,14 @@ function pegarJunto(a,cx,cy,rad){
   a.spr.x=cx+Math.cos(ang)*r; a.spr.y=cy+Math.sin(ang)*r*0.7;
   a.spr.setFlipX(a.spr.x>cx); a.spr.setDepth(a.spr.y);
 }
+function pegarAEdificio(a,b){                          // pega al aldeano contra la pared del edificio, del lado por el que llegó
+  const c=CAT[b.tipo];
+  const Lx=(BX+b.tx)*T, Tp=(BY+b.ty)*T, Rx=(BX+b.tx+c.fw)*T, Bt=(BY+b.ty+c.fh)*T;
+  const cx=Phaser.Math.Clamp(a.spr.x,Lx,Rx), cy=Phaser.Math.Clamp(a.spr.y,Tp,Bt);   // punto más cercano del footprint
+  const dx=a.spr.x-cx, dy=a.spr.y-cy, d=Math.hypot(dx,dy)||1;
+  a.spr.x=cx+dx/d*16; a.spr.y=cy+dy/d*16;             // 16px afuera del borde = pegado a la obra
+  a.spr.setFlipX(a.spr.x>b.x); a.spr.setDepth(a.spr.y);
+}
 // sonido posicional: el volumen y el paneo dependen de qué parte del mapa estás mirando
 function sfxAt(k,base,x,y){ try{
   if(!scene) return; const wv=scene.cameras.main.worldView;
@@ -997,7 +1005,7 @@ function mandarConstruir(a,b){
   const cnt=S.ald.filter(o=>o!==a&&o.bId===b.id&&(o.estado==='obrero'||o.estado==='yendo')).length;
   const slot=bs.length?bs[cnt%bs.length]:{x:b.tx,y:b.ty};
   moverA(a,slot.x,slot.y,()=>{
-    a.estado='obrero'; a.bId=b.id;                     // queda en su tile del borde: pegado al edificio y separado de los otros obreros
+    a.estado='obrero'; a.bId=b.id; pegarAEdificio(a,b);   // pegado a la pared del edificio (no a un tile de distancia) y separado de los otros
     if(b.estado==='esperando') b.estado='obra';
     a.dustEv=scene.time.addEvent({delay:900,loop:true,callback:()=>{ dustAt(a.spr.x,a.spr.y-10,1); chispasObra(a.spr.x,a.spr.y-16); sfxAt('chop',0.22,a.spr.x,a.spr.y); }});   // martilleo + chispas EN el obrero
     a.tool='hammer'; a.spr.setTexture('pawn_hammer',0).setScale(0.7); a.spr.play('phammer',true);  // martillando
@@ -1415,6 +1423,11 @@ function despedirMilitar(u){
 function ordenar(p){
   const sel=S.sel; if(!sel) return;
   const wp=scene.cameras.main.getWorldPoint(p.x,p.y);
+  if(sel.t==='techo'){                                 // arquero de techo: sólo se mueve DENTRO del techo
+    const arc=sel.ref, r=techoRect(arc.cas);
+    arc.roofT={x:Phaser.Math.Clamp(wp.x,r.x0,r.x1), y:Phaser.Math.Clamp(wp.y,r.y0,r.y1)};
+    marcaMover(arc.roofT.x,arc.roofT.y); return;
+  }
   if(sel.t==='militar'){
     const u=sel.ref;
     const en=S.raid.gob.find(g=>!g.dead&&Phaser.Math.Distance.Between(wp.x,wp.y,g.spr.x,g.spr.y)<44)
@@ -1556,6 +1569,10 @@ function renderSel(){
     const u=sel.ref;
     $('selNom').textContent=u.nom+L(' (leal)',' (loyal)'); $('selLvl').textContent=L('Bestia doblegada por el monarca','Beast tamed by the monarch'); setHp(u.hp,u.maxhp);
     const t=$('selVacio'); t.style.display='block'; t.innerHTML=L('Clic derecho: moverla o mandarla a atacar.<br>Lucha por vos en las oleadas.','Right-click: move it or send it to attack.<br>It fights for you in the waves.');
+  } else if(sel.t==='techo'){
+    const u=sel.ref;
+    $('selNom').textContent=L('Arquero de techo','Roof Archer'); $('selLvl').textContent=L('Fijo al Ayuntamiento · recibe el daño primero','Fixed to the Town Hall · takes damage first'); setHp(u.hp,u.maxhp); setAv(u.av);
+    const t=$('selVacio'); t.style.display='block'; t.innerHTML=L('Clic derecho: moverlo SOBRE el techo (no puede bajar).<br>Dispara a los enemigos en la oleada.','Right-click: move it ON the roof (it cannot come down).<br>Shoots enemies during the wave.');
   } else if(sel.t==='nodo'){
     const nd=sel.ref, cfg=NODO[nd.kind];
     $('selNom').textContent=cfg.nom; $('selLvl').textContent=L('Reserva: ','Reserve: ')+Math.ceil(nd.reserva)+' '+resNom(cfg.res); setHp(nd.reserva,cfg.reserva);
@@ -1588,7 +1605,9 @@ function renderSelEdificio(b){
       if(up&&b.nivel<MAXLVL.def) accion(L('MEJORAR (','UPGRADE (')+costoTxt(up.costo)+')',()=>mejorarB(b),b.estado!=='ok'); }
     if(c.prod&&b.estado==='ok') accion(L('COSECHAR (','HARVEST (')+Math.floor(b.buf)+' '+resNom(c.prod)+')',()=>cosechar(b),b.buf<1);
   }
-  if(c.esTC){                                    // Ayuntamiento: refugiar / liberar aldeanos
+  if(c.esTC){                                    // Ayuntamiento: arquero de techo + refugiar / liberar aldeanos
+    const narq=(b.archers||[]).filter(a=>!a.dead).length;
+    accion(L('🏹 ARQUERO TECHO (','🏹 ROOF ARCHER (')+narq+'/2 · '+costoTxt(UNIDADES.arquero.costo)+')',()=>{ crearArqueroTecho(b); renderSel(); },narq>=2);
     const dentro=S.ald.filter(a=>a.estado==='refugiado').length;
     const idle=S.ald.filter(a=>a.estado==='libre'||a.estado==='paseo').length;
     if(dentro>0) accion(L('🚪 SACAR ALDEANOS (','🚪 RELEASE VILLAGERS (')+dentro+')',()=>liberarAldeanos(),false);
@@ -1757,16 +1776,18 @@ function chispasObra(x,y){                              // chispas doradas al co
     scene.tweens.add({targets:s,y:s.y-rint(10,26),alpha:0,scale:0.1,duration:rint(400,700),ease:'Quad.easeOut',onComplete:()=>s.destroy()}); }
 }
 /* fogatas de ambiente (fuego + resplandor cálido) */
+function campfireAt(x,y){                               // fogata con base de piedras (no una llama suelta)
+  const glow=scene.add.circle(x,y-10,22,0xff8a3a,0.14).setDepth(y-1);
+  scene.tweens.add({targets:glow,scale:1.2,alpha:0.24,duration:900,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+  scene.add.image(x,y,'rock'+rint(1,4)).setOrigin(0.5,1).setScale(0.55).setDepth(y-0.2);
+  scene.add.sprite(x,y-6,'fire').play({key:'fire-a',startFrame:rint(0,6)}).setOrigin(0.5,1).setScale(0.34).setDepth(y);
+}
 function scatterCampfires(n){
   for(let k=0;k<n;k++){ let tx,ty,tr=0,ok=false;
     do{ tx=rint(1,GW-2); ty=rint(1,GH-2); tr++; ok=walkable(tx,ty)&&S.grid[ty][tx]===null&&Math.hypot((BX+tx)*T-homePos.x,(BY+ty)*T-homePos.y)>T*5; }while(!ok&&tr<60);
     if(!ok) continue;
-    const x=(BX+tx)*T+T/2, y=(BY+ty+1)*T-6;
     S.grid[ty][tx]='s'+S.nextId++;                                   // la fogata ocupa su tile (no la pisan)
-    const glow=scene.add.circle(x,y-10,22,0xff8a3a,0.14).setDepth(y-1);
-    scene.tweens.add({targets:glow,scale:1.2,alpha:0.24,duration:900,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
-    scene.add.image(x,y,'rock'+rint(1,4)).setOrigin(0.5,1).setScale(0.55).setDepth(y-0.2);   // base de piedras: no es una llama suelta
-    scene.add.sprite(x,y-6,'fire').play({key:'fire-a',startFrame:rint(0,6)}).setOrigin(0.5,1).setScale(0.34).setDepth(y);
+    campfireAt((BX+tx)*T+T/2, (BY+ty+1)*T-6);
   }
 }
 // guerrero real (seleccionable/comandable), sin costo — para la guardia inicial
@@ -1779,16 +1800,69 @@ function crearGuerrero(x,y){
   s.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'militar',ref:un}); });
   addMark(un,0x8ec8ff,66); S.units.push(un); return un;
 }
-/* guardia REAL flanqueando el Ayuntamiento (unidades usables, no adorno) */
+/* ===== arqueros de TECHO: fijos al Ayuntamiento, se mueven sobre el techo y reciben el daño antes que el castillo ===== */
+function techoRect(cas){                                // zona del techo (en px) donde se paran/mueven los arqueros
+  return { x0:cas.x-90, x1:cas.x+90, y0:cas.y-CAT.castle.fh*T-24, y1:cas.y-CAT.castle.fh*T+40 };
+}
+function crearArqueroTecho(cas, gratis){
+  if(!cas) return null; cas.archers=cas.archers||[];
+  if(cas.archers.filter(a=>!a.dead).length>=2){ toast(L('Máximo 2 arqueros en el techo.','Max 2 roof archers.')); sfx('creak',0.3); return null; }
+  const u=UNIDADES.arquero;
+  if(!gratis && !pagar(u.costo)){ toast(L('No te alcanza: ','Not enough: ')+costoTxt(u.costo)); sfx('creak',0.4); return null; }
+  const r=techoRect(cas), n=cas.archers.filter(a=>!a.dead).length;
+  const x=(r.x0+r.x1)/2+(n===0?-32:32), y=(r.y0+r.y1)/2;
+  const s=scene.add.sprite(x,y,'archer_blue_i').setOrigin(0.5,0.72).setScale(0.62).setDepth(cas.y+60).play('arq-i');
+  const arc={spr:s, cas, tipo:'arqtecho', hp:u.hp, maxhp:u.hp, cd:0, dead:false, roofT:null, av:randAv()};
+  hitPersonaje(s);
+  s.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'techo',ref:arc}); });
+  cas.archers.push(arc);
+  if(!gratis){ sfx('bong',0.5); toast(L('🏹 Arquero en el techo.','🏹 Archer on the roof.')); }
+  return arc;
+}
+function matarArqueroTecho(arc){
+  if(arc.dead) return; arc.dead=true; killBar(arc);
+  const d=scene.add.sprite(arc.spr.x,arc.spr.y,'dead').play('dead-a').setOrigin(0.5,0.72).setScale(0.5).setDepth(arc.spr.y);
+  d.once('animationcomplete',()=>scene.tweens.add({targets:d,alpha:0,duration:1500,onComplete:()=>d.destroy()}));
+  arc.spr.destroy(); sfx('creak',0.5);
+  if(arc.cas&&arc.cas.archers) arc.cas.archers=arc.cas.archers.filter(a=>a!==arc);
+  cronica(L('🏹 Un arquero del techo cayó.','🏹 A roof archer fell.'),randAv());
+  if(S.sel&&S.sel.ref===arc) deseleccionar(); refreshHUD();
+}
+function updateArquerosTecho(dtReal){
+  const vivos=S.raid.on?S.raid.gob.filter(g=>!g.dead):[];
+  for(const cas of S.buildings){ if(cas.tipo!=='castle'||!cas.archers) continue;
+    const r=techoRect(cas);
+    for(const arc of cas.archers){ if(arc.dead) continue;
+      arc.spr.setDepth(cas.y+60);
+      if(arc.roofT){                                    // orden del jugador: moverse SOBRE el techo (no puede salir)
+        const tx=Phaser.Math.Clamp(arc.roofT.x,r.x0,r.x1), ty=Phaser.Math.Clamp(arc.roofT.y,r.y0,r.y1);
+        const d=Phaser.Math.Distance.Between(arc.spr.x,arc.spr.y,tx,ty);
+        if(d<3){ arc.roofT=null; arc.spr.play('arq-i',true); }
+        else { const sp=40*dtReal, ang=Math.atan2(ty-arc.spr.y,tx-arc.spr.x);
+          arc.spr.x+=Math.cos(ang)*sp; arc.spr.y+=Math.sin(ang)*sp; arc.spr.setFlipX(Math.cos(ang)<0);
+          if(arc.spr.anims.currentAnim&&arc.spr.anims.currentAnim.key!=='arq-r') arc.spr.play('arq-r',true); }
+      } else if(vivos.length){                          // en oleada: dispara al enemigo más cercano en rango
+        arc.cd-=dtReal;
+        const g=vivos.reduce((m,e)=>Phaser.Math.Distance.Between(arc.spr.x,arc.spr.y,e.spr.x,e.spr.y)<Phaser.Math.Distance.Between(arc.spr.x,arc.spr.y,m.spr.x,m.spr.y)?e:m,vivos[0]);
+        if(g&&Phaser.Math.Distance.Between(arc.spr.x,arc.spr.y,g.spr.x,g.spr.y)<T*6){
+          arc.spr.setFlipX(g.spr.x<arc.spr.x);
+          if(arc.cd<=0){ arc.cd=1.6;
+            const p=scene.add.image(arc.spr.x,arc.spr.y-16,'dot').setTint(0xd9c9a0).setDepth(99998);
+            scene.tweens.add({targets:p,x:g.spr.x,y:g.spr.y-14,duration:220,ease:'Linear',onComplete:()=>{p.destroy(); if(!g.dead) golpearEnemigo(g,1,0xd9c9a0);}});
+            sfxAt('arrow',0.4,arc.spr.x,arc.spr.y); }
+        }
+      }
+      if(arc.hp<arc.maxhp) drawHp(arc, arc.hp/arc.maxhp, 26, arc.spr.y-30); else hideBar(arc);
+    }
+  }
+}
+/* guardia inicial: 1 arquero en el techo + 1 soldado a un costado + fogata al otro */
 function scatterBanners(){
   const tc=byTC(); if(!tc) return;
-  const combo=pick([['war','pawn'],['war','war'],['war','pawn'],['war','war']]);   // aleatorio: guerrero+aldeano o dos guerreros
-  const xs=[(BX+tc.tx-0.05)*T+T/2, (BX+tc.tx+CAT.castle.fw-0.95)*T+T/2];
-  const y=(BY+tc.ty+CAT.castle.fh)*T+16;   // claramente delante del Ayuntamiento (no detrás del muro)
-  combo.forEach((tipo,i)=>{
-    const u=tipo==='war'?crearGuerrero(xs[i],y):spawnAldeano(xs[i],y,true);
-    if(u) u.spr.setFlipX(i===1);
-  });
+  tc.archers=[]; crearArqueroTecho(tc, true);                          // arquero fijo del techo (gratis)
+  const y=(BY+tc.ty+CAT.castle.fh)*T+16;
+  const sold=crearGuerrero((BX+tc.tx+0.6)*T+T/2, y); if(sold) sold.spr.setFlipX(false);   // soldado a la izquierda (puede salir)
+  campfireAt((BX+tc.tx+CAT.castle.fw-0.6)*T+T/2, y+10);                // fogata al otro costado
 }
 /* mariposas (día) y luciérnagas (glow) — vida ambiente */
 function scatterAmbientLife(){
@@ -2024,6 +2098,14 @@ function killGoblin(g){
 }
 function dañarEdificio(b,dmg,color){                 // aplica daño a un edificio; devuelve true si cae el Ayuntamiento
   if(!b||b.estado!=='ok'||b.danado) return false;
+  if(b.tipo==='castle'&&b.archers){                  // el arquero del techo recibe el golpe antes que el castillo
+    const arc=b.archers.find(a=>!a.dead);
+    if(arc){ arc.hp-=dmg; flyText(arc.spr.x,arc.spr.y-24,'-'+dmg,'#ff9a8a');
+      arc.spr.setTint(0xff6a5a); scene.time.delayedCall(120,()=>{ if(arc.spr&&arc.spr.active) arc.spr.clearTint(); });
+      if(arc.hp<=0) matarArqueroTecho(arc);
+      if(S.sel&&S.sel.ref===arc) renderSel();
+      return false; }
+  }
   b.hp-=dmg;
   scene.tweens.add({targets:b.sprs[0],x:'+=3',duration:50,yoyo:true,repeat:1});
   burstAt(b.x,b.y-24,color||0xe5533a);
@@ -2572,6 +2654,7 @@ function update(time,delta){
 
   updateAnimals(dtReal,dt);
   updateAllies(dtReal);
+  updateArquerosTecho(dtReal);
   if(dlgT>0){ dlgT-=dtReal; if(dlgT<=0) ocultarDialogo(); }
   chatT-=dtReal; if(chatT<=0){ chatT=Phaser.Math.FloatBetween(70,130); soltarBocadillo(); }
 
