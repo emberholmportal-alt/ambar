@@ -61,6 +61,15 @@
   .menu{position:absolute;top:50px;right:0;width:210px;display:none;flex-direction:column;gap:6px;padding:10px;border-radius:8px;z-index:41}
   .menu.open{display:flex}
   .menu button{width:100%}
+  /* overlay de récords */
+  .recordsOv{position:absolute;inset:0;background:rgba(6,10,13,.72);display:none;align-items:center;justify-content:center;z-index:60}
+  .recordsOv.open{display:flex}
+  .recordsBox{width:min(88vw,420px);max-height:80vh;overflow:auto;padding:18px 20px;display:flex;flex-direction:column;gap:12px}
+  .recordsH{font-family:'Cinzel',serif;font-size:20px;color:#e8c07a;text-align:center;letter-spacing:1px}
+  .recordsList{list-style:decimal;margin:0;padding-left:26px;display:flex;flex-direction:column;gap:7px}
+  .recordsList li{color:#e7dcc4;font-size:13px;line-height:1.35}
+  .recordsList li b{color:#ffe36b}
+  .recordsList .vacio{list-style:none;margin-left:-18px;color:#9a8f79;text-align:center;font-style:italic}
   /* panel de OLEADA arriba del minimapa */
   .wavebar{padding:6px 9px 7px;border-radius:6px;font-size:11px;line-height:1.35;text-align:center;font-variant-numeric:tabular-nums;
     background:linear-gradient(180deg,#241a10,#140f0a);border:1px solid var(--line)}
@@ -193,13 +202,16 @@
     <div class="menuwrap">
       <button class="iconbtn" id="btnMenu" title="Menú">☰</button>
       <div class="menu frame" id="menu">
-        <button class="ghost" id="btnOleada" title="Adelantar la oleada por puntos extra">⚔️ OLEADA YA</button>
-        <button class="ghost" id="btnIdle" title="Ir al próximo aldeano ocioso">💤 IDLE (0)</button>
-        <button class="ghost" id="btnCaravana" title="+250 del recurso más bajo">◆ CARAVANA (8)</button>
-        <button class="ghost" id="btnMercen" style="display:none">◆ MERCENARIOS (10)</button>
-        <button class="ghost" id="btnTiempo">⏱ ×1</button>
         <button class="ghost" id="btnDialog" title="Mostrar/ocultar diálogos de las unidades">💬 DIÁLOGOS</button>
         <button class="ghost" id="btnAudio" title="Música / ambiente">🔊 SONIDO</button>
+        <button class="ghost" id="btnRecords" title="Listado de récords">🏆 RÉCORDS</button>
+      </div>
+    </div>
+    <div class="recordsOv" id="recordsOv">
+      <div class="recordsBox frame">
+        <div class="recordsH">🏆 RÉCORDS</div>
+        <ol class="recordsList" id="recordsList"></ol>
+        <button class="ghost" id="btnRecordsCerrar">CERRAR</button>
       </div>
     </div>
     <div class="hint" id="hint"></div>
