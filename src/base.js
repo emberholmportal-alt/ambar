@@ -1792,7 +1792,7 @@ function scatterCampfires(n){
 }
 // guerrero real (seleccionable/comandable), sin costo — para la guardia inicial
 function crearGuerrero(x,y){
-  const HP=110;   // la guardia inicial aguanta la pelea: bastante más vida que un goblin
+  const HP=45;    // la guardia inicial aguanta un poco (más que un goblin) pero NO sola un asedio
   const s=scene.add.sprite(x,y,'warrior_i').setOrigin(0.5,0.72).setScale(0.72).setDepth(y).play('war-i');
   const un={id:'u'+S.nextId++, tipo:'guerrero', spr:s, home:{x,y}, target:null, cd:0, dead:false, wT:rint(3,8), moveT:null,
     hp:HP, maxhp:HP, atkCd:0, healCd:0, av:randAv()};
@@ -2161,10 +2161,19 @@ function avanzarHacia(ent,tx,ty,sp,cruza){            // mueve hacia (tx,ty) des
   ent.spr.setFlipX(dx<0); ent.spr.setDepth(ent.spr.y);
   return moved;
 }
-function objsEnemigo(){                               // objetivos de edificio: las torres van PRIMERO (el enemigo se les tira encima)
-  const todos=S.buildings.filter(b=>b.estado==='ok'&&!b.danado);
-  const torres=todos.filter(b=>b.tipo==='torre');
-  return torres.length?torres:todos;
+const ESDEFENSA=t=>['torre','muralla','murallon','cuartel','arqueria','monasterio'].includes(t);
+function objsEnemigo(){                               // prioridad del asedio: defensa → Ayuntamiento → proveedores de recursos → el resto
+  const ok=S.buildings.filter(b=>b.estado==='ok'&&!b.danado);
+  const def=ok.filter(b=>ESDEFENSA(b.tipo));
+  if(def.length) return def;
+  const cas=ok.filter(b=>b.tipo==='castle');
+  if(cas.length) return cas;
+  const rec=ok.filter(b=>CAT[b.tipo].prod);          // granja u otros proveedores de recursos
+  if(rec.length) return rec;
+  return ok;                                          // por último, casas y demás
+}
+function hayObjetivoPrioritario(){                    // ¿quedan edificios de defensa / Ayuntamiento / recursos?
+  return S.buildings.some(b=>b.estado==='ok'&&!b.danado&&(ESDEFENSA(b.tipo)||b.tipo==='castle'||CAT[b.tipo].prod));
 }
 /* ===== anti-traba: nadie queda encerrado ===== */
 function tileLibreCercaDe(px,py){                     // centro (en px) del tile transitable más cercano a (px,py)
@@ -2219,13 +2228,15 @@ function raidTick(dtReal){
   const vivos=R.gob.filter(g=>!g.dead);
   if(!vivos.length){ return; }
   const tc=byTC();
+  const hayPrio=hayObjetivoPrioritario();              // ¿quedan defensa/Ayuntamiento/recursos? entonces las unidades van al final
   for(const g of vivos){
     g.spr.setDepth(g.spr.y);                          // profundidad siempre al día: nunca detrás del edificio si está adelante
     if(g.glow){ g.glow.x=g.spr.x; g.glow.y=g.spr.y-6; g.glow.setDepth(g.spr.y-1); }
     if(g.hp<g.maxhp) drawHp(g, g.hp/g.maxhp, g.boss?46:24, g.spr.y-g.spr.originY*g.spr.displayHeight*0.82); else hideBar(g);
     if(g.ladron){ tickLadron(g,dtReal); continue; }
-    // los de cuerpo a cuerpo enganchan primero con la unidad defensora más cercana; recién si no hay, van al edificio
-    if(!g.ranged){
+    if(hayPrio && g.esUnidad){ g.target=null; g.esUnidad=false; g.path=null; g.bestD=null; }   // hay edificios prioritarios: soltá la unidad y andá por ellos
+    // el asedio prioriza EDIFICIOS (defensa→Ayuntamiento→recursos); sólo va por unidades cuando ya no quedan objetivos prioritarios
+    if(!g.ranged && !hayPrio){
       let uNear=null, best=T*3.6;
       for(const u of S.units) if(!u.dead){ const dd=Phaser.Math.Distance.Between(g.spr.x,g.spr.y,u.spr.x,u.spr.y); if(dd<best){best=dd;uNear=u;} }
       for(const u of S.raid.war) if(!u.dead){ const dd=Phaser.Math.Distance.Between(g.spr.x,g.spr.y,u.spr.x,u.spr.y); if(dd<best){best=dd;uNear=u;} }
