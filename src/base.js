@@ -24,7 +24,7 @@ const CAT={   // reqWave: oleadas que hay que sobrevivir para desbloquear (progr
   castle:    {get nom(){return L('Ayuntamiento','Town Hall');}, fw:5,fh:2, costo:{oro:300,madera:300}, dur:120, unico:true, skins:true, esTC:true, hp:300},
   muralla:   {get nom(){return L('Muralla','Wall');},      fw:1,fh:1, costo:{madera:30},         dur:12,   reqWave:0, muro:true, hp:260, get desc(){return L('Empalizada de madera (260 de resistencia). Barata y rápida: frená la horda desde la primera oleada. Colocá una línea arrastrando.','Wooden palisade (260 HP). Cheap and fast: stop the horde from the first wave. Drag to place a line.');}},
   house:     {get nom(){return L('Casa','House');},         fw:2,fh:2, costo:{madera:100},        dur:120,  reqWave:0, skins:true, up:[{costo:{madera:200},dur:120}]},
-  granja:    {get nom(){return L('Granja','Farm');},       fw:3,fh:2, costo:{madera:120},        dur:180,  reqWave:0, prod:'comida', reserva:400, up:[{costo:{oro:250},dur:200}]},
+  granja:    {get nom(){return L('Granja','Farm');},       fw:3,fh:2, costo:{madera:120},        dur:180,  reqWave:0, prod:'comida', reserva:400, hp:160, up:[{costo:{oro:250},dur:200}]},
   torre:     {get nom(){return L('Torre','Tower');},        fw:2,fh:2, costo:{oro:150,madera:150},dur:240, reqWave:1, skins:true, hp:90, up:[{costo:{oro:500},dur:300}]},
   cuartel:   {get nom(){return L('Cuartel','Barracks');},        fw:3,fh:2, costo:{madera:300},        dur:300, reqWave:1, skins:true, up:[{costo:{oro:600},dur:360}]},
   murallon:  {get nom(){return L('Murallón','Stone Wall');},     fw:1,fh:1, costo:{madera:60,oro:20},  dur:16,   reqWave:2, muro:true, hp:520, get desc(){return L('Muro de piedra reforzado (520 de resistencia: el doble que la Muralla). Cuesta madera + oro y se desbloquea en la oleada 2, para el frente donde más pegan.','Reinforced stone wall (520 HP: double the Wall). Costs wood + gold and unlocks on wave 2, for the front line where they hit hardest.');}},
@@ -52,6 +52,7 @@ const SKINCOL={blue:'#f4ecda',red:'#e5533a',purple:'#b06be0',yellow:'#ffd24a'};
 const NODO={
   arbol:{get nom(){return L('Árbol','Tree');},    res:'madera', reserva:120, tool:'waxe',  fw:1,fh:1, get verbo(){return L('TALAR','CHOP');}},
   veta: {get nom(){return L('Veta de oro','Gold Vein');},res:'oro',  reserva:350, tool:'wpick', fw:2,fh:1, get verbo(){return L('MINAR','MINE');}},
+  pepita:{get nom(){return L('Pepita de oro','Gold Nugget');},res:'oro', reserva:36, tool:'wpick', fw:1,fh:1, get verbo(){return L('MINAR','MINE');}},
 };
 const FAUNA={
   oveja: {get nom(){return L('Oveja','Sheep');},   tex:'sheep',     anim:'sheep-a', hp:24, carne:80,  dmg:0,  esc:1.0, oy:0.9,  huye:true},
@@ -915,6 +916,40 @@ function setTool(a,tool){ a.tool=tool;
   if(tool){ a.spr.setTexture(tool+'_blue_r',0).setScale(0.7); a.spr.play(tool+'-r',true); }
   else { a.spr.setTexture('pawn_blue',0).setScale(0.7); }
 }
+/* ===== economía: el aldeano CARGA poco y el recurso suma recién al depositarlo en el Ayuntamiento ===== */
+const CARRYCAP=12;                                    // cuánto puede cargar antes de tener que ir a dejar
+function setCarga(a){                                 // sprite del aldeano cargando el recurso (animaciones de Pawn & Resources)
+  if(!a.carga){ setTool(a,null); return; }
+  if(a.carga.res==='oro'){ a.spr.setTexture('wgold_blue_r',0).setScale(0.7); a.spr.play('wgold-r',true); }   // saco de oro
+  else { a.spr.setTexture('wrock1',0).setScale(0.9); a.spr.play('wrock1-a',true); }                          // fardo a cuestas (madera/carne)
+  a.tool='carga';
+}
+function depositar(a){                                // deja la carga en el Ayuntamiento: recién ahí suma
+  if(!a.carga||a.carga.n<=0){ a.carga=null; return; }
+  const res=a.carga.res, n=a.carga.n;
+  S[res]=Math.min(CAP,S[res]+n); S.recursos+=n;
+  if(res==='madera') S.stats.talado+=n; else if(res==='oro') S.stats.minado+=n;
+  flyText(a.spr.x,a.spr.y-30,'+'+n+' '+resNom(res)); sfx('coins',0.35);
+  a.carga=null; refreshHUD();
+}
+function irADepositar(a){                             // camina al Ayuntamiento con la carga; al llegar deposita y vuelve a la fuente
+  const tc=byTC(); if(!tc){ a.carga=null; parar(a); return; }
+  const cur=tileOfPx(a.spr.x,a.spr.y), t=tileOfPx(tc.x,tc.y);
+  const dst=walkable(t.x,t.y)?t:(adjWalkable(t.x,t.y)||t);
+  let path=findPath(cur.x,cur.y,dst.x,dst.y); a.cruza=false;
+  if(!path||!path.length){ const relax=findPath(cur.x,cur.y,dst.x,dst.y,true); if(relax&&relax.length){path=relax;a.cruza=true;} }
+  a.path=(path&&path.length)?path:[{x:(BX+dst.x)*T+T/2,y:(BY+dst.y)*T+T/2}];
+  const p0=a.path.shift(); a.tx=p0.x; a.ty=p0.y;
+  a.estado='cargando'; setCarga(a);
+  if(S.sel&&S.sel.ref===a) renderSel();
+}
+function volverAFuente(a){                            // tras depositar: vuelve a la misma fuente si aún tiene reserva; si no, queda libre
+  a.cruza=false;
+  const src=a.fuente;
+  if(src&&src.tipo==='nodo'){ const nd=S.nodes.find(n=>n.id===src.id); if(nd&&nd.reserva>0){ mandarNodo(a,nd); return; } }
+  else if(src&&src.tipo==='granja'){ const b=byId(src.id); if(b&&b.estado==='ok'&&!b.agotada&&b.reserva>0){ mandarGranja(a,b); return; } }
+  a.fuente=null; parar(a);
+}
 function moverA(a,tx,ty,cb){
   // soltar la tarea anterior (interrumpir orden en curso)
   if(a.dustEv){a.dustEv.remove();a.dustEv=null;}
@@ -935,7 +970,7 @@ function moverA(a,tx,ty,cb){
 function parar(a){
   if(a.dustEv){a.dustEv.remove();a.dustEv=null;}
   if(a.tween){a.tween.remove();a.tween=null;}
-  a.estado='libre'; a.task=null; a.path=null; a.onArrive=null; a.objAnimal=null; a.objPile=null; a.bId=null;
+  a.estado='libre'; a.task=null; a.path=null; a.onArrive=null; a.objAnimal=null; a.objPile=null; a.bId=null; a.carga=null; a.fuente=null; a.cruza=false;
   setTool(a,null); a.spr.play('pawn_blue-i',true);
   refreshHUD(); if(S.sel&&S.sel.ref===a) renderSel();
 }
@@ -993,7 +1028,8 @@ function dañarAldeano(a,dmg){
 function mandarNodo(a,nd){
   moverA(a,nd.tx,nd.ty,()=>{
     a.estado=nd.kind==='arbol'?'talando':'minando'; a.task=nd.id; a.tarT=0;
-    pegarJunto(a,nd.spr.x,nd.spr.y-8,T*0.55);   // se planta al lado del árbol/veta, mirándolo
+    a.fuente={tipo:'nodo', id:nd.id};                  // recordar la fuente para volver tras depositar
+    pegarJunto(a,nd.spr.x,nd.spr.y-8,T*0.55);   // se planta al lado del árbol/veta/pepita, mirándolo
     setTool(a,nd.tool);
     if(nd.kind==='veta'&&nd.spr.texture.key==='goldmine_inactive') nd.spr.setTexture('goldmine');
     if(S.sel&&S.sel.ref===a) renderSel();
@@ -1013,14 +1049,14 @@ function mandarConstruir(a,b){
     if(S.sel&&S.sel.ref===a) renderSel();
   });
 }
-function mandarTrabajar(a,b){
-  moverA(a,b.tx,b.ty,()=>{
-    a.estado='peon'; a.bId=b.id;
-    a.spr.play('pawn_blue-r',true);
-    const x0=b.x-CAT[b.tipo].fw*T*0.35, x1=b.x+CAT[b.tipo].fw*T*0.35;
-    a.spr.x=x0; a.spr.y=b.y+10; a.spr.setDepth(a.spr.y);
-    a.tween=scene.tweens.add({targets:a.spr,x:x1,duration:2600,yoyo:true,repeat:-1,
-      onYoyo:()=>a.spr.setFlipX(true), onRepeat:()=>a.spr.setFlipX(false)});
+function mandarGranja(a,b){                            // el aldeano saca CARNE de la granja (fuente que se gasta)
+  const bs=bordesEdificio(b);
+  const cnt=S.ald.filter(o=>o!==a&&o.bId===b.id&&(o.estado==='peon'||o.estado==='yendo')).length;
+  const slot=bs.length?bs[cnt%bs.length]:{x:b.tx,y:b.ty};
+  moverA(a,slot.x,slot.y,()=>{
+    a.estado='peon'; a.bId=b.id; a.task=b.id; a.tarT=0; a.fuente={tipo:'granja', id:b.id};
+    pegarAEdificio(a,b);                                // dedicado visualmente a la granja
+    setTool(a,'waxe');                                  // faena la carne (hacha)
     if(S.sel&&S.sel.ref===a) renderSel();
   });
 }
@@ -1038,7 +1074,7 @@ function mandarRecolectar(a,pile){
 }
 function pedirTrabajador(b){
   const a=aldLibreCerca(b.x,b.y);
-  if(a){ mandarTrabajar(a,b); return true; }
+  if(a){ mandarGranja(a,b); return true; }
   toast('⚠️ '+CAT[b.tipo].nom+L(' sin aldeano: creá más en las Casas.',' has no villager: create more in the Houses.'));
   return false;
 }
@@ -1073,14 +1109,27 @@ function scatterNodos(kind,n){
 }
 function agotarNodo(nd){
   const cfg=NODO[nd.kind];
-  const w=S.ald.find(a=>a.task===nd.id); if(w) parar(w);
   if(nd.kind==='arbol'){ nd.spr.anims&&nd.spr.anims.stop(); nd.spr.setTexture('tree',9); }
-  else nd.spr.setTexture('goldmine_destroyed');
+  else if(nd.kind==='veta') nd.spr.setTexture('goldmine_destroyed');
+  else scene.tweens.add({targets:nd.spr,alpha:0,scale:0,duration:600,onComplete:()=>nd.spr.destroy()});   // la pepita se agota y desaparece
   for(let oy=0;oy<cfg.fh;oy++)for(let ox=0;ox<cfg.fw;ox++) S.grid[nd.ty+oy][nd.tx+ox]=null;
   S.nodes=S.nodes.filter(x=>x!==nd); nd.agotado=true;
-  scene.tweens.add({targets:nd.spr,alpha:0.5,duration:800});
+  if(nd.kind!=='pepita') scene.tweens.add({targets:nd.spr,alpha:0.5,duration:800});
   sfx('creak',0.4);
   if(S.sel&&S.sel.ref===nd) deseleccionar();
+}
+function agotarGranja(b){                             // la granja se gastó: queda en gris, con opción de reponer o limpiar
+  if(b.agotada) return; b.agotada=true;
+  b.sprs.forEach(s=>s.setTint(0x8a8f96));
+  S.ald.filter(a=>a.bId===b.id&&a.estado==='peon').forEach(w=>{ if(w.carga&&w.carga.n>0) irADepositar(w); else parar(w); });
+  toast(L('🌾 La granja se agotó. Reponela o limpiá los restos.','🌾 The farm is depleted. Refill it or clear the rubble.'));
+  if(S.sel&&S.sel.ref===b) renderSel();
+}
+function reponerGranja(b){                             // vuelve a llenar la reserva (re-colocar la granja)
+  const cost={madera:60};
+  if(!pagar(cost)){ sfx('creak',0.4); toast(L('No te alcanza: ','Not enough: ')+costoTxt(cost)); return; }
+  b.agotada=false; b.reserva=CAT.granja.reserva; b.sprs.forEach(s=>s.clearTint());
+  sfx('bong',0.5); toast(L('🌾 Granja repuesta.','🌾 Farm refilled.')); refreshHUD(); renderSel();
 }
 
 /* ===== el monarca doblega una bestia salvaje → aliado que pelea por vos ===== */
@@ -1214,10 +1263,14 @@ function scatterEyeCandy(n){
     if(!isLand(tx,ty)||S.cliff[ty][tx]||S.grid[ty][tx]!==null) continue;
     const x=(BX+tx)*T+T/2+rint(-14,14), y=(BY+ty+1)*T-6;
     const r=Math.random();
-    if(r<0.1){  // pepita de oro del pack (deco brillante) — bloquea el paso (se rodea)
+    if(r<0.1){  // pepita de oro: NODO recolectable (además de la veta), el aldeano la mina con el pico
       scene.add.ellipse(x,y,26,10,0x000000,0.18).setDepth(y-1);
-      scene.add.image(x,y,'goldstone'+rint(1,6)).setOrigin(0.5,1).setScale(Phaser.Math.FloatBetween(0.42,0.6)).setDepth(y);
-      S.grid[ty][tx]='s'+S.nextId++;
+      const id='n'+S.nextId++;
+      const spr=scene.add.image(x,y,'goldstone'+rint(1,6)).setOrigin(0.5,1).setScale(Phaser.Math.FloatBetween(0.5,0.62)).setDepth(y);
+      hitBicho(spr);
+      const nd={id,kind:'pepita',tipo:'pepita',tx,ty,spr,reserva:NODO.pepita.reserva,tool:NODO.pepita.tool,res:NODO.pepita.res};
+      spr.on('pointerdown',pp=>{ if(!S.colocando&&!pp.rightButtonDown()) seleccionar({t:'nodo',ref:nd}); });
+      S.grid[ty][tx]=id; S.nodes.push(nd);
     } else if(r<0.24){ // roca (estática) con sombra — bloquea el paso
       scene.add.ellipse(x,y,26,10,0x000000,0.18).setDepth(y-1);
       scene.add.image(x,y,'rock'+rint(1,4)).setOrigin(0.5,1).setScale(Phaser.Math.FloatBetween(0.7,1.05)).setDepth(y);
@@ -1309,16 +1362,7 @@ function depthSobreEdificios(spr){
   spr.setDepth(d);
 }
 function clickBuilding(b){
-  if(b.estado==='ok'&&CAT[b.tipo].prod&&b.buf>=10){ cosechar(b); return; }
   seleccionar({t:'edificio',ref:b});
-}
-function cosechar(b){
-  const res=CAT[b.tipo].prod, n=Math.floor(b.buf);
-  if(n<1) return;
-  S[res]=Math.min(CAP,S[res]+n); b.buf-=n; S.stats.cosechas++; S.recursos+=n;
-  flyText(b.x,b.y-CAT[b.tipo].fh*T,'+'+n+' '+resNom(res));
-  if(b.pileSpr){b.pileSpr.destroy();b.pileSpr=null;}
-  sfx('coins',0.55); refreshHUD(); if(S.sel&&S.sel.ref===b) renderSel();
 }
 function limpiarRestos(b){
   if(S.madera<40){ sfx('creak',0.4); toast(L('Limpiar los restos cuesta 40 madera.','Clearing the rubble costs 40 wood.')); return; }
@@ -1466,7 +1510,7 @@ function ordenar(p){
   const b=S.buildings.find(bb=>occ===bb.id);
   if(b){
     if(b.estado==='esperando'||b.estado==='obra'){ mandarConstruir(a,b); ordenIcono(b.x,b.y,'ic1',L('Construir','Build'),'#e8c07a',0.6); return; }
-    if(b.tipo==='granja'&&b.estado==='ok'&&!b.danado){ mandarTrabajar(a,b); marcaOrden(b.x,b.y); return; }
+    if(b.tipo==='granja'&&b.estado==='ok'&&!b.danado&&!b.agotada){ mandarGranja(a,b); marcaOrden(b.x,b.y); return; }
   }
   if(walkable(t.x,t.y)){ moverA(a,t.x,t.y,()=>parar(a)); marcaMover((BX+t.x)*T+T/2,(BY+t.y)*T+T/2); }
   else sfx('creak',0.3);
@@ -1595,7 +1639,7 @@ function renderSelEdificio(b){
   const c=CAT[b.tipo];
   $('selNom').textContent=c.nom;
   if(c.esTC) $('selLvl').textContent=L('Corazón del pueblo · si cae, perdés el asedio','Heart of the town · if it falls, you lose the siege')+(b.danado?L(' · 🔥 DAÑADO',' · 🔥 DAMAGED'):'');
-  else $('selLvl').textContent=L('Nivel ','Level ')+b.nivel+(b.estado==='esperando'?L(' · ESPERANDO ALDEANO',' · AWAITING VILLAGER'):'')+(b.estado==='obra'?L(' · EN OBRA',' · UNDER CONSTRUCTION'):'')+(b.danado?L(' · 🔥 DAÑADO',' · 🔥 DAMAGED'):'')+(b.skin!=='blue'?' · '+SKINNOM[b.skin]:'');
+  else $('selLvl').textContent=L('Nivel ','Level ')+b.nivel+(b.tipo==='granja'?(b.agotada?L(' · 🌾 AGOTADA',' · 🌾 DEPLETED'):L(' · 🍖 carne: ',' · 🍖 meat: ')+Math.ceil(b.reserva)):'')+(b.estado==='esperando'?L(' · ESPERANDO ALDEANO',' · AWAITING VILLAGER'):'')+(b.estado==='obra'?L(' · EN OBRA',' · UNDER CONSTRUCTION'):'')+(b.danado?L(' · 🔥 DAÑADO',' · 🔥 DAMAGED'):'')+(b.skin!=='blue'?' · '+SKINNOM[b.skin]:'');
   setHp(b.hp,b.maxhp||100);
   if(b.danado||(b.estado==='ok'&&b.hp<(b.maxhp||100))){ accion(b.reparando?L('REPARANDO…','REPAIRING…'):L('REPARAR (60 oro)','REPAIR (60 gold)'),()=>repararB(b),S.oro<60||b.reparando); }
   else {
@@ -1603,7 +1647,10 @@ function renderSelEdificio(b){
     if(uCrear&&b.estado==='ok') accion(L('CREAR ','CREATE ')+UNIDADES[uCrear].nom.toUpperCase()+' ('+costoTxt(UNIDADES[uCrear].costo)+')',()=>entrenar(uCrear,b),popTotal()>=POPCAP());
     if(!c.esTC){ const up=c.up&&c.up[b.nivel-1];
       if(up&&b.nivel<MAXLVL.def) accion(L('MEJORAR (','UPGRADE (')+costoTxt(up.costo)+')',()=>mejorarB(b),b.estado!=='ok'); }
-    if(c.prod&&b.estado==='ok') accion(L('COSECHAR (','HARVEST (')+Math.floor(b.buf)+' '+resNom(c.prod)+')',()=>cosechar(b),b.buf<1);
+    if(b.tipo==='granja'&&b.estado==='ok'){            // granja: sacar carne (se gasta) o reponer cuando está agotada
+      if(b.agotada) accion(L('🌾 REPONER (60 madera)','🌾 REFILL (60 wood)'),()=>reponerGranja(b),S.madera<60);
+      else accion(L('🍖 SACAR CARNE','🍖 GATHER MEAT'),()=>{ const a=aldLibreCerca(b.x,b.y); if(a){ mandarGranja(a,b); toast(L('Aldeano a sacar carne.','Villager gathering meat.')); } else toast(L('No hay aldeanos libres.','No free villagers.')); },false);
+    }
   }
   if(c.esTC){                                    // Ayuntamiento: arquero de techo + refugiar / liberar aldeanos
     const narq=(b.archers||[]).filter(a=>!a.dead).length;
@@ -2595,19 +2642,37 @@ function update(time,delta){
       else { a.tarT+=dtReal; if(a.tarT>1.5){ recogerPila(p); parar(a); } }
     } else if(a.estado==='talando'||a.estado==='minando'){
       const nd=S.nodes.find(n=>n.id===a.task);
-      if(!nd){ parar(a); }
+      if(!nd){ if(a.carga&&a.carga.n>0) irADepositar(a); else parar(a); }   // nodo agotado: si carga algo, va a dejarlo
       else { a.tarT+=dt;
-        if(a.tarT>=1.5){ a.tarT=0;
-          const gan=Math.min(6,nd.reserva); nd.reserva-=gan; S.recursos+=gan;
-          if(nd.res==='madera'){ S.madera=Math.min(CAP,S.madera+gan); S.stats.talado+=gan; }
-          else { S.oro=Math.min(CAP,S.oro+gan); S.stats.minado+=gan;
-            a.hoist=!a.hoist; a.spr.play(a.hoist?'wgold-i':'wpick-r',true); }   // alterna picar / alzar el saco de oro
-          flyText(nd.spr.x,nd.spr.y-40,'+'+gan+' '+resNom(nd.res)); sfxAt(nd.res==='madera'?'chop':'chop',0.42,nd.spr.x,nd.spr.y);
+        if(a.tarT>=1.1){ a.tarT=0;
+          a.carga=a.carga||{res:nd.res,n:0};
+          const gan=Math.min(4, nd.reserva, CARRYCAP-a.carga.n); nd.reserva-=gan; a.carga.n+=gan;   // junta en su carga; NO suma al depósito todavía
+          flyText(nd.spr.x,nd.spr.y-40,'+'+gan,'#e8c07a'); sfxAt('chop',0.42,nd.spr.x,nd.spr.y);
           if(S.sel&&S.sel.ref===nd) renderSel();
-          if(nd.reserva<=0){ agotarNodo(nd); parar(a); }
-          else if((nd.res==='madera'?S.madera:S.oro)>=CAP){ toast(L('Depósito lleno de ','Storage full of ')+resNom(nd.res)+'.'); parar(a); }
+          if(nd.reserva<=0) agotarNodo(nd);
+          if(a.carga.n>=CARRYCAP || !S.nodes.includes(nd)) irADepositar(a);   // lleno o nodo agotado → a dejarlo al Ayuntamiento
         }
       }
+    } else if(a.estado==='peon'){                        // saca CARNE de la granja hacia su carga
+      const b=byId(a.task);
+      if(!b||b.estado!=='ok'||b.agotada||b.reserva<=0){ if(a.carga&&a.carga.n>0) irADepositar(a); else parar(a); }
+      else { a.tarT+=dt;
+        if(a.tarT>=1.3){ a.tarT=0;
+          a.carga=a.carga||{res:'comida',n:0};
+          const gan=Math.min(4, b.reserva, CARRYCAP-a.carga.n); b.reserva-=gan; a.carga.n+=gan;
+          flyText(b.x,b.y-20,'+'+gan+' 🍖','#ffd9b0'); sfxAt('chop',0.3,b.x,b.y);
+          if(S.sel&&S.sel.ref===b) renderSel();
+          if(b.reserva<=0) agotarGranja(b);
+          if(a.carga.n>=CARRYCAP || b.reserva<=0) irADepositar(a);
+        }
+      }
+    } else if(a.estado==='cargando'){                    // vuelve al Ayuntamiento con la carga; al llegar deposita
+      const dx=a.tx-a.spr.x, dy=a.ty-a.spr.y, d=Math.hypot(dx,dy);
+      if(d<6){ if(a.path&&a.path.length){ const p=a.path.shift(); a.tx=p.x; a.ty=p.y; }
+        else { depositar(a); volverAFuente(a); } }
+      else { const sp=72*dtReal, nx=a.spr.x+dx/d*sp, ny=a.spr.y+dy/d*sp;
+        const piso=a.cruza?terrenoLibre:landAtPx;
+        if(piso(nx,ny)||d<T){ a.spr.x=nx; a.spr.y=ny; } a.spr.setFlipX(dx<0); a.spr.setDepth(a.spr.y); }
     } else if(a.estado==='libre'){
       a.wT-=dtReal;
       if(a.wT<=0){ a.wT=rint(4,9);
@@ -2700,18 +2765,6 @@ function update(time,delta){
           if(sig) mandarConstruir(obreros[0],sig); }
         if(S.sel&&S.sel.ref===b) renderSel();
       }
-    } else if(b.estado==='ok'&&c.prod&&!b.danado){
-      const conPeon=S.ald.some(a=>a.bId===b.id&&a.estado==='peon');
-      if(conPeon){ const rate=RATE*(1+0.5*(b.nivel-1));
-        const gan=Math.min(rate*dt, b.reserva, BUFFER(b)-b.buf); b.buf+=gan; b.reserva-=gan;
-        if(b.reserva<=0){ b.reserva=CAT[b.tipo].reserva; } }   // granja: reserva se repone (rebaño)
-      if(b.buf>=25&&!b.pileSpr){
-        b.pileSpr=scene.add.image(b.x,b.y-c.fh*T-6,RES_IMG[c.prod]).setScale(0.42).setDepth(97000);
-        scene.tweens.add({targets:b.pileSpr,y:'-=7',duration:520,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
-        hitBicho(b.pileSpr);
-        b.pileSpr.on('pointerdown',p=>{ if(!p.rightButtonDown()) cosechar(b); });
-      }
-      if(b.buf<25&&b.pileSpr){ b.pileSpr.destroy(); b.pileSpr=null; }
     }
     // ---- vida del edificio: barra + fuego de daño + reparación gradual ----
     if(b.estado==='ok'&&!b.danado){
