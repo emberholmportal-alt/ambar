@@ -2399,16 +2399,40 @@ function pelear(lista,vivos,dtReal,esUnidad){
     if(escaparSiAtascado(u,58*dtReal)){ moveMark(u); continue; }   // si quedó atrapado (construyeron encima), sale
     if(u.tipo==='monje'){ curarCerca(u,dtReal); continue; }   // el monje no pelea: sana
     const arquero=u.tipo==='arquero';
-    const alcance=arquero?T*4.5:26;
-    if(u.forced&&!u.forced.dead) u.target=u.forced;            // orden manual de atacar
-    else { if(u.forced&&u.forced.dead) u.forced=null;
-      if(!u.target||u.target.dead){                            // enganchá al enemigo MÁS CERCANO (no al primero de la lista)
+    const alcance=arquero?T*4.5:26, react=arquero?T*3.4:T*1.3;   // react = burbuja de defensa (no persigue más allá)
+    const dist=x=>Phaser.Math.Distance.Between(u.spr.x,u.spr.y,x.spr.x,x.spr.y);
+
+    // (1) LA ORDEN DEL JUGADOR SIEMPRE MANDA y nunca queda bloqueada: si hay orden de MOVER,
+    // sigue la ruta y suelta cualquier combate. Así puedo reposicionarlas en plena oleada.
+    if((u.path&&u.path.length)||u.moveT){
+      u.target=null; u.cpath=null; u.cbestD=null;
+      u.spr.play(uAnim(u.tipo,'r'),true); seguirRuta(u,dtReal); continue;
+    }
+
+    // (2) Objetivo: orden FORZADA de atacar (persigue), o DEFENSA propia: sólo reacciona al enemigo
+    // que se le vino ENCIMA (dentro de su alcance de reacción). No sale a perseguir por el mapa.
+    let persigue=false;
+    if(u.forced&&!u.forced.dead){ u.target=u.forced; persigue=true; }
+    else{
+      if(u.forced&&u.forced.dead) u.forced=null;
+      if(!u.target||u.target.dead||dist(u.target)>react){
         const prev=u.target;
-        u.target=vivos.reduce((m,g)=>!g.dead&&(!m||Phaser.Math.Distance.Between(u.spr.x,u.spr.y,g.spr.x,g.spr.y)<Phaser.Math.Distance.Between(u.spr.x,u.spr.y,m.spr.x,m.spr.y))?g:m,null);
-        if(u.target!==prev){ u.cpath=null; u.cbestD=null; u.cnoProg=0; } } }
-    if(!u.target){ u.cpath=null; u.cbestD=null; seguirRuta(u,dtReal); continue; }
-    const d=Phaser.Math.Distance.Between(u.spr.x,u.spr.y,u.target.spr.x,u.target.spr.y);
+        u.target=vivos.reduce((m,g)=>{ if(g.dead) return m; const dd=dist(g);
+          return dd<react&&(!m||dd<dist(m))?g:m; }, null);
+        if(u.target!==prev){ u.cpath=null; u.cbestD=null; u.cnoProg=0; }
+      }
+    }
+
+    if(!u.target){ u.cpath=null; u.cbestD=null;                // en guardia: sin orden ni amenaza cerca, queda quieto
+      u.spr.play(uAnim(u.tipo,'i'),true); continue; }
+
+    const d=dist(u.target);
     if(d>alcance){
+      if(!persigue){                                          // reacción defensiva: cierra la distancia al que la ataca, pero NO persigue lejos
+        if(d<=react){ avanzarHacia(u,u.target.spr.x,u.target.spr.y,58*dtReal); u.spr.play(uAnim(u.tipo,'r'),true); }
+        else { u.target=null; u.cpath=null; u.cbestD=null; u.spr.play(uAnim(u.tipo,'i'),true); }
+        continue;
+      }
       // persigue rodeando obstáculos: si no progresa (desliza contra un muro/edificio), pide ruta BFS y no se traba
       const sp=(arquero?50:58)*dtReal;
       let following=!!(u.cpath&&u.cpath.length), aimX=u.target.spr.x, aimY=u.target.spr.y;
