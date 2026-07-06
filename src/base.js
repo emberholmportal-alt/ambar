@@ -40,6 +40,9 @@ const popTotal=()=>S.ald.length+S.units.length;
 const CARD_IMG={castle:'castle_blue',house:'house1_blue',granja:'sheep',muralla:'wall',murallon:'wall',
   torre:'tower_blue',cuartel:'barracks_blue',arqueria:'archery_blue',monasterio:'monastery_blue'};
 const RES_IMG={oro:'res_gold',madera:'res_wood',comida:'res_meat'};
+const SKINS=['blue','red','purple','yellow'];                 // 4 paletas del pack para tus edificios
+const SKINNOM={blue:'azul',red:'roja',purple:'púrpura',yellow:'dorada'};
+const SKINCOL={blue:'#f4ecda',red:'#e5533a',purple:'#b06be0',yellow:'#ffd24a'};
 
 /* ===== nodos naturales y fauna ===== */
 const NODO={
@@ -146,12 +149,22 @@ function preload(){
   this.load.spritesheet('dust2',TSB+'dust2.png',{frameWidth:64,frameHeight:64});
   this.load.spritesheet('fire',TSB+'fire.png',{frameWidth:128,frameHeight:128});
   this.load.spritesheet('dead',TSB+'dead.png',{frameWidth:128,frameHeight:256});
-  for(const c of ['blue','red']){
-    this.load.image('castle_'+c,TSB+'castle_'+c+'.png');
+  this.load.image('castle_blue',TSB+'castle_blue.png');      // el castillo sólo tiene azul/rojo en el pack
+  this.load.image('castle_red',TSB+'castle_red.png');
+  for(const c of ['blue','red','purple','yellow']){          // 4 paletas: skins de tus edificios (casas/torre/cuartel/arquería/monasterio)
     for(const b of ['house1','house2','house3','tower','barracks','archery','monastery'])
       this.load.image(b+'_'+c,TSB+b+'_'+c+'.png');
     this.load.spritesheet('pawn_'+c,TSB+'pawn_'+c+'.png',{frameWidth:192,frameHeight:192});
   }
+  // reino rival: leva humana enemiga (peón + arquero púrpura)
+  this.load.spritesheet('archer_purple_i',TSB+'archer_purple_i.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('archer_purple_r',TSB+'archer_purple_r.png',{frameWidth:192,frameHeight:192});
+  // aldeano cargando oro (vuelta de la mina)
+  this.load.spritesheet('wgold_blue_i',TSB+'wgold_blue_i.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('wgold_blue_r',TSB+'wgold_blue_r.png',{frameWidth:192,frameHeight:192});
+  // animaciones de ataque de gnomo y esqueleto
+  this.load.spritesheet('gnome_a',TSB+'gnome_a.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('skull_a',TSB+'skull_a.png',{frameWidth:192,frameHeight:192});
   this.load.image('castle_black',TSB+'castle_black.png');   // Ayuntamiento Edad III (Imperio)
   this.load.spritesheet('warrior_i','assets/img/ts/warrior_i.png',{frameWidth:192,frameHeight:192}); // guerrero moderno (192px)
   this.load.spritesheet('warrior_r','assets/img/ts/warrior_r.png',{frameWidth:192,frameHeight:192});
@@ -435,10 +448,19 @@ function create(){
   an.create({key:'dust2-a',frames:an.generateFrameNumbers('dust2',{start:0,end:-1}),frameRate:11,repeat:0});
   an.create({key:'fire-a',frames:an.generateFrameNumbers('fire',{start:0,end:6}),frameRate:10,repeat:-1});
   an.create({key:'dead-a',frames:an.generateFrameNumbers('dead',{start:0,end:6}),frameRate:9,repeat:0});
-  for(const c of ['blue','red']){
+  for(const c of ['blue','red','purple','yellow']){
     an.create({key:'pawn_'+c+'-i',frames:an.generateFrameNumbers('pawn_'+c,{start:0,end:5}),frameRate:6,repeat:-1});
     an.create({key:'pawn_'+c+'-r',frames:an.generateFrameNumbers('pawn_'+c,{start:6,end:11}),frameRate:10,repeat:-1});
   }
+  // reino rival: arquero púrpura enemigo
+  an.create({key:'rarq-i',frames:an.generateFrameNumbers('archer_purple_i',{start:0,end:-1}),frameRate:7,repeat:-1});
+  an.create({key:'rarq-r',frames:an.generateFrameNumbers('archer_purple_r',{start:0,end:-1}),frameRate:10,repeat:-1});
+  // aldeano cargando oro
+  an.create({key:'wgold-i',frames:an.generateFrameNumbers('wgold_blue_i',{start:0,end:-1}),frameRate:7,repeat:-1});
+  an.create({key:'wgold-r',frames:an.generateFrameNumbers('wgold_blue_r',{start:0,end:-1}),frameRate:10,repeat:-1});
+  // ataques de gnomo y esqueleto
+  an.create({key:'gnome-a',frames:an.generateFrameNumbers('gnome_a',{start:0,end:-1}),frameRate:12,repeat:0});
+  an.create({key:'skull-a',frames:an.generateFrameNumbers('skull_a',{start:0,end:-1}),frameRate:12,repeat:0});
   an.create({key:'war-i',frames:an.generateFrameNumbers('warrior_i',{start:0,end:7}),frameRate:8,repeat:-1});
   an.create({key:'war-r',frames:an.generateFrameNumbers('warrior_r',{start:0,end:5}),frameRate:11,repeat:-1});
   an.create({key:'war-a',frames:an.generateFrameNumbers('warrior_a',{start:0,end:3}),frameRate:14,repeat:0});
@@ -1490,7 +1512,7 @@ function renderSelEdificio(b){
   const c=CAT[b.tipo];
   $('selNom').textContent=c.nom;
   if(c.esTC) $('selLvl').textContent='Corazón del pueblo · si cae, perdés el asedio'+(b.danado?' · 🔥 DAÑADO':'');
-  else $('selLvl').textContent='Nivel '+b.nivel+(b.estado==='esperando'?' · ESPERANDO ALDEANO':'')+(b.estado==='obra'?' · EN OBRA':'')+(b.danado?' · 🔥 DAÑADO':'')+(b.skin==='red'?' · roja':'');
+  else $('selLvl').textContent='Nivel '+b.nivel+(b.estado==='esperando'?' · ESPERANDO ALDEANO':'')+(b.estado==='obra'?' · EN OBRA':'')+(b.danado?' · 🔥 DAÑADO':'')+(b.skin!=='blue'?' · '+SKINNOM[b.skin]:'');
   setHp(b.hp,b.maxhp||100);
   if(b.danado||(b.estado==='ok'&&b.hp<(b.maxhp||100))){ accion(b.reparando?'REPARANDO…':'REPARAR (60 oro)',()=>repararB(b),S.oro<60||b.reparando); }
   else {
@@ -1507,7 +1529,7 @@ function renderSelEdificio(b){
     accion('🛡️ REFUGIAR OCIOSOS ('+idle+')',()=>refugiarAldeanos(),idle===0);
   }
   if(b.estado==='obra') accion('◆ ACELERAR ('+(S.ACEL_TOPE-S.aceleradas)+' · 10)',()=>acelerarB(b),!(S.aceleradas<S.ACEL_TOPE&&S.ambar>=10));
-  if(c.skins&&!c.esTC&&b.estado==='ok'&&!b.danado) accion(b.skin==='red'?'SKIN ROJA ✓':'◆ SKIN ROJA (25)',()=>skinB(b),b.skin==='red'||S.ambar<25);
+  if(c.skins&&!c.esTC&&b.estado==='ok'&&!b.danado) accion('◆ COLOR: '+SKINNOM[b.skin].toUpperCase()+' (15)',()=>skinB(b),S.ambar<15);
   if(b.estado==='ok'&&!c.esTC) accion('MOVER',()=>startPlace(b.tipo,b.id),false);
   if(!c.esTC) accion('DEMOLER (40 mad.)',()=>limpiarRestos(b),S.madera<40);
 }
@@ -1541,8 +1563,9 @@ function mejorarB(b){ const up=CAT[b.tipo].up[b.nivel-1];
   sfx('door',0.5); renderSel(); refreshHUD(); }
 function acelerarB(b){ if(b.estado!=='obra'||S.aceleradas>=S.ACEL_TOPE||S.ambar<10){ sfx('creak',0.4); return; }
   S.ambar-=10; S.aceleradas++; b.obraT=b.obraDur; sfx('coins',0.6); toast('Obra acelerada (◆ simulado).'); refreshHUD(); renderSel(); }
-function skinB(b){ if(!CAT[b.tipo].skins||b.skin==='red'||S.ambar<25){ sfx('creak',0.4); return; }
-  S.ambar-=25; b.skin='red'; S.stats.skins++; refreshBuilding(b); sfx('coins',0.6); toast('Skin roja — cosmético puro.'); refreshHUD(); renderSel(); }
+function skinB(b){ if(!CAT[b.tipo].skins||S.ambar<15){ sfx('creak',0.4); return; }
+  S.ambar-=15; b.skin=SKINS[(SKINS.indexOf(b.skin)+1)%SKINS.length]; S.stats.skins++;   // cicla azul→roja→púrpura→dorada
+  refreshBuilding(b); sfx('coins',0.6); toast('Color '+SKINNOM[b.skin]+' — cosmético puro.'); refreshHUD(); renderSel(); }
 
 /* ===== barra contextual de construcción ===== */
 function gateMsg(c,tipo){
@@ -1734,18 +1757,21 @@ const ENEMY={
   pigrider:{tex:'pigrider_idle',ai:'prid-i',ar:'prid-r',hp:5,dmg:22,esc:0.5, sp:52},         // montado, tanque
   shaman:{tex:'shaman_idle', ai:'sham-i',ar:'sham-r',hp:2,dmg:16, esc:0.58, sp:40, ranged:true}, // lanza rayos a distancia
   thief: {tex:'thief_idle',  ai:'thief-i',ar:'thief-r',hp:1,dmg:0, esc:0.58, sp:78, ladron:true}, // roba recursos y huye
-  troll: {tex:'troll_i',     ai:'troll-i',ar:'troll-r',hp:11,dmg:28,esc:0.42, sp:30},            // tanque pesado y lento
-  pshark:{tex:'pshark_i',    ai:'pshark-i',ar:'pshark-r',hp:3,dmg:15,esc:0.62, sp:48},       // pirata (llega por mar)
+  troll: {tex:'troll_i',     ai:'troll-i',ar:'troll-r',aa:'troll-a',hp:11,dmg:28,esc:0.42, sp:30},            // tanque pesado y lento
+  pshark:{tex:'pshark_i',    ai:'pshark-i',ar:'pshark-r',aa:'pshark-a',hp:3,dmg:15,esc:0.62, sp:48},       // pirata (llega por mar)
   bfish: {tex:'bfish_i',     ai:'bfish-i',ar:'bfish-r',hp:2,dmg:34,esc:0.6,  sp:44, ranged:true, bomba:true}, // pez bomba naval
   toro:  {tex:'minotaur_idle',ai:'toro-i',ar:'toro-r',hp:16,dmg:30,esc:0.62,boss:true, sp:38},
   lizard:{tex:'lizard_run',  ai:'lizard-i',ar:'lizard-r',hp:1,dmg:8, esc:0.7,  sp:74},        // lagarto veloz (enjambre)
   spider:{tex:'spider_run',  ai:'spider-i',ar:'spider-r',hp:1,dmg:7, esc:0.55, sp:78},        // araña rapidísima
   snake: {tex:'snake_run',   ai:'snake-i',ar:'snake-r',hp:2,dmg:12, esc:0.5,  sp:58},         // víbora
   turtle:{tex:'turtle_walk', ai:'turtle-w',ar:'turtle-w',hp:9,dmg:14, esc:0.5,  sp:24},        // tortuga acorazada (tanque lento)
-  gnome: {tex:'gnome_r',     ai:'gnome-i',ar:'gnome-r',hp:1,dmg:10, esc:0.6,  sp:68},          // gnomo de gorro rojo (enjambre)
-  skull: {tex:'skull_r',     ai:'skull-i',ar:'skull-r',hp:2,dmg:13, esc:0.6,  sp:52},          // no-muerto
+  gnome: {tex:'gnome_r',     ai:'gnome-i',ar:'gnome-r',aa:'gnome-a',hp:1,dmg:10, esc:0.6,  sp:68},          // gnomo de gorro rojo (enjambre)
+  skull: {tex:'skull_r',     ai:'skull-i',ar:'skull-r',aa:'skull-a',hp:2,dmg:13, esc:0.6,  sp:52},          // no-muerto
   panda: {tex:'panda_r',     ai:'panda-i',ar:'panda-r',hp:6,dmg:18, esc:0.55, sp:44},          // luchador pesado
   hshark:{tex:'hshark_r',    ai:'hshark-i',ar:'hshark-r',hp:3,dmg:20, esc:0.62, sp:46, ranged:true}, // arponero (naval, tira a distancia)
+  // reino rival: leva humana enemiga (púrpura)
+  rpawn: {tex:'pawn_purple', ai:'pawn_purple-i',ar:'pawn_purple-r',hp:4,dmg:13, esc:0.5,  sp:52},           // campesino rival con garrote
+  rarcher:{tex:'archer_purple_i',ai:'rarq-i',ar:'rarq-r',hp:3,dmg:14, esc:0.5,  sp:46, ranged:true},        // arquero rival (tira flechas)
 };
 function costaTiles(){                             // tiles de tierra pegados al agua (borde de la isla)
   const out=[];
@@ -1810,13 +1836,13 @@ function cañonazo(fx,fy){                            // el barco pirata dispara
           refreshBuilding(b); toast('💣 ¡'+CAT[b.tipo].nom+' bombardeado por los piratas!'); } } } });
 }
 // arquetipos de oleada: cada una se siente distinta (mezcla de enemigos variable)
-const FLAVORS=['goblins','horda','bestias','piratas','mixta'];
+const FLAVORS=['goblins','horda','bestias','piratas','mixta','reino'];
 function componerOleada(w){                          // devuelve {flavor, spawns:[kind...], naval, bossCount, msg}
   const costaN=2+Math.ceil(w*1.4);
   let flavor;
   if(w%5===0) flavor='jefe';
   else if(w%3===0) flavor='piratas';
-  else flavor=pick(FLAVORS.filter(f=> (f!=='bestias'||w>=4) && (f!=='horda'||w>=2) ));
+  else flavor=pick(FLAVORS.filter(f=> (f!=='bestias'||w>=4) && (f!=='horda'||w>=2) && (f!=='reino'||w>=4) ));
   const spawns=[];
   const add=(k,n)=>{ for(let i=0;i<n;i++) spawns.push(k); };
   const canTnt=w>=3, canGnoll=w>=2, canRider=w>=4, canSham=w>=5, canThief=w>=3, canTroll=w>=6;
@@ -1826,6 +1852,9 @@ function componerOleada(w){                          // devuelve {flavor, spawns
   else if(flavor==='bestias'){ add(canRider?'pigrider':'spear',Math.ceil(costaN*0.4)); if(canSnake)add('snake',2); if(canSpider)add('spider',2); if(canLiz)add('lizard',2); if(canTurtle)add('turtle',1); if(canPanda)add('panda',1); if(canSham)add('shaman',1); if(canTroll)add('troll',1); }
   else if(flavor==='piratas'||flavor==='jefe'){ add(pick(['torch','spear']),Math.ceil(costaN*0.7)); if(canGnoll)add('gnoll',2); if(canSkull)add('skull',2); if(flavor==='jefe'&&canTroll)add('troll',1); if(flavor==='jefe'&&canTurtle)add('turtle',1); if(flavor==='jefe'&&canPanda)add('panda',1); }
   else if(flavor==='mixta'){ add('torch',2); add('spear',2); if(canGnome)add('gnome',2); if(canSkull)add('skull',2); if(canLiz)add('lizard',2); if(canTnt)add('tnt',1); if(canRider)add('pigrider',1); if(canSham)add('shaman',1); if(canThief&&Math.random()<0.5)add('thief',1); }
+  else if(flavor==='reino'){ // leva humana rival: campesinos con garrote + arqueros
+    add('rpawn',Math.ceil(costaN*0.7)); add('rarcher',Math.max(2,Math.ceil(costaN*0.35)));
+    if(canThief)add('thief',1); if(canTroll)add('troll',1); }
   else { // goblins clásicos
     for(let i=0;i<costaN;i++) add(canTnt&&Math.random()<Math.min(0.5,0.08*w)?'tnt':pick(['torch','torch','spear']),1);
     if(canThief&&Math.random()<0.4)add('thief',1); }
@@ -1846,7 +1875,8 @@ function lanzarOleada(){
   for(let i=0;i<comp.bossCount;i++){ const t=costa.length?pick(costa):{x:Math.floor(GW/2),y:2}; spawnEnemy('toro',t.x,t.y); }
   S.units.forEach(u=>{ if(!u.dead) u.spr.play(uAnim(u.tipo,'r'),true); });
   const FL={goblins:'⚔️ Goblins por la costa.',horda:'🐺 ¡HORDA de gnolls!',bestias:'🐗 Bestias y jinetes de jabalí.',
-    piratas:'🏴‍☠️ Piratas desembarcan por el mar.',mixta:'⚔️ Asalto combinado.',jefe:'🐂 ¡JEFE! THE BLACK BULL lidera.'};
+    piratas:'🏴‍☠️ Piratas desembarcan por el mar.',mixta:'⚔️ Asalto combinado.',jefe:'🐂 ¡JEFE! THE BLACK BULL lidera.',
+    reino:'🏰 ¡Un REINO RIVAL manda su leva: campesinos y arqueros púrpura!'};
   let m=FL[comp.flavor]; if(comp.bossCount&&comp.flavor!=='jefe') m+=' Y aparece THE BLACK BULL…';
   const msg='¡OLEADA '+S.wave+'! '+m;
   toast(msg); cronica(m, randAv());
@@ -2035,7 +2065,7 @@ function raidTick(dtReal){
     } else {
       g.atkT+=dtReal;
       if(g.atkT>(g.ranged?2.0:1.1)){ g.atkT=0;
-        g.spr.play(g.ai,true);
+        g.spr.play(g.aa||g.ai,true);   // anim de ataque si el enemigo la tiene (gnomo/esqueleto/troll/pirata), si no la de idle
         if(g.esUnidad){                               // pega a la unidad defensora
           dañarDefensor(g.target,g.dmg); if(g.target.dead){ g.target=null; g.esUnidad=false; }
         } else if(g.bomba){                           // pez bomba: lanza una bomba que estalla
@@ -2222,7 +2252,7 @@ function drawMinimap(){
     mmCtx.fillRect((wx-BX*T)/(GW*T)*mmW-sz/2,(wy-BY*T)/(GH*T)*mmH-sz/2,sz,sz); };
   for(const n of S.nodes){ if(S.explored[n.ty][n.tx]) dot(n.spr.x,n.spr.y,n.kind==='arbol'?'#1e4d28':'#e5c542',2.4); }
   for(const m of S.animals){ if(!m.dead){ const t=tileOfPx(m.spr.x,m.spr.y); if(S.explored[t.y][t.x]) dot(m.spr.x,m.spr.y,m.tipo==='toro'?'#c060ff':'#e598b0',m.tipo==='toro'?3:2.2); } }
-  for(const b of S.buildings){ dot(b.x,b.y,b.tipo==='castle'?'#ffe36b':(b.skin==='red'?'#e5533a':'#f4ecda'),b.tipo==='castle'?4:3); }
+  for(const b of S.buildings){ dot(b.x,b.y,b.tipo==='castle'?'#ffe36b':(SKINCOL[b.skin]||'#f4ecda'),b.tipo==='castle'?4:3); }
   for(const a of S.ald) dot(a.spr.x,a.spr.y,'#ffe9a0',2.4);
   for(const u of S.units) dot(u.spr.x,u.spr.y,'#4a90c2',2.4);
   if(S.raid.on) for(const g of S.raid.gob){ if(!g.dead) dot(g.spr.x,g.spr.y,'#ff3a2a',2.8); }
@@ -2287,7 +2317,8 @@ function update(time,delta){
         if(a.tarT>=1.5){ a.tarT=0;
           const gan=Math.min(6,nd.reserva); nd.reserva-=gan; S.recursos+=gan;
           if(nd.res==='madera'){ S.madera=Math.min(CAP,S.madera+gan); S.stats.talado+=gan; }
-          else { S.oro=Math.min(CAP,S.oro+gan); S.stats.minado+=gan; }
+          else { S.oro=Math.min(CAP,S.oro+gan); S.stats.minado+=gan;
+            a.hoist=!a.hoist; a.spr.play(a.hoist?'wgold-i':'wpick-r',true); }   // alterna picar / alzar el saco de oro
           flyText(nd.spr.x,nd.spr.y-40,'+'+gan+' '+nd.res); sfxAt(nd.res==='madera'?'chop':'chop',0.42,nd.spr.x,nd.spr.y);
           if(S.sel&&S.sel.ref===nd) renderSel();
           if(nd.reserva<=0){ agotarNodo(nd); parar(a); }
