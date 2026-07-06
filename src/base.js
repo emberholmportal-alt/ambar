@@ -701,6 +701,12 @@ function marcaOrden(x,y){
   const r=scene.add.circle(x,y,6,0xffe9a0,0).setStrokeStyle(2,0xffe9a0,0.95).setDepth(99995);
   scene.tweens.add({targets:r,radius:22,alpha:0,duration:520,ease:'Quad.easeOut',onComplete:()=>r.destroy()});
 }
+function marcaMover(x,y){                              // una X en el punto al que mandás mover la unidad
+  const s=11, g=scene.add.graphics({x,y}).setDepth(99995);
+  g.lineStyle(3,0xffe9a0,0.98);
+  g.beginPath(); g.moveTo(-s,-s); g.lineTo(s,s); g.moveTo(s,-s); g.lineTo(-s,s); g.strokePath();
+  scene.tweens.add({targets:g,alpha:0,scaleX:1.4,scaleY:1.4,duration:700,ease:'Quad.easeOut',onComplete:()=>g.destroy()});
+}
 /* ===== bocadillos de diálogo (sátira / miedo / aburrimiento / onomatopeyas) ===== */
 const DIALOGO={
   aldeano:{ ocio:['¿Otra muralla? Me duele la espalda.','El rey no paga las horas extra.','Extraño mi granja.','¿Cuándo es el almuerzo?','Trabajar, siempre trabajar.','Necesito un descanso.','¿Fue un goblin o una oveja?'],
@@ -817,6 +823,9 @@ function splashAt(x,y,esc){                           // salpicadura de agua rea
 }
 
 /* ===== niebla ===== */
+// cualquier unidad propia que camine despeja la niebla, haga lo que haga (sólo al cambiar de tile)
+function nieblaAlMover(ent,r){ if(!ent||!ent.spr) return; const tk=Math.floor(ent.spr.x/T)+','+Math.floor(ent.spr.y/T);
+  if(tk!==ent._ftile){ ent._ftile=tk; revelar(ent.spr.x,ent.spr.y,r||4); } }
 function revelar(px,py,rTiles){
   if(!fogRT) return;
   fogRT.erase('fogbrush', px+MAR-FOGR, py+MAR-FOGR);   // RT arranca en (-MAR,-MAR)
@@ -1071,6 +1080,7 @@ function convertirBestia(m,costo){
 function updateAllies(dtReal){
   const vivos=(S.raid.on?S.raid.gob.filter(g=>!g.dead):[]);
   for(const u of S.allies){ if(u.dead) continue;
+    nieblaAlMover(u,4);                                    // bestia leal también despeja niebla al caminar
     if(escaparSiAtascado(u,54*dtReal)){ moveMark(u); continue; }   // bestia leal atrapada: sale
     u.spr.setDepth(u.spr.y);
     moveMark(u);
@@ -1378,7 +1388,7 @@ function ordenar(p){
     const en=S.raid.gob.find(g=>!g.dead&&Phaser.Math.Distance.Between(wp.x,wp.y,g.spr.x,g.spr.y)<44)
           || S.animals.find(m=>!m.dead&&Phaser.Math.Distance.Between(wp.x,wp.y,m.spr.x,m.spr.y)<44);
     if(en){ u.forced=en; u.target=en; u.moveT=null; u.path=null; ordenIcono(en.spr.x,en.spr.y,'ic5','¡Ataque!','#ff9a6a',0.6); }
-    else { moverMilitar(u,wp.x,wp.y); marcaOrden(wp.x,wp.y); }
+    else { moverMilitar(u,wp.x,wp.y); marcaMover(wp.x,wp.y); }
     return;
   }
   if(sel.t==='allie'){
@@ -1392,7 +1402,7 @@ function ordenar(p){
       let path=findPath(cur.x,cur.y,dst.x,dst.y); u.cruza=false;
       if(!path||!path.length){ const relax=findPath(cur.x,cur.y,dst.x,dst.y,true); if(relax&&relax.length){ path=relax; u.cruza=true; } }
       if(path&&path.length){ u.path=path; u.moveT=null; } else { u.path=null; u.moveT={x:wp.x,y:wp.y}; }
-      marcaOrden(wp.x,wp.y); }
+      marcaMover(wp.x,wp.y); }
     return;
   }
   if(sel.t!=='aldeano') return;
@@ -1413,7 +1423,7 @@ function ordenar(p){
     if(b.estado==='esperando'||b.estado==='obra'){ mandarConstruir(a,b); ordenIcono(b.x,b.y,'ic1','Construir','#e8c07a',0.6); return; }
     if(b.tipo==='granja'&&b.estado==='ok'&&!b.danado){ mandarTrabajar(a,b); marcaOrden(b.x,b.y); return; }
   }
-  if(walkable(t.x,t.y)){ moverA(a,t.x,t.y,()=>parar(a)); marcaOrden((BX+t.x)*T+T/2,(BY+t.y)*T+T/2); }
+  if(walkable(t.x,t.y)){ moverA(a,t.x,t.y,()=>parar(a)); marcaMover((BX+t.x)*T+T/2,(BY+t.y)*T+T/2); }
   else sfx('creak',0.3);
 }
 
@@ -1892,7 +1902,7 @@ function lanzarOleada(){
   S.wave++; S.raid.on=true; S.raid.t=0; S.raid.gob=[]; S.phase='wave';
   S.raid.dur=DUR_OLEADA(S.wave); S.raid.tLeft=S.raid.dur;   // el asedio dura un tiempo fijo
   sfx('latch',0.65); scene.cameras.main.shake(240,0.005);
-  $('raidbanner').classList.add('on'); $('btnMercen').style.display='inline-block';
+  $('raidbanner').classList.add('on'); { const bm=$('btnMercen'); if(bm) bm.style.display='inline-block'; }
   const costa=costaTiles(), comp=componerOleada(S.wave);
   for(const k of comp.spawns){ const t=costa.length?pick(costa):{x:rint(2,GW-3),y:2}; spawnEnemy(k,t.x,t.y); }
   if(comp.naval) oleadaNaval(1+Math.floor(S.wave/3),costa);
@@ -1916,7 +1926,7 @@ function finOleadaPorTiempo(){                        // se acabó el tiempo del
 function finOleada(){
   if(S.phase!=='wave') return;                       // evitá doble cierre (tiempo + última baja a la vez)
   S.raid.on=false; S.phase='prep'; S.phaseT=PREPW;
-  $('raidbanner').classList.remove('on'); $('btnMercen').style.display='none';
+  $('raidbanner').classList.remove('on'); { const bm=$('btnMercen'); if(bm) bm.style.display='none'; }
   S.raid.war.forEach(w=>{ if(!w.dead){ scene.tweens.add({targets:w.spr,alpha:0,duration:1200,onComplete:()=>w.spr.destroy()}); } });
   S.raid.war=[];
   S.units.forEach(u=>{ if(!u.dead){ u.spr.play(uAnim(u.tipo,'i'),true); u.target=null; u.moveT=null; } });
@@ -1933,9 +1943,9 @@ function finOleada(){
 }
 function gameOver(){
   if(S.over) return; S.over=true; S.phase='over'; S.raid.on=false;
-  S.score=calcScore(); if(S.score>S.best) S.best=S.score;
+  S.score=calcScore(); if(S.score>S.best) S.best=S.score; guardarRecord();   // suma este puntaje al listado de récords
   sfx('creak',0.7); scene.cameras.main.shake(500,0.01);
-  $('raidbanner').classList.remove('on'); $('btnMercen').style.display='none';
+  $('raidbanner').classList.remove('on'); { const bm=$('btnMercen'); if(bm) bm.style.display='none'; }
   updateBanner(); showGameOver();
 }
 function showGameOver(){
@@ -2209,13 +2219,24 @@ function pelear(lista,vivos,dtReal,esUnidad){
     if(u.forced&&!u.forced.dead) u.target=u.forced;            // orden manual de atacar
     else { if(u.forced&&u.forced.dead) u.forced=null;
       if(!u.target||u.target.dead){                            // enganchá al enemigo MÁS CERCANO (no al primero de la lista)
-        u.target=vivos.reduce((m,g)=>!g.dead&&(!m||Phaser.Math.Distance.Between(u.spr.x,u.spr.y,g.spr.x,g.spr.y)<Phaser.Math.Distance.Between(u.spr.x,u.spr.y,m.spr.x,m.spr.y))?g:m,null); } }
-    if(!u.target){ seguirRuta(u,dtReal); continue; }
+        const prev=u.target;
+        u.target=vivos.reduce((m,g)=>!g.dead&&(!m||Phaser.Math.Distance.Between(u.spr.x,u.spr.y,g.spr.x,g.spr.y)<Phaser.Math.Distance.Between(u.spr.x,u.spr.y,m.spr.x,m.spr.y))?g:m,null);
+        if(u.target!==prev){ u.cpath=null; u.cbestD=null; u.cnoProg=0; } } }
+    if(!u.target){ u.cpath=null; u.cbestD=null; seguirRuta(u,dtReal); continue; }
     const d=Phaser.Math.Distance.Between(u.spr.x,u.spr.y,u.target.spr.x,u.target.spr.y);
     if(d>alcance){
-      // avanzarHacia rodea edificios/objetos y desliza contra los bordes: la unidad no se traba
-      avanzarHacia(u,u.target.spr.x,u.target.spr.y,(arquero?50:58)*dtReal);
-    } else if(arquero){
+      // persigue rodeando obstáculos: si no progresa (desliza contra un muro/edificio), pide ruta BFS y no se traba
+      const sp=(arquero?50:58)*dtReal;
+      let following=!!(u.cpath&&u.cpath.length), aimX=u.target.spr.x, aimY=u.target.spr.y;
+      if(following){ const wp=u.cpath[0]; if(Phaser.Math.Distance.Between(u.spr.x,u.spr.y,wp.x,wp.y)<12) u.cpath.shift();
+        if(u.cpath.length){ aimX=u.cpath[0].x; aimY=u.cpath[0].y; } else { u.cpath=null; following=false; } }
+      const moved=avanzarHacia(u,aimX,aimY,sp);
+      if(u.cbestD==null||d<u.cbestD-3){ u.cbestD=d; u.cnoProg=0; } else u.cnoProg=(u.cnoProg||0)+dtReal;
+      if(!moved || (!following && u.cnoProg>0.5)){ u.cnoProg=0; u.cbestD=d; u.cpath=null;
+        const et=tileOfPx(u.spr.x,u.spr.y), tt=tileOfPx(u.target.spr.x,u.target.spr.y);
+        const dst=walkable(tt.x,tt.y)?tt:adjWalkable(tt.x,tt.y);
+        u.cpath = dst ? findPath(et.x,et.y,dst.x,dst.y) : null; }
+    } else if((u.cpath=null, u.cbestD=null, u.cnoProg=0, arquero)){   // en rango: a pegar, ruta de combate consumida
       u.cd-=dtReal;
       if(u.cd<=0){ u.cd=1.8; const g=u.target, p=scene.add.image(u.spr.x,u.spr.y-20,'dot').setTint(0xd9c9a0).setDepth(99998);
         scene.tweens.add({targets:p,x:g.spr.x,y:g.spr.y-14,duration:200,ease:'Linear',onComplete:()=>{p.destroy(); if(!g.dead) dañarObjetivo(g,1,0xd9c9a0);}});
@@ -2269,7 +2290,6 @@ function cronica(txt,av){
   row.animate?row.animate([{opacity:0,transform:'translateX(-8px)'},{opacity:1,transform:'none'}],{duration:220}):0;
 }
 function hint(msg){ const h=$('hint'); h.textContent=msg; h.classList.toggle('on',!!msg); }
-$('btnTiempo').onclick=()=>{ S.speed=S.speed===1?4:1; $('btnTiempo').textContent='⏱ ×'+S.speed; };
 let idleCursor=0;
 function irIdle(){                               // buscador de aldeanos ociosos (clásico de Age)
   const idle=S.ald.filter(a=>a.estado==='libre'||a.estado==='paseo');
@@ -2279,7 +2299,6 @@ function irIdle(){                               // buscador de aldeanos ociosos
   scene.cameras.main.setZoom(Phaser.Math.Clamp(baseZoom*2.4,1,3.6));
   scene.cameras.main.centerOn(a.spr.x,a.spr.y); marcaOrden(a.spr.x,a.spr.y-20);
 }
-$('btnIdle').onclick=irIdle;
 $('btnIdleMM')&&($('btnIdleMM').onclick=irIdle);
 /* ===== ambiente sonoro (WebAudio, sin assets) ===== */
 let actx=null, ambGain=null, ambOn=true;
@@ -2300,16 +2319,26 @@ function startAmbient(){
 $('btnAudio').onclick=()=>{ startAmbient(); ambOn=!ambOn; if(ambGain) ambGain.gain.value=ambOn?0.05:0;
   $('btnAudio').textContent=(ambOn?'🔊':'🔇')+' SONIDO'; };
 document.addEventListener('pointerdown',startAmbient,{once:true});
-$('btnCaravana').onclick=()=>{
-  if(S.ambar<8){ sfx('creak',0.4); toast('La caravana cuesta 8 ◆.'); return; }
-  S.ambar-=8; const menor=['oro','madera','comida'].sort((a,b2)=>S[a]-S[b2])[0];
-  S[menor]=Math.min(CAP,S[menor]+250); sfx('coins',0.6); toast('Caravana: +250 de '+menor+'.'); refreshHUD();
-};
-$('btnMercen').onclick=()=>{
-  if(!S.raid.on||S.ambar<10){ sfx('creak',0.4); return; }
-  S.ambar-=10; for(let i=0;i<3;i++) spawnDefensor(homePos.x+rint(-60,60),homePos.y+rint(-40,40));
-  sfx('clash',0.5); toast('¡3 mercenarios al campo!'); refreshHUD();
-};
+/* ===== récords (persistidos localmente: sólo el listado de puntajes) ===== */
+function cargarRecords(){ try{ return JSON.parse(localStorage.getItem('aoa_records')||'[]'); }catch(e){ return []; } }
+function guardarRecord(){
+  const recs=cargarRecords();
+  recs.push({score:S.score, wave:S.wave, tSurv:Math.floor(S.tSurv), recursos:Math.floor(S.recursos), kills:S.kills, fecha:new Date().toLocaleDateString()});
+  recs.sort((a,b2)=>b2.score-a.score);
+  try{ localStorage.setItem('aoa_records', JSON.stringify(recs.slice(0,10))); }catch(e){}
+}
+function mostrarRecords(){
+  const ov=$('recordsOv'), ul=$('recordsList'); if(!ov||!ul) return;
+  const recs=cargarRecords();
+  ul.innerHTML = recs.length ? recs.map(r=>{
+    const m=Math.floor(r.tSurv/60), s=r.tSurv%60;
+    return '<li><b>'+r.score+' pts</b> · Oleada '+r.wave+' · '+m+'m '+s+'s · '+r.recursos+' rec. · '+r.kills+' bajas <span style="color:#9a8f79">('+r.fecha+')</span></li>';
+  }).join('') : '<li class="vacio">Todavía no hay récords. ¡Jugá una partida!</li>';
+  ov.classList.add('open');
+}
+$('btnRecords')&&($('btnRecords').onclick=()=>{ $('menu').classList.remove('open'); mostrarRecords(); });
+$('btnRecordsCerrar')&&($('btnRecordsCerrar').onclick=()=>$('recordsOv').classList.remove('open'));
+$('recordsOv')&&($('recordsOv').onclick=e=>{ if(e.target===$('recordsOv')) $('recordsOv').classList.remove('open'); });
 
 /* ===== minimapa ===== */
 let mmW=220, mmH=132;
@@ -2362,6 +2391,7 @@ function update(time,delta){
 
   for(const a of S.ald){
     if(a.estado==='refugiado') continue;                 // a resguardo dentro del Ayuntamiento
+    nieblaAlMover(a,4);                                   // caminar despeja niebla, en cualquier tarea
     if(escaparSiAtascado(a,64*dtReal)){ moveMark(a); continue; }   // aldeano atrapado sobre un edificio: sale
     if(a.estado==='yendo'){
       const dx=a.tx-a.spr.x, dy=a.ty-a.spr.y, d=Math.hypot(dx,dy);
@@ -2439,6 +2469,7 @@ function update(time,delta){
     if(a.hp<a.maxhp||(S.sel&&S.sel.ref===a)) drawHp(a,a.hp/a.maxhp,32,a.spr.y-a.markOff+12); else hideBar(a);
   }
   for(const u of S.units){
+    if(!u.dead) nieblaAlMover(u,4);                        // toda unidad militar despeja niebla al moverse (en guardia o peleando)
     if(!u.dead&&!S.raid.on){                              // fuera de oleada las unidades SÍ obedecen órdenes de movimiento
       if(escaparSiAtascado(u,58*dtReal)){ moveMark(u); continue; }   // unidad atrapada sobre un edificio: sale
       if(u.forced&&u.forced.dead) u.forced=null;
