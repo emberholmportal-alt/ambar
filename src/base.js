@@ -829,15 +829,19 @@ function revelar(px,py,rTiles){
 }
 
 /* ===== pathfinding (BFS) ===== */
-function findPath(x0,y0,x1,y1){
-  if(!walkable(x1,y1)) return null;
+// terreno puro: tierra o puente sin acantilado. Ignora edificios/nodos: sólo el agua/acantilado es infranqueable.
+function terrenoLibre(px,py){ const t=tileOfPx(px,py); return isIn(t.x,t.y)&&(S.land[t.y][t.x]||S.bridge[t.y][t.x])&&!S.cliff[t.y][t.x]; }
+const terrenoTile=(x,y)=>isIn(x,y)&&(isLand(x,y)||esPuente(x,y))&&!S.cliff[y][x];
+function findPath(x0,y0,x1,y1,relax){
+  const ok = relax ? terrenoTile : walkable;               // relax: rutea atravesando edificios propios (para salir de un bolsillo aislado)
+  if(!ok(x1,y1)) return null;
   if(x0===x1&&y0===y1) return [];
   const key=(x,y)=>y*GW+x, prev=new Map([[key(x0,y0),null]]), q=[[x0,y0]];
   while(q.length){
     const [cx,cy]=q.shift();
     for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
       const nx=cx+dx, ny=cy+dy;
-      if(!isIn(nx,ny)||prev.has(key(nx,ny))||!walkable(nx,ny)) continue;
+      if(!isIn(nx,ny)||prev.has(key(nx,ny))||!ok(nx,ny)) continue;
       prev.set(key(nx,ny),key(cx,cy));
       if(nx===x1&&ny===y1){
         const path=[]; let cur=key(nx,ny);
@@ -890,6 +894,9 @@ function moverA(a,tx,ty,cb){
   const cur=tileOfPx(a.spr.x,a.spr.y);
   let dx=tx,dy=ty, path=findPath(cur.x,cur.y,tx,ty);
   if(!path){ const adj=adjWalkable(tx,ty); if(adj){ dx=adj.x; dy=adj.y; path=findPath(cur.x,cur.y,dx,dy); } }
+  a.cruza=false;
+  if(!path||!path.length){                                // sin ruta normal: el aldeano cruza su propio edificio para salir del bolsillo
+    const relax=findPath(cur.x,cur.y,dx,dy,true); if(relax&&relax.length){ path=relax; a.cruza=true; } }
   setTool(a,null);
   a.estado='yendo'; a.onArrive=cb||null;
   a.path=(path&&path.length)?path:[{x:(BX+dx)*T+T/2,y:(BY+dy)*T+T/2}];
@@ -1080,6 +1087,11 @@ function updateAllies(dtReal){
       } else { u.moveT=null; u.atkCd-=dtReal; if(u.atkCd<=0){ u.atkCd=1.0; if(u.idle)u.spr.play(u.idle,true);
         dañarObjetivo(u.target,u.dmg,0x8ad0ff); burstAt(u.target.spr.x,u.target.spr.y-14,0x8ad0ff); sfxAt('clash',0.3,u.spr.x,u.spr.y);
         if(u.target.dead){ u.target=null; u.forced=null; } } }
+    } else if(u.path&&u.path.length){                 // ruta para salir de un bolsillo (puede cruzar el propio edificio)
+      const wp=u.path[0];
+      if(Phaser.Math.Distance.Between(u.spr.x,u.spr.y,wp.x,wp.y)<10) u.path.shift();
+      if(!u.path.length){ u.cruza=false; if(u.idle)u.spr.play(u.idle,true); }
+      else { avanzarHacia(u,u.path[0].x,u.path[0].y,54*dtReal,u.cruza); if(u.run&&u.spr.anims.currentAnim&&u.spr.anims.currentAnim.key!==u.run) u.spr.play(u.run,true); }
     } else if(u.moveT){                               // orden de moverse a un punto
       const d=Phaser.Math.Distance.Between(u.spr.x,u.spr.y,u.moveT.x,u.moveT.y);
       if(d<8){ u.moveT=null; if(u.idle)u.spr.play(u.idle,true); }
@@ -1341,7 +1353,11 @@ function moverMilitar(u,wx,wy){
   u.forced=null;
   const t=tileOfPx(wx,wy), cur=tileOfPx(u.spr.x,u.spr.y);
   const dst=walkable(t.x,t.y)?t:(adjWalkable(t.x,t.y)||t);
-  const path=findPath(cur.x,cur.y,dst.x,dst.y);           // rodear edificios/objetos
+  let path=findPath(cur.x,cur.y,dst.x,dst.y);             // rodear edificios/objetos
+  u.cruza=false;
+  if(!path||!path.length){                                // sin ruta normal (bolsillo aislado): dejá cruzar el propio edificio
+    const relax=findPath(cur.x,cur.y,dst.x,dst.y,true);
+    if(relax&&relax.length){ path=relax; u.cruza=true; } }
   u.path=(path&&path.length)?path:[{x:(BX+dst.x)*T+T/2,y:(BY+dst.y)*T+T/2}];
   u.home={x:(BX+dst.x)*T+T/2,y:(BY+dst.y)*T+T/2}; u.moveT=null;
   if(!S.raid.on) u.spr.play(uAnim(u.tipo,'r'),true);
@@ -1369,8 +1385,14 @@ function ordenar(p){
     const u=sel.ref;  // bestia convertida: obedece como una unidad propia
     const en=S.raid.gob.find(g=>!g.dead&&Phaser.Math.Distance.Between(wp.x,wp.y,g.spr.x,g.spr.y)<44)
           || S.animals.find(m=>!m.dead&&Phaser.Math.Distance.Between(wp.x,wp.y,m.spr.x,m.spr.y)<44);
-    if(en){ u.forced=en; u.target=en; u.moveT=null; ordenIcono(en.spr.x,en.spr.y,'ic5','¡Ataque!','#ff9a6a',0.6); }
-    else { u.forced=null; u.target=null; u.moveT={x:wp.x,y:wp.y}; marcaOrden(wp.x,wp.y); }
+    if(en){ u.forced=en; u.target=en; u.moveT=null; u.path=null; ordenIcono(en.spr.x,en.spr.y,'ic5','¡Ataque!','#ff9a6a',0.6); }
+    else { u.forced=null; u.target=null;
+      const cur=tileOfPx(u.spr.x,u.spr.y), t=tileOfPx(wp.x,wp.y);
+      const dst=walkable(t.x,t.y)?t:(adjWalkable(t.x,t.y)||t);
+      let path=findPath(cur.x,cur.y,dst.x,dst.y); u.cruza=false;
+      if(!path||!path.length){ const relax=findPath(cur.x,cur.y,dst.x,dst.y,true); if(relax&&relax.length){ path=relax; u.cruza=true; } }
+      if(path&&path.length){ u.path=path; u.moveT=null; } else { u.path=null; u.moveT={x:wp.x,y:wp.y}; }
+      marcaOrden(wp.x,wp.y); }
     return;
   }
   if(sel.t!=='aldeano') return;
@@ -2001,15 +2023,16 @@ const esBloqueante=gv=>typeof gv==='number'||(typeof gv==='string'&&(gv[0]==='s'
 // pisar bien: tierra o puente, sin acantilado, sin edificio/nodo/escenario. Los de tierra no cruzan agua.
 function pisoLibre(px,py){ const t=tileOfPx(px,py); if(!isIn(t.x,t.y)) return false;
   return (S.land[t.y][t.x]||S.bridge[t.y][t.x]) && !S.cliff[t.y][t.x] && !esBloqueante(S.grid[t.y][t.x]); }
-function avanzarHacia(ent,tx,ty,sp){                  // mueve hacia (tx,ty) deslizando; no cruza agua/acantilado ni atraviesa edificios/nodos
+function avanzarHacia(ent,tx,ty,sp,cruza){            // mueve hacia (tx,ty) deslizando; no cruza agua/acantilado ni atraviesa edificios/nodos (salvo cruza=salir de bolsillo)
+  const piso = cruza ? terrenoLibre : pisoLibre;
   const ang=Math.atan2(ty-ent.spr.y,tx-ent.spr.x), dx=Math.cos(ang)*sp, dy=Math.sin(ang)*sp;
   let moved=true;
-  if(pisoLibre(ent.spr.x+dx,ent.spr.y+dy)){ ent.spr.x+=dx; ent.spr.y+=dy; }
-  else if(pisoLibre(ent.spr.x+dx,ent.spr.y)){ ent.spr.x+=dx; }
-  else if(pisoLibre(ent.spr.x,ent.spr.y+dy)){ ent.spr.y+=dy; }
+  if(piso(ent.spr.x+dx,ent.spr.y+dy)){ ent.spr.x+=dx; ent.spr.y+=dy; }
+  else if(piso(ent.spr.x+dx,ent.spr.y)){ ent.spr.x+=dx; }
+  else if(piso(ent.spr.x,ent.spr.y+dy)){ ent.spr.y+=dy; }
   else { const px=Math.cos(ang+Math.PI/2)*sp, py=Math.sin(ang+Math.PI/2)*sp;   // bordear
-    if(pisoLibre(ent.spr.x+px,ent.spr.y+py)){ ent.spr.x+=px; ent.spr.y+=py; }
-    else if(pisoLibre(ent.spr.x-px,ent.spr.y-py)){ ent.spr.x-=px; ent.spr.y-=py; }
+    if(piso(ent.spr.x+px,ent.spr.y+py)){ ent.spr.x+=px; ent.spr.y+=py; }
+    else if(piso(ent.spr.x-px,ent.spr.y-py)){ ent.spr.x-=px; ent.spr.y-=py; }
     else moved=false; }
   ent.spr.setFlipX(dx<0); ent.spr.setDepth(ent.spr.y);
   return moved;
@@ -2031,6 +2054,7 @@ function tileLibreCercaDe(px,py){                     // centro (en px) del tile
   return null;
 }
 function escaparSiAtascado(ent,sp){                   // si quedó sobre un tile NO transitable (edificio/agua/nodo), lo empuja al más cercano libre
+  if(ent.cruza) return false;                          // está cruzando su propio edificio a propósito (saliendo de un bolsillo): no lo saques
   if(landAtPx(ent.spr.x,ent.spr.y)) return false;
   const dst=tileLibreCercaDe(ent.spr.x,ent.spr.y); if(!dst) return false;
   const d=Phaser.Math.Distance.Between(ent.spr.x,ent.spr.y,dst.x,dst.y);
@@ -2160,13 +2184,14 @@ function seguirRuta(u,dtReal){                        // seguir la ruta (rodeand
   let pt=null;
   if(u.path&&u.path.length){ pt=u.path[0]; if(Phaser.Math.Distance.Between(u.spr.x,u.spr.y,pt.x,pt.y)<6){ u.path.shift(); pt=u.path[0]||null; } }
   else if(u.moveT){ pt=u.moveT; if(Phaser.Math.Distance.Between(u.spr.x,u.spr.y,pt.x,pt.y)<6){ u.moveT=null; pt=null; } }
-  if(!pt) return;
+  if(!pt){ u.cruza=false; return; }                              // ruta consumida: vuelve a colisionar normal
+  const piso = u.cruza ? terrenoLibre : landAtPx;                // si viene cruzando un bolsillo, sólo respeta agua/acantilado
   const sp=58*dtReal, ang=Math.atan2(pt.y-u.spr.y,pt.x-u.spr.x);
   const nx=u.spr.x+Math.cos(ang)*sp, ny=u.spr.y+Math.sin(ang)*sp;   // nunca pisar agua ni acantilado (desliza contra el borde)
-  if(landAtPx(nx,ny)){ u.spr.x=nx; u.spr.y=ny; }
-  else if(landAtPx(nx,u.spr.y)){ u.spr.x=nx; }
-  else if(landAtPx(u.spr.x,ny)){ u.spr.y=ny; }
-  else { u.path=null; u.moveT=null; }                              // atascado: soltar la orden en vez de trabarse
+  if(piso(nx,ny)){ u.spr.x=nx; u.spr.y=ny; }
+  else if(piso(nx,u.spr.y)){ u.spr.x=nx; }
+  else if(piso(u.spr.x,ny)){ u.spr.y=ny; }
+  else { u.path=null; u.moveT=null; u.cruza=false; }              // atascado: soltar la orden en vez de trabarse
   u.spr.setFlipX(Math.cos(ang)<0); u.spr.setDepth(u.spr.y);
 }
 function muereUnidad(u,esUnidad){
@@ -2342,9 +2367,10 @@ function update(time,delta){
       const dx=a.tx-a.spr.x, dy=a.ty-a.spr.y, d=Math.hypot(dx,dy);
       if(d<5){
         if(a.path&&a.path.length){ const p=a.path.shift(); a.tx=p.x; a.ty=p.y; }
-        else { const cb=a.onArrive; a.onArrive=null; if(cb) cb(a); else if(a.estado==='yendo') a.spr.play('pawn_blue-i',true); }
-      } else { const sp=72*dtReal, nx=a.spr.x+dx/d*sp, ny=a.spr.y+dy/d*sp;   // no atravesar edificios (rodean)
-        if(landAtPx(nx,ny)||d<T){ a.spr.x=nx; a.spr.y=ny; } a.spr.setFlipX(dx<0); a.spr.setDepth(a.spr.y); }
+        else { a.cruza=false; const cb=a.onArrive; a.onArrive=null; if(cb) cb(a); else if(a.estado==='yendo') a.spr.play('pawn_blue-i',true); }
+      } else { const sp=72*dtReal, nx=a.spr.x+dx/d*sp, ny=a.spr.y+dy/d*sp;   // no atravesar edificios (rodean), salvo que salga de un bolsillo (a.cruza)
+        const piso=a.cruza?terrenoLibre:landAtPx;
+        if(piso(nx,ny)||d<T){ a.spr.x=nx; a.spr.y=ny; } a.spr.setFlipX(dx<0); a.spr.setDepth(a.spr.y); }
     } else if(a.estado==='cazando'){
       const m=a.objAnimal;
       if(!m||m.dead){ if(!a.objPile) parar(a); }
