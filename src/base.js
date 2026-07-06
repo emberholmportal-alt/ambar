@@ -1064,6 +1064,7 @@ function convertirBestia(m,costo){
 function updateAllies(dtReal){
   const vivos=(S.raid.on?S.raid.gob.filter(g=>!g.dead):[]);
   for(const u of S.allies){ if(u.dead) continue;
+    if(escaparSiAtascado(u,54*dtReal)){ moveMark(u); continue; }   // bestia leal atrapada: sale
     u.spr.setDepth(u.spr.y);
     moveMark(u);
     if(u.hp<u.maxhp) drawHp(u,u.hp/u.maxhp,30,u.spr.y-u.spr.originY*u.spr.displayHeight*0.8); else hideBar(u);
@@ -1273,6 +1274,7 @@ function addBuilding(tipo,tx,ty,opt){
     buf:0, reserva:c.reserva||0, pileSpr:null, badge:null, barG:null, fireSpr:null};
   const m=makeSprites(b); b.sprs=m.sprs; b.x=m.x; b.y=m.y;
   setGrid(b,b.id);
+  if(scene&&scene.sys) desalojarZona(b);              // si construyeron encima de una unidad/animal, lo sacamos (no queda atrapado)
   S.buildings.push(b);
   revelar(b.x,b.y-c.fh*T*0.5,4);
   if(b.estado==='esperando'){
@@ -1428,7 +1430,7 @@ function tryPlace(tx,ty){
   const {tipo,moverId}=S.colocando, c=CAT[tipo];
   if(!canPlaceB(tx,ty,c,moverId)){ sfx('creak',0.4); return; }
   if(moverId){
-    const b=byId(moverId); setGrid(b,null); b.tx=tx; b.ty=ty; setGrid(b,b.id); refreshBuilding(b);
+    const b=byId(moverId); setGrid(b,null); b.tx=tx; b.ty=ty; setGrid(b,b.id); desalojarZona(b); refreshBuilding(b);
     sfx('door',0.5); toast(c.nom+' reubicado.'); cancelPlace(); refreshHUD(); return;
   }
   if(!pagar(c.costo)){ sfx('creak',0.4); if(!c.muro) toast('No te alcanza para '+c.nom+'.'); return; }
@@ -2017,6 +2019,44 @@ function objsEnemigo(){                               // objetivos de edificio: 
   const torres=todos.filter(b=>b.tipo==='torre');
   return torres.length?torres:todos;
 }
+/* ===== anti-traba: nadie queda encerrado ===== */
+function tileLibreCercaDe(px,py){                     // centro (en px) del tile transitable más cercano a (px,py)
+  const t=tileOfPx(px,py);
+  if(walkable(t.x,t.y)) return {x:(BX+t.x)*T+T/2, y:(BY+t.y)*T+T/2};
+  for(let r=1;r<=8;r++)for(let oy=-r;oy<=r;oy++)for(let ox=-r;ox<=r;ox++){
+    if(Math.max(Math.abs(ox),Math.abs(oy))!==r) continue;             // sólo el anillo exterior
+    const x=t.x+ox, y=t.y+oy;
+    if(walkable(x,y)) return {x:(BX+x)*T+T/2, y:(BY+y)*T+T/2};
+  }
+  return null;
+}
+function escaparSiAtascado(ent,sp){                   // si quedó sobre un tile NO transitable (edificio/agua/nodo), lo empuja al más cercano libre
+  if(landAtPx(ent.spr.x,ent.spr.y)) return false;
+  const dst=tileLibreCercaDe(ent.spr.x,ent.spr.y); if(!dst) return false;
+  const d=Phaser.Math.Distance.Between(ent.spr.x,ent.spr.y,dst.x,dst.y);
+  if(d<4){ ent.spr.x=dst.x; ent.spr.y=dst.y; }
+  else { const ang=Math.atan2(dst.y-ent.spr.y,dst.x-ent.spr.x); ent.spr.x+=Math.cos(ang)*Math.max(sp,2.4); ent.spr.y+=Math.sin(ang)*Math.max(sp,2.4); }
+  ent.spr.setDepth(ent.spr.y); if(ent.path)ent.path=null;
+  return true;
+}
+function tileBordeEdificio(b,fromX,fromY){            // tile transitable pegado al footprint, el más cercano a (fromX,fromY)
+  const c=CAT[b.tipo]; let best=null,bd=1e9;
+  for(let y=b.ty-1;y<=b.ty+c.fh;y++)for(let x=b.tx-1;x<=b.tx+c.fw;x++){
+    const borde=(x<b.tx||x>=b.tx+c.fw||y<b.ty||y>=b.ty+c.fh);
+    if(!borde||!walkable(x,y)) continue;
+    const px=(BX+x)*T+T/2, py=(BY+y)*T+T/2, dd=Phaser.Math.Distance.Between(fromX,fromY,px,py);
+    if(dd<bd){bd=dd;best={x,y};}
+  }
+  return best;
+}
+function desalojarZona(b){                            // saca del footprint de un edificio nuevo a cualquier entidad viva atrapada
+  const c=CAT[b.tipo];
+  const dentro=s=>{ const t=tileOfPx(s.x,s.y); return t.x>=b.tx&&t.x<b.tx+c.fw&&t.y>=b.ty&&t.y<b.ty+c.fh; };
+  for(const L of [S.units,S.ald,S.allies,S.raid.gob,S.animals]) for(const e of L){
+    if(!e||e.dead||!e.spr) continue;
+    if(dentro(e.spr)){ const dst=tileLibreCercaDe(e.spr.x,e.spr.y);
+      if(dst){ e.spr.x=dst.x; e.spr.y=dst.y; e.spr.setDepth(e.spr.y); e.path=null; e.moveT=null; if(e.tx!=null){e.tx=dst.x;e.ty=dst.y;} } } }
+}
 function raidTick(dtReal){
   const R=S.raid;
   const vivos=R.gob.filter(g=>!g.dead);
@@ -2034,14 +2074,15 @@ function raidTick(dtReal){
       for(const u of S.raid.war) if(!u.dead){ const dd=Phaser.Math.Distance.Between(g.spr.x,g.spr.y,u.spr.x,u.spr.y); if(dd<best){best=dd;uNear=u;} }
       for(const u of S.allies) if(!u.dead){ const dd=Phaser.Math.Distance.Between(g.spr.x,g.spr.y,u.spr.x,u.spr.y); if(dd<best){best=dd;uNear=u;} }
       for(const a of S.ald){ if(a.estado==='refugiado') continue; const dd=Phaser.Math.Distance.Between(g.spr.x,g.spr.y,a.spr.x,a.spr.y); if(dd<best){best=dd;uNear=a;} }
-      if(uNear){ g.target=uNear; g.esUnidad=true; }
-      else if(g.esUnidad){ g.target=null; g.esUnidad=false; }
+      if(uNear){ if(g.target!==uNear){ g.path=null; g.bestD=null; g.noProg=0; } g.target=uNear; g.esUnidad=true; }
+      else if(g.esUnidad){ g.target=null; g.esUnidad=false; g.path=null; g.bestD=null; }
     }
     if(!g.target||(g.esUnidad&&g.target.dead)||(!g.esUnidad&&(g.target.danado||g.target.estado!=='ok'))){
       const cands=objsEnemigo();   // primero las torres: el enemigo va directo a ellas
-      g.target = cands.length ? cands.reduce((m,b)=>Phaser.Math.Distance.Between(g.spr.x,g.spr.y,b.x,b.y)<Phaser.Math.Distance.Between(g.spr.x,g.spr.y,m.x,m.y)?b:m,cands[0])
+      const nuevo = cands.length ? cands.reduce((m,b)=>Phaser.Math.Distance.Between(g.spr.x,g.spr.y,b.x,b.y)<Phaser.Math.Distance.Between(g.spr.x,g.spr.y,m.x,m.y)?b:m,cands[0])
                               : (tc||null);
-      g.esUnidad=false;
+      if(nuevo!==g.target){ g.path=null; g.bestD=null; g.noProg=0; }
+      g.target=nuevo; g.esUnidad=false;
       if(!g.target){ continue; }
     }
     const txp=g.esUnidad?g.target.spr.x:g.target.x, typ=g.esUnidad?g.target.spr.y:g.target.y-2;   // apunta a la BASE del edificio (profundidad correcta)
@@ -2054,15 +2095,31 @@ function raidTick(dtReal){
     } else { d=Phaser.Math.Distance.Between(g.spr.x,g.spr.y,txp,typ); rango=g.ranged?T*3.6:34; }
     if(d>rango){
       const sp=(g.sp||46)*dtReal;
-      const moved=avanzarHacia(g,txp,typ,sp);        // no atraviesa edificios ni cruza agua
       if(g.spr.anims.currentAnim&&g.spr.anims.currentAnim.key!==g.ar) g.spr.play(g.ar,true);
-      if(!moved){ g.stuck=(g.stuck||0)+dtReal;        // trabado: si hay un edificio al lado lo ataca; si no, re-evalúa objetivo
-        if(g.stuck>0.5){ g.stuck=0;
-          let near=null,bd=T*1.6;
-          for(const b of objsEnemigo()){ const dd=Phaser.Math.Distance.Between(g.spr.x,g.spr.y,b.x,b.y); if(dd<bd){bd=dd;near=b;} }
-          if(near){ g.target=near; g.esUnidad=false; } else { g.target=null; g.esUnidad=false; } } }
-      else g.stuck=0;
+      if(escaparSiAtascado(g,sp)){ g.stuck=0; g.noProg=0; }   // quedó SOBRE un tile bloqueado (ej: construyeron encima): sale al más cercano
+      else {
+        let following = !!(g.path&&g.path.length);
+        let aimX=txp, aimY=typ;                                // apuntá al próximo waypoint de la ruta BFS si la hay; si no, directo (voraz)
+        if(following){ const wp=g.path[0];
+          if(Phaser.Math.Distance.Between(g.spr.x,g.spr.y,wp.x,wp.y)<12) g.path.shift();
+          if(g.path.length){ aimX=g.path[0].x; aimY=g.path[0].y; } else { g.path=null; following=false; } }
+        const moved=avanzarHacia(g,aimX,aimY,sp);
+        // progreso REAL: si la distancia al objetivo no baja, está deslizando contra un muro sin avanzar (aunque "se mueva")
+        if(g.bestD==null||d<g.bestD-3){ g.bestD=d; g.noProg=0; }
+        else g.noProg=(g.noProg||0)+dtReal;
+        if(!moved || (!following && g.noProg>0.5)){        // trabado (o deslizando sin progresar): pedí ruta BFS que rodee el obstáculo
+          g.noProg=0; g.bestD=d; g.path=null;
+          const et=tileOfPx(g.spr.x,g.spr.y);
+          let dst=null;
+          if(g.esUnidad){ const tt=tileOfPx(g.target.spr.x,g.target.spr.y); dst=walkable(tt.x,tt.y)?tt:adjWalkable(tt.x,tt.y); }
+          else if(g.target.tipo&&CAT[g.target.tipo]) dst=tileBordeEdificio(g.target,g.spr.x,g.spr.y);
+          else { const tt=tileOfPx(txp,typ); dst=walkable(tt.x,tt.y)?tt:adjWalkable(tt.x,tt.y); }
+          g.path = dst ? findPath(et.x,et.y,dst.x,dst.y) : null;
+          if(!g.path){ g.target=null; g.esUnidad=false; g.bestD=null; }   // realmente sin ruta: reevaluá objetivo el próximo tick
+        }
+      }
     } else {
+      g.path=null; g.bestD=null; g.noProg=0;                  // en rango: a pegar, ruta consumida
       g.atkT+=dtReal;
       if(g.atkT>(g.ranged?2.0:1.1)){ g.atkT=0;
         g.spr.play(g.aa||g.ai,true);   // anim de ataque si el enemigo la tiene (gnomo/esqueleto/troll/pirata), si no la de idle
@@ -2120,6 +2177,7 @@ function muereUnidad(u,esUnidad){
 }
 function pelear(lista,vivos,dtReal,esUnidad){
   for(const u of lista.filter(u2=>!u2.dead)){
+    if(escaparSiAtascado(u,58*dtReal)){ moveMark(u); continue; }   // si quedó atrapado (construyeron encima), sale
     if(u.tipo==='monje'){ curarCerca(u,dtReal); continue; }   // el monje no pelea: sana
     const arquero=u.tipo==='arquero';
     const alcance=arquero?T*4.5:26;
@@ -2279,6 +2337,7 @@ function update(time,delta){
 
   for(const a of S.ald){
     if(a.estado==='refugiado') continue;                 // a resguardo dentro del Ayuntamiento
+    if(escaparSiAtascado(a,64*dtReal)){ moveMark(a); continue; }   // aldeano atrapado sobre un edificio: sale
     if(a.estado==='yendo'){
       const dx=a.tx-a.spr.x, dy=a.ty-a.spr.y, d=Math.hypot(dx,dy);
       if(d<5){
@@ -2355,6 +2414,7 @@ function update(time,delta){
   }
   for(const u of S.units){
     if(!u.dead&&!S.raid.on){                              // fuera de oleada las unidades SÍ obedecen órdenes de movimiento
+      if(escaparSiAtascado(u,58*dtReal)){ moveMark(u); continue; }   // unidad atrapada sobre un edificio: sale
       if(u.forced&&u.forced.dead) u.forced=null;
       if(u.forced&&u.tipo!=='monje'){                      // orden de atacar (típicamente un animal, sin oleada)
         const tg=u.forced, arquero=u.tipo==='arquero', alcance=arquero?T*4.5:26;
