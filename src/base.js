@@ -833,6 +833,14 @@ function explosionAt(x,y,esc){                        // explosión real del pac
   const e=scene.add.sprite(x,y,'pfx_boom').setDepth(99997).setScale((esc||1.1)*0.9).play('pfxboom');
   e.once('animationcomplete',()=>e.destroy()); sfx('explode',0.5);
 }
+function embestida(spr,tx,ty){                        // El Toro Negro no tiene anim de ataque: hace una EMBESTIDA (lunge + impacto)
+  if(!spr||spr._lunge) return; spr._lunge=true;
+  const ox=spr.x, oy=spr.y, ang=Math.atan2(ty-oy,tx-ox);
+  spr.setFlipX(Math.cos(ang)<0);
+  scene.tweens.add({targets:spr,x:ox+Math.cos(ang)*24,y:oy+Math.sin(ang)*24,duration:130,yoyo:true,ease:'Quad.easeOut',
+    onComplete:()=>{ spr.x=ox; spr.y=oy; spr._lunge=false; }});
+  dustAt(tx,ty,3); burstAt(tx,ty-10,0xd0b0ff); scene.cameras.main.shake(140,0.006);
+}
 function splashAt(x,y,esc){                           // salpicadura de agua real del pack (pfx_splash)
   const s=scene.add.sprite(x,y,'pfx_splash').setDepth(-19).setScale(esc||0.8).play('pfxsplash');
   s.once('animationcomplete',()=>s.destroy());
@@ -920,10 +928,11 @@ function setTool(a,tool){ a.tool=tool;
 }
 /* ===== economía: el aldeano CARGA poco y el recurso suma recién al depositarlo en el Ayuntamiento ===== */
 const CARRYCAP=12;                                    // cuánto puede cargar antes de tener que ir a dejar
-function setCarga(a){                                 // sprite del aldeano cargando el recurso (animaciones de Pawn & Resources)
+function setCarga(a){                                 // sprite del aldeano cargando el recurso (Pawn & Resources: el pawn lleva el fardo al hombro)
   if(!a.carga){ setTool(a,null); return; }
-  if(a.carga.res==='oro'){ a.spr.setTexture('wgold_blue_r',0).setScale(0.7); a.spr.play('wgold-r',true); }   // saco de oro
-  else { a.spr.setTexture('wrock1',0).setScale(0.9); a.spr.play('wrock1-a',true); }                          // fardo a cuestas (madera/carne)
+  // wgold_*_r es la ÚNICA animación de "pawn cargando" del pack (fardo/saco al hombro); sirve genérica para oro, madera y carne.
+  // (antes la madera/carne usaba wrock1, que es una ROCA de mar animada — se veía como una piedra flotando)
+  a.spr.setTexture('wgold_blue_r',0).setScale(0.7); a.spr.play('wgold-r',true);
   a.tool='carga';
 }
 function depositar(a){                                // deja la carga en el Ayuntamiento: recién ahí suma
@@ -1172,7 +1181,8 @@ function updateAllies(dtReal){
       const d=Phaser.Math.Distance.Between(u.spr.x,u.spr.y,u.target.spr.x,u.target.spr.y);
       if(d>30){ avanzarHacia(u,u.target.spr.x,u.target.spr.y,54*dtReal);
         if(u.run&&u.spr.anims.currentAnim&&u.spr.anims.currentAnim.key!==u.run) u.spr.play(u.run,true);
-      } else { u.moveT=null; u.atkCd-=dtReal; if(u.atkCd<=0){ u.atkCd=1.0; if(u.idle)u.spr.play(u.idle,true);
+      } else { u.moveT=null; u.atkCd-=dtReal; if(u.atkCd<=0){ u.atkCd=1.0;
+        if(u.beast==='toro'){ if(u.run)u.spr.play(u.run,true); embestida(u.spr,u.target.spr.x,u.target.spr.y); } else if(u.idle)u.spr.play(u.idle,true);   // el Toro leal embiste
         dañarObjetivo(u.target,u.dmg,0x8ad0ff); burstAt(u.target.spr.x,u.target.spr.y-14,0x8ad0ff); sfxAt('clash',0.3,u.spr.x,u.spr.y);
         if(u.target.dead){ u.target=null; u.forced=null; } } }
     } else if(u.path&&u.path.length){                 // ruta para salir de un bolsillo (puede cruzar el propio edificio)
@@ -2340,7 +2350,8 @@ function raidTick(dtReal){
       g.path=null; g.bestD=null; g.noProg=0;                  // en rango: a pegar, ruta consumida
       g.atkT+=dtReal;
       if(g.atkT>(g.ranged?2.0:1.1)){ g.atkT=0;
-        g.spr.play(g.aa||g.ai,true);   // anim de ataque si el enemigo la tiene (gnomo/esqueleto/troll/pirata), si no la de idle
+        if(g.kind==='toro'){ g.spr.play(g.ar,true); embestida(g.spr, g.esUnidad?g.target.spr.x:g.target.x, g.esUnidad?g.target.spr.y:g.target.y-2); }   // el Toro embiste
+        else g.spr.play(g.aa||g.ai,true);   // anim de ataque si el enemigo la tiene (gnomo/esqueleto/troll/pirata), si no la de idle
         if(g.esUnidad){                               // pega a la unidad defensora
           dañarDefensor(g.target,g.dmg); if(g.target.dead){ g.target=null; g.esUnidad=false; }
         } else if(g.bomba){                           // pez bomba: lanza una bomba que estalla
@@ -2838,8 +2849,9 @@ function updateAnimals(dtReal,dt){
         if(d<120){ const ang=Math.atan2(m.spr.y-cazador.spr.y,m.spr.x-cazador.spr.x);
           const nx=m.spr.x+Math.cos(ang)*40*dtReal, ny=m.spr.y+Math.sin(ang)*40*dtReal;
           if(landAtPx(nx,ny)){ m.spr.x=nx; m.spr.y=ny; m.spr.setFlipX(Math.cos(ang)<0); m.spr.setDepth(m.spr.y); } }
-      } else if(cfg.dmg){ // jabalí/oso: contraatacan
-        if(d<38){ m.atkT+=dtReal; if(m.atkT>1.1){ m.atkT=0; dañarAldeano(cazador,cfg.dmg); m.spr.play(cfg.anim,true); } }
+      } else if(cfg.dmg){ // jabalí/oso/Toro: contraatacan
+        if(d<38){ m.atkT+=dtReal; if(m.atkT>1.1){ m.atkT=0; dañarAldeano(cazador,cfg.dmg);
+          if(m.tipo==='toro'){ m.spr.play(cfg.run,true); embestida(m.spr,cazador.spr.x,cazador.spr.y); } else m.spr.play(cfg.anim,true); } }
       }
       continue;
     }
