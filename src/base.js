@@ -1982,6 +1982,11 @@ function avanzarHacia(ent,tx,ty,sp){                  // mueve hacia (tx,ty) des
   ent.spr.setFlipX(dx<0); ent.spr.setDepth(ent.spr.y);
   return moved;
 }
+function objsEnemigo(){                               // objetivos de edificio: las torres van PRIMERO (el enemigo se les tira encima)
+  const todos=S.buildings.filter(b=>b.estado==='ok'&&!b.danado);
+  const torres=todos.filter(b=>b.tipo==='torre');
+  return torres.length?torres:todos;
+}
 function raidTick(dtReal){
   const R=S.raid;
   const vivos=R.gob.filter(g=>!g.dead);
@@ -2003,15 +2008,20 @@ function raidTick(dtReal){
       else if(g.esUnidad){ g.target=null; g.esUnidad=false; }
     }
     if(!g.target||(g.esUnidad&&g.target.dead)||(!g.esUnidad&&(g.target.danado||g.target.estado!=='ok'))){
-      const cands=S.buildings.filter(b=>b.estado==='ok'&&!b.danado);
+      const cands=objsEnemigo();   // primero las torres: el enemigo va directo a ellas
       g.target = cands.length ? cands.reduce((m,b)=>Phaser.Math.Distance.Between(g.spr.x,g.spr.y,b.x,b.y)<Phaser.Math.Distance.Between(g.spr.x,g.spr.y,m.x,m.y)?b:m,cands[0])
                               : (tc||null);
       g.esUnidad=false;
       if(!g.target){ continue; }
     }
     const txp=g.esUnidad?g.target.spr.x:g.target.x, typ=g.esUnidad?g.target.spr.y:g.target.y-2;   // apunta a la BASE del edificio (profundidad correcta)
-    const d=Phaser.Math.Distance.Between(g.spr.x,g.spr.y,txp,typ);
-    const rango=g.ranged?T*3.6:34;                   // el shaman ataca de lejos
+    let d, rango;
+    if(!g.esUnidad&&g.target.tipo&&CAT[g.target.tipo]){   // edificio: distancia al BORDE del footprint (así pega desde cualquier lado, no se traba)
+      const b=g.target, c=CAT[b.tipo];
+      const L=(BX+b.tx)*T, Tp=(BY+b.ty)*T, R=(BX+b.tx+c.fw)*T, B=(BY+b.ty+c.fh)*T;
+      const dx=Math.max(L-g.spr.x,0,g.spr.x-R), dy=Math.max(Tp-g.spr.y,0,g.spr.y-B);
+      d=Math.hypot(dx,dy); rango=g.ranged?T*3.6:T*0.75;
+    } else { d=Phaser.Math.Distance.Between(g.spr.x,g.spr.y,txp,typ); rango=g.ranged?T*3.6:34; }
     if(d>rango){
       const sp=(g.sp||46)*dtReal;
       const moved=avanzarHacia(g,txp,typ,sp);        // no atraviesa edificios ni cruza agua
@@ -2019,7 +2029,7 @@ function raidTick(dtReal){
       if(!moved){ g.stuck=(g.stuck||0)+dtReal;        // trabado: si hay un edificio al lado lo ataca; si no, re-evalúa objetivo
         if(g.stuck>0.5){ g.stuck=0;
           let near=null,bd=T*1.6;
-          for(const b of S.buildings){ if(b.estado!=='ok'||b.danado) continue; const dd=Phaser.Math.Distance.Between(g.spr.x,g.spr.y,b.x,b.y); if(dd<bd){bd=dd;near=b;} }
+          for(const b of objsEnemigo()){ const dd=Phaser.Math.Distance.Between(g.spr.x,g.spr.y,b.x,b.y); if(dd<bd){bd=dd;near=b;} }
           if(near){ g.target=near; g.esUnidad=false; } else { g.target=null; g.esUnidad=false; } } }
       else g.stuck=0;
     } else {
@@ -2043,13 +2053,13 @@ function raidTick(dtReal){
       }
     }
   }
-  // La torre es APOYO, no una defensa que gana sola: alcance corto y cadencia lenta. Una horda la desborda si no la acompañás con tropas.
+  // La torre es APOYO: SIEMPRE dispara (aunque esté sola) pero lento, y el enemigo la ataca como primer objetivo, así la desborda sin tropas que la cubran.
   for(const t of S.buildings.filter(b=>b.tipo==='torre'&&b.estado==='ok'&&!b.danado)){
     t.cd=(t.cd||0)-dtReal;
     if(t.cd<=0){
       const g=vivos.filter(g2=>!g2.dead).sort((a,b2)=>Phaser.Math.Distance.Between(t.x,t.y,a.spr.x,a.spr.y)-Phaser.Math.Distance.Between(t.x,t.y,b2.spr.x,b2.spr.y))[0];
-      if(g&&Phaser.Math.Distance.Between(t.x,t.y,g.spr.x,g.spr.y)<T*3.4){
-        t.cd=2.6+(t.nivel>1?-0.5:0);
+      if(g&&Phaser.Math.Distance.Between(t.x,t.y,g.spr.x,g.spr.y)<T*4){
+        t.cd=3.2+(t.nivel>1?-0.6:0);   // cadencia lenta
         const p=scene.add.image(t.x,t.y-CAT.torre.fh*T,'dot').setTint(0xffe9a0).setDepth(99998).setScale(1.1);
         scene.tweens.add({targets:p,x:g.spr.x,y:g.spr.y-16,duration:220,ease:'Linear',onComplete:()=>{p.destroy(); if(!g.dead) golpearEnemigo(g,1,0xffe9a0);}});
         sfxAt('clash',0.3,t.x,t.y);
