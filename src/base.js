@@ -114,7 +114,7 @@ function preload(){
   const TSB='assets/img/ts/';
   this.load.spritesheet('ground',TSB+'ground.png',{frameWidth:64,frameHeight:64});
   this.load.spritesheet('elev',TSB+'elevation.png',{frameWidth:64,frameHeight:64});
-  this.load.spritesheet('gelev',TSB+'grass_elev.png',{frameWidth:64,frameHeight:64});   // meseta con cima de PASTO (derivado del pack)
+  this.load.spritesheet('tmg',TSB+'tilemap_grass.png',{frameWidth:64,frameHeight:64});   // Tilemap_color1 del pack: grass-on-elevation real (cima verde + cara de piedra)
   this.load.image('water',TSB+'water.png');
   this.load.spritesheet('foam',TSB+'foam.png',{frameWidth:192,frameHeight:192});
   this.load.spritesheet('tree',TSB+'tree_anim.png',{frameWidth:192,frameHeight:192});
@@ -336,13 +336,20 @@ function gIdx(x,y){
   if(!n&&!w) return 0; if(!n&&!e) return 2; if(!s&&!w) return 20; if(!s&&!e) return 22;
   if(!n) return 1; if(!s) return 21; if(!w) return 10; if(!e) return 12; return 11;
 }
-function eIdx(x,y){
+// cima de meseta con pasto: autotile del Tilemap_color1 (frames 5-35 = grass-on-elevation)
+function geIdx(x,y){
   const lv=S.elev[y][x];
-  const inE=(a,b)=>isIn(a,b)&&S.elev[b][a]>=lv;   // conecta con el mismo nivel o más alto; corta contra el escalón de abajo
+  const inE=(a,b)=>isIn(a,b)&&S.elev[b][a]>=lv;
   const n=inE(x,y-1), s=inE(x,y+1), w=inE(x-1,y), e=inE(x+1,y);
-  if(n&&s&&w&&e) return 5;
-  if(!n&&!w) return 0; if(!n&&!e) return 2; if(!s&&!w) return 8; if(!s&&!e) return 10;
-  if(!n) return 1; if(!s) return 9; if(!w) return 4; if(!e) return 6; return 5;
+  if(n&&s&&w&&e) return 15;                          // interior (pasto lleno)
+  if(!n&&!w) return 5; if(!n&&!e) return 8; if(!s&&!w) return 32; if(!s&&!e) return 35;   // esquinas
+  if(!n) return 6; if(!s) return 33; if(!w) return 14; if(!e) return 17;                  // bordes
+  return 15;
+}
+// cara de acantilado (frames 41-44): piedra teal bajo el borde sur de la meseta
+function gcIdx(x,y){
+  const l=isIn(x-1,y)&&S.cliff[y][x-1], r=isIn(x+1,y)&&S.cliff[y][x+1];
+  return l&&r?42 : (!l&&r)?41 : (l&&!r)?44 : 43;
 }
 
 function create(){
@@ -429,12 +436,9 @@ function create(){
     if(!S.land[y][x]||S.elev[y][x]) continue;
     if(!isLand(x-1,y)||!isLand(x+1,y)||!isLand(x,y-1)||!isLand(x,y+1)) rt.drawFrame('ground',16,(BX+x)*T,(BY+y)*T);
   }
-  // meseta con cima de PASTO verde + reborde/cara de piedra (tileset grass-on-elevation derivado del pack)
-  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++) if(S.elev[y][x]) rt.drawFrame('gelev',eIdx(x,y),(BX+x)*T,(BY+y)*T);
-  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++) if(S.cliff[y][x]){
-    const l=isIn(x-1,y)&&S.cliff[y][x-1], r=isIn(x+1,y)&&S.cliff[y][x+1];
-    rt.drawFrame('gelev', l&&r?13 : r?12 : l?14 : 15, (BX+x)*T,(BY+y)*T);
-  }
+  // meseta con cima de PASTO verde + cara de piedra (Tilemap_color1 real del pack: grass-on-elevation)
+  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++) if(S.elev[y][x]) rt.drawFrame('tmg',geIdx(x,y),(BX+x)*T,(BY+y)*T);
+  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++) if(S.cliff[y][x]) rt.drawFrame('tmg',gcIdx(x,y),(BX+x)*T,(BY+y)*T);
   paintGrassPatches(rt);   // variación de tono sobre el pasto (menos chato)
   // snapshot del terreno real → base del minimapa (no procedural)
   try{ rt.snapshotArea(BX*T,BY*T,GW*T,GH*T,img=>{ mmBase=img; }); }catch(e){}
