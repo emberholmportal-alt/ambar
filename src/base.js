@@ -77,6 +77,8 @@ const S={ oro:220, madera:260, comida:130, ambar:60,
   land:Array.from({length:GH},()=>Array(GW).fill(false)),
   elev:Array.from({length:GH},()=>Array(GW).fill(0)),
   cliff:Array.from({length:GH},()=>Array(GW).fill(false)),
+  bridge:Array.from({length:GH},()=>Array(GW).fill(false)),
+  bridgeDir:Array.from({length:GH},()=>Array(GW).fill(null)),
   explored:Array.from({length:GH},()=>Array(GW).fill(false)),
   buildings:[], nodes:[], animals:[], critters:[], piles:[], ald:[], units:[], allies:[], dialogOn:true, nextId:1,
   aldElegido:null, colocando:null, sel:null,
@@ -110,6 +112,7 @@ function preload(){
   this.load.spritesheet('ground',TSB+'ground.png',{frameWidth:64,frameHeight:64});
   this.load.spritesheet('elev',TSB+'elevation.png',{frameWidth:64,frameHeight:64});
   this.load.spritesheet('tmg',TSB+'tilemap_grass.png',{frameWidth:64,frameHeight:64});   // Tilemap_color1 del pack: grass-on-elevation real (cima verde + cara de piedra)
+  this.load.spritesheet('bridge',TSB+'bridge.png',{frameWidth:64,frameHeight:64});        // puente para cruzar el agua
   this.load.image('water',TSB+'water.png');
   this.load.spritesheet('foam',TSB+'foam.png',{frameWidth:192,frameHeight:192});
   this.load.spritesheet('tree',TSB+'tree_anim.png',{frameWidth:192,frameHeight:192});
@@ -269,7 +272,8 @@ function paintGrassPatches(rt){
 const isIn=(x,y)=>x>=0&&x<GW&&y>=0&&y<GH;
 const isLand=(x,y)=>isIn(x,y)&&S.land[y][x];
 const ocupado=(x,y)=>isIn(x,y)&&S.grid[y][x]!==null;         // edificio / nodo / escenario ocupan la celda
-const walkable=(x,y)=>isLand(x,y)&&!S.cliff[y][x]&&!ocupado(x,y);   // no se atraviesan edificios ni objetos
+const esPuente=(x,y)=>isIn(x,y)&&S.bridge[y][x];
+const walkable=(x,y)=>(isLand(x,y)||esPuente(x,y))&&!(isIn(x,y)&&S.cliff[y][x])&&!ocupado(x,y);   // el puente cruza el agua; no se atraviesan edificios
 function buildMap(){
   const cx=GW/2-0.5, cy=GH/2-0.5, p1=Math.random()*6.28, p2=Math.random()*6.28, p3=Math.random()*6.28;
   // continente: casi todo tierra, con costa irregular que toca los bordes en partes
@@ -352,6 +356,27 @@ function buildMap(){
   for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
     const aca=S.elev[y][x], deb=isIn(x,y+1)?S.elev[y+1][x]:0;
     if(aca>deb && isIn(x,y+1)) S.cliff[y+1][x]=true;
+  }
+  buildBridges();
+}
+// puentes: cruzan canales angostos de agua entre dos porciones de tierra (los hace transitables)
+function buildBridges(){
+  let puestos=0;
+  for(let y=2;y<GH-2 && puestos<2;y++)for(let x=1;x<GW-4;x++){           // horizontales
+    if(S.land[y][x]||!S.land[y][x-1]||S.elev[y][x-1]) continue;
+    let k=0; while(x+k<GW && !S.land[y][x+k]) k++;
+    if(k>=1 && k<=4 && x+k<GW && S.land[y][x+k] && !S.elev[y][x+k]){
+      for(let i=0;i<k;i++){ S.bridge[y][x+i]=true; S.bridgeDir[y][x+i]='h'; }
+      puestos++; x+=k+2; if(puestos>=2)break;
+    }
+  }
+  for(let x=2;x<GW-2 && puestos<2;x++)for(let y=1;y<GH-4;y++){            // verticales
+    if(S.land[y][x]||!S.land[y-1][x]||S.elev[y-1][x]) continue;
+    let k=0; while(y+k<GH && !S.land[y+k][x]) k++;
+    if(k>=1 && k<=4 && y+k<GH && S.land[y+k][x] && !S.elev[y+k][x]){
+      for(let i=0;i<k;i++){ S.bridge[y+i][x]=true; S.bridgeDir[y+i][x]='v'; }
+      puestos++; y+=k+2; if(puestos>=2)break;
+    }
   }
 }
 function gIdx(x,y){
@@ -478,6 +503,12 @@ function create(){
   // meseta con cima de PASTO verde + cara de piedra (Tilemap_color1 real del pack: grass-on-elevation)
   for(let y=0;y<GH;y++)for(let x=0;x<GW;x++) if(S.elev[y][x]) rt.drawFrame('tmg',geIdx(x,y),(BX+x)*T,(BY+y)*T);
   for(let y=0;y<GH;y++)for(let x=0;x<GW;x++) if(S.cliff[y][x]) rt.drawFrame('tmg',gcIdx(x,y),(BX+x)*T,(BY+y)*T);
+  // puentes sobre el agua
+  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++) if(S.bridge[y][x]){
+    let fr; if(S.bridgeDir[y][x]==='h') fr = S.land[y][x-1]?0 : (isIn(x+1,y)&&S.land[y][x+1])?2 : 1;
+    else fr = S.land[y-1][x]?3 : (isIn(x,y+1)&&S.land[y+1][x])?9 : 6;
+    rt.drawFrame('bridge',fr,(BX+x)*T,(BY+y)*T);
+  }
   paintGrassPatches(rt);   // variación de tono sobre el pasto (menos chato)
   // snapshot del terreno real → base del minimapa (no procedural)
   try{ rt.snapshotArea(BX*T,BY*T,GW*T,GH*T,img=>{ mmBase=img; }); }catch(e){}
@@ -626,10 +657,10 @@ function marcaOrden(x,y){
 }
 /* ===== bocadillos de diálogo (sátira / miedo / aburrimiento / onomatopeyas) ===== */
 const DIALOGO={
-  aldeano:{ ocio:['¿Otra muralla? Ya me duele la espalda.','El rey ni paga las horas extra…','Extraño mi granja, che.','¿Cuándo es el almuerzo?','Trabajar, siempre trabajar.','Un mate no vendría mal ahora.','Juro que vi un goblin… ¿o era una oveja?'],
-            asedio:['¡AY, GOBLINS! ¡Corran!','¡No me pagan para esto!','¡Que alguien cierre el portón!','¡Mamáaa!','¡Yo soy aldeano, no soldado!'] },
-  militar:{ ocio:['Afilando el acero, por las dudas.','Todo tranquilo… demasiado tranquilo.','Un día de estos me hago granjero.','Extraño la taberna.','¿Guardia otra vez? Qué aburrido.'],
-            asedio:['¡Por el Toro Negro!','¡A ellos, cobardes!','¡Ni un paso atrás!','¡Sangre y honor!','¡Vengan si se animan!'] },
+  aldeano:{ ocio:['¿Otra muralla? Me duele la espalda.','El rey no paga las horas extra.','Extraño mi granja.','¿Cuándo es el almuerzo?','Trabajar, siempre trabajar.','Necesito un descanso.','¿Fue un goblin o una oveja?'],
+            asedio:['¡Goblins! ¡Corran!','¡No me pagan para esto!','¡Cierren el portón!','¡Socorro!','¡Soy aldeano, no soldado!'] },
+  militar:{ ocio:['Afilando el acero.','Todo tranquilo… demasiado tranquilo.','Algún día seré granjero.','Extraño la taberna.','¿Guardia otra vez?'],
+            asedio:['¡Por el Toro Negro!','¡A las armas!','¡Ni un paso atrás!','¡Sangre y honor!','¡Que vengan!'] },
 };
 const ONOMA={ oveja:['¡Beee!','¡Bêê!','Meeeh…'], jabali:['¡Oink!','¡Grññ!','*hozando*'], oso:['¡GROAAR!','¡Rrraw!','*gruñe*'],
   toro:['¡MUUU!','¡MUUUH!','*resopla furioso*'], snake:['¡Ssss!','¡Ssssh!'], spider:['*click click*','…'], bestia:['¡Por el Rey!','¡GROAR! (leal)','*ruge a tu favor*'] };
@@ -699,10 +730,17 @@ function drawBuildHp(b,frac){
   g.fillStyle(frac>0.5?0x5fa55a:frac>0.25?0xc9a227:0xc94f45,1).fillRect(x,y,Math.max(0,Math.round(bw*frac)),4);
 }
 function addMark(ent,color,off){        // triangulito titilante sobre la cabeza
-  ent.markOff=off;
+  ent.markOff=off; ent._markCol=color;
   ent.markBg=scene.add.image(ent.spr.x,ent.spr.y-off,'tri').setTint(0x120d09).setDepth(98499).setScale(1.55); // contorno
   ent.mark=scene.add.image(ent.spr.x,ent.spr.y-off,'tri').setTint(color).setDepth(98500).setScale(1.3);
   ent.markTw=scene.tweens.add({targets:[ent.mark,ent.markBg],alpha:0.4,duration:480,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+}
+let selMarcado=null;
+function marcarSeleccion(){             // el triángulo del seleccionado se pone VERDE
+  if(selMarcado&&selMarcado.mark&&selMarcado.mark.active) selMarcado.mark.setTint(selMarcado._markCol||0xffffff);
+  selMarcado=null;
+  const r=S.sel&&S.sel.ref;
+  if(r&&r.mark&&r.mark.active){ r.mark.setTint(0x5fe08a); selMarcado=r; }
 }
 function killMark(ent){ if(ent.markTw){ent.markTw.remove();ent.markTw=null;} if(ent.mark){ent.mark.destroy();ent.mark=null;} if(ent.markBg){ent.markBg.destroy();ent.markBg=null;} }
 function moveMark(ent){ if(ent.mark){ const y=ent.spr.y-ent.markOff;
@@ -1338,8 +1376,8 @@ const costoTxt=c=>Object.entries(c).map(([k,v])=>`${v} ${k==='ambar'?'◆':k}`).
 const byId=id=>S.buildings.find(b=>b.id===id);
 
 /* ===== SELECCIÓN + panel inferior ===== */
-function seleccionar(sel){ S.sel=sel; renderSel(); buildGrid(); applyCursor(); }
-function deseleccionar(){ S.sel=null; renderSel(); buildGrid(); applyCursor(); }
+function seleccionar(sel){ S.sel=sel; renderSel(); buildGrid(); applyCursor(); marcarSeleccion(); }
+function deseleccionar(){ S.sel=null; renderSel(); buildGrid(); applyCursor(); marcarSeleccion(); }
 function accion(label,fn,disabled){
   const b=document.createElement('button'); b.className='ghost'; b.textContent=label; b.disabled=!!disabled;
   if(fn&&!disabled) b.onclick=fn;
@@ -2122,7 +2160,8 @@ function update(time,delta){
       if(d<5){
         if(a.path&&a.path.length){ const p=a.path.shift(); a.tx=p.x; a.ty=p.y; }
         else { const cb=a.onArrive; a.onArrive=null; if(cb) cb(a); else if(a.estado==='yendo') a.spr.play('pawn_blue-i',true); }
-      } else { const sp=72*dtReal; a.spr.x+=dx/d*sp; a.spr.y+=dy/d*sp; a.spr.setFlipX(dx<0); a.spr.setDepth(a.spr.y); }
+      } else { const sp=72*dtReal, nx=a.spr.x+dx/d*sp, ny=a.spr.y+dy/d*sp;   // no atravesar edificios (rodean)
+        if(landAtPx(nx,ny)||d<T){ a.spr.x=nx; a.spr.y=ny; } a.spr.setFlipX(dx<0); a.spr.setDepth(a.spr.y); }
     } else if(a.estado==='cazando'){
       const m=a.objAnimal;
       if(!m||m.dead){ if(!a.objPile) parar(a); }
@@ -2178,7 +2217,9 @@ function update(time,delta){
       const dx=a.tx-a.spr.x, dy=a.ty-a.spr.y, d=Math.hypot(dx,dy);
       if(d<5){ if(a.path&&a.path.length){ const p=a.path.shift(); a.tx=p.x; a.ty=p.y; }
         else { a.estado='libre'; a.spr.play('pawn_blue-i',true); } }
-      else { const sp=46*dtReal; a.spr.x+=dx/d*sp; a.spr.y+=dy/d*sp; a.spr.setFlipX(dx<0); a.spr.setDepth(a.spr.y); }
+      else { const sp=46*dtReal, nx=a.spr.x+dx/d*sp, ny=a.spr.y+dy/d*sp;
+        if(landAtPx(nx,ny)||d<T){ a.spr.x=nx; a.spr.y=ny; } else { a.estado='libre'; a.path=null; }
+        a.spr.setFlipX(dx<0); a.spr.setDepth(a.spr.y); }
     }
     // niebla: revelar al moverse
     const tk=Math.floor(a.spr.x/T)+','+Math.floor(a.spr.y/T);
@@ -2202,7 +2243,7 @@ function update(time,delta){
   updateAnimals(dtReal,dt);
   updateAllies(dtReal);
   if(dlgT>0){ dlgT-=dtReal; if(dlgT<=0) ocultarDialogo(); }
-  chatT-=dtReal; if(chatT<=0){ chatT=Phaser.Math.FloatBetween(14,26); soltarBocadillo(); }
+  chatT-=dtReal; if(chatT<=0){ chatT=Phaser.Math.FloatBetween(32,58); soltarBocadillo(); }
 
   for(const b of S.buildings){
     const c=CAT[b.tipo];
@@ -2283,6 +2324,7 @@ function update(time,delta){
 function updateAnimals(dtReal,dt){
   for(const m of S.animals){
     if(m.dead) continue;
+    m.spr.setDepth(m.spr.y);                          // profundidad al día: no detrás de edificios
     const cfg=FAUNA[m.tipo];
     drawHp(m, m.hp/m.maxhp, m.tipo==='toro'?42:m.tipo==='oso'?36:26, m.spr.y-m.spr.originY*m.spr.displayHeight*0.82);
     const cazador=m.hunter&&S.ald.includes(m.hunter)&&m.hunter.estado==='cazando'?m.hunter:null;
