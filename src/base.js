@@ -878,13 +878,20 @@ function adjWalkable(tx,ty){
 }
 
 /* ===== ALDEANOS ===== */
+/* ===== áreas de click precisas: cada entidad sólo se clickea sobre su CUERPO visible,
+   nunca sobre el marco transparente. Así unidades y edificios no cruzan sus radios de click. ===== */
+function hitCuerpo(spr,cx,cy,r){ spr.setInteractive({hitArea:new Phaser.Geom.Circle(cx,cy,r), hitAreaCallback:Phaser.Geom.Circle.Contains, useHandCursor:true}); return spr; }
+function hitPersonaje(spr){ return hitCuerpo(spr, spr.width/2, spr.height*0.56, Math.min(spr.width,spr.height)*0.24); }
+function hitBicho(spr){ return hitCuerpo(spr, spr.width/2, spr.height*0.6, Math.min(spr.width,spr.height)*0.3); }
+function hitEdificio(spr){ const W=spr.width,H=spr.height;   // sólo el cuerpo bajo del edificio (no el marco ni el techo alto)
+  spr.setInteractive({hitArea:new Phaser.Geom.Rectangle(W*0.14,H*0.42,W*0.72,H*0.56), hitAreaCallback:Phaser.Geom.Rectangle.Contains, useHandCursor:true}); return spr; }
 function spawnAldeano(x,y,inicial){
   if(!inicial&&popTotal()>=POPCAP()){ toast(L('🏠 Cupo lleno (','🏠 Cap full (')+POPCAP()+L('). Construí Casas o despedí unidades.','). Build Houses or dismiss units.')); sfx('creak',0.4); return null; }
   const s=scene.add.sprite(x,y,'pawn_blue').setOrigin(0.5,0.72).setScale(0.7).setDepth(y);
   s.play('pawn_blue-i');
   const a={id:'a'+S.nextId++, spr:s, estado:'libre', hp:25, maxhp:25, path:null, onArrive:null,
     tx:x, ty:y, wT:rint(2,6), task:null, tarT:0, tool:null, lastTile:'', atkT:0, av:randAv()};
-  s.setInteractive({useHandCursor:true});
+  hitPersonaje(s);
   s.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'aldeano',ref:a}); });
   addMark(a,0xffe36b,64);
   S.ald.push(a); refreshHUD(); return a;
@@ -1044,7 +1051,7 @@ function scatterNodos(kind,n){
     let spr;
     if(kind==='arbol') spr=scene.add.sprite(x,y,'tree').play({key:'tree-a',startFrame:rint(0,3)}).setOrigin(0.5,0.92).setScale(0.58);
     else spr=scene.add.image(x,y,'goldmine_inactive').setOrigin(0.5,0.9).setScale(0.9);
-    spr.setDepth(y).setInteractive({useHandCursor:true});
+    spr.setDepth(y); hitBicho(spr);
     const nd={id,kind,tipo:kind,tx,ty,spr,reserva:cfg.reserva,tool:cfg.tool,res:cfg.res};
     spr.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'nodo',ref:nd}); });
     for(let oy=0;oy<cfg.fh;oy++)for(let ox=0;ox<cfg.fw;ox++) S.grid[ty+oy][tx+ox]=id;
@@ -1073,7 +1080,7 @@ function convertirBestia(m,costo){
   const perHit=cfg.jefe?8:cfg.dmg>=10?5:3;
   const ally={spr:m.spr, tipo:'bestia', beast:m.tipo, nom:cfg.nom, hp:m.hp, maxhp:m.maxhp, dmg:perHit,
               dead:false, atkCd:0, target:null, forced:null, moveT:null, wT:rint(3,7), run:cfg.run, idle:cfg.anim};
-  m.spr.removeAllListeners('pointerdown'); m.spr.setInteractive({useHandCursor:true});   // ahora es una unidad tuya: seleccionable
+  m.spr.removeAllListeners('pointerdown'); hitBicho(m.spr);   // ahora es una unidad tuya: seleccionable
   m.spr.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'allie',ref:ally}); });
   addMark(ally,0x8ad0ff, m.spr.displayHeight*m.spr.originY+10);   // marcador celeste = tuyo
   S.allies.push(ally);
@@ -1129,7 +1136,7 @@ function scatterFauna(tipo,n){
     s.play(cfg.anim);
     const m={id:'m'+S.nextId++, tipo, spr:s, hp:cfg.hp, maxhp:cfg.hp, carne:cfg.carne, dmg:cfg.dmg, aoa:cfg.aoa||0,
       dead:false, homeT:{x:tx,y:ty}, wT:rint(2,7), atkT:0, hunter:null};
-    s.setInteractive({useHandCursor:true});
+    hitBicho(s);
     s.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'animal',ref:m}); });
     S.animals.push(m);
   }
@@ -1167,7 +1174,7 @@ function matarAnimal(m){
   if(FAUNA[m.tipo]&&FAUNA[m.tipo].jefe){ S.stats.bull++; sfx('bong',0.8); toast(L('🐂 ¡Cazaste a THE BLACK BULL! Botín enorme de carne y ◆ $AOA.','🐂 You hunted THE BLACK BULL! Huge haul of meat and ◆ $AOA.')); }
   const px=m.spr.x, py=m.spr.y;
   m.spr.destroy(); S.animals=S.animals.filter(x=>x!==m);
-  const psp=scene.add.image(px,py,'res_meat').setScale(0.55).setDepth(py).setInteractive({useHandCursor:true});
+  const psp=hitBicho(scene.add.image(px,py,'res_meat').setScale(0.55).setDepth(py));
   scene.tweens.add({targets:psp,y:py-6,duration:600,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
   const pile={id:'p'+S.nextId++, x:px, y:py, carne:m.carne, spr:psp};
   psp.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'pila',ref:pile}); });
@@ -1269,7 +1276,7 @@ function makeSprites(b){
   } else {
     sprs.push(scene.add.image(x,y,texOf(b)).setOrigin(0.5,1).setDepth(y));
   }
-  sprs[0].setInteractive({useHandCursor:true});
+  hitEdificio(sprs[0]);
   sprs[0].on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) clickBuilding(b); });
   return {sprs,x,y};
 }
@@ -1354,7 +1361,7 @@ function entrenar(tipoU,b){
   s.play(idle);
   const un={id:'u'+S.nextId++, tipo:tipoU, spr:s, home:{x:s.x,y:s.y}, target:null, cd:0, dead:false, wT:rint(3,8), moveT:null,
     hp:u.hp, maxhp:u.hp, atkCd:0, healCd:0, av:randAv()};
-  s.setInteractive({useHandCursor:true});
+  hitPersonaje(s);
   s.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'militar',ref:un}); });
   addMark(un,tipoU==='monje'?0x8ee0a0:0x8ec8ff,66);
   S.units.push(un); S.stats.entrenados++;
@@ -1748,7 +1755,7 @@ function crearGuerrero(x,y){
   const s=scene.add.sprite(x,y,'warrior_i').setOrigin(0.5,0.72).setScale(0.72).setDepth(y).play('war-i');
   const un={id:'u'+S.nextId++, tipo:'guerrero', spr:s, home:{x,y}, target:null, cd:0, dead:false, wT:rint(3,8), moveT:null,
     hp:HP, maxhp:HP, atkCd:0, healCd:0, av:randAv()};
-  s.setInteractive({useHandCursor:true});
+  hitPersonaje(s);
   s.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'militar',ref:un}); });
   addMark(un,0x8ec8ff,66); S.units.push(un); return un;
 }
@@ -2578,7 +2585,7 @@ function update(time,delta){
       if(b.buf>=25&&!b.pileSpr){
         b.pileSpr=scene.add.image(b.x,b.y-c.fh*T-6,RES_IMG[c.prod]).setScale(0.42).setDepth(97000);
         scene.tweens.add({targets:b.pileSpr,y:'-=7',duration:520,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
-        b.pileSpr.setInteractive({useHandCursor:true});
+        hitBicho(b.pileSpr);
         b.pileSpr.on('pointerdown',p=>{ if(!p.rightButtonDown()) cosechar(b); });
       }
       if(b.buf<25&&b.pileSpr){ b.pileSpr.destroy(); b.pileSpr=null; }
