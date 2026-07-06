@@ -18,10 +18,10 @@
     color:#e7c766;margin-top:-8px;letter-spacing:.02em;text-shadow:0 3px 0 #000,0 0 18px rgba(0,0,0,.7);
     animation:splashIn 1s .15s cubic-bezier(.2,.9,.25,1) both}
   @keyframes splashIn{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
-  #splashBarWrap{width:min(58vw,360px);aspect-ratio:320/64;box-sizing:border-box;padding:0 8%;display:flex;align-items:center;
-    background:url('assets/img/ui/bar_base.png') center/100% 100% no-repeat;image-rendering:pixelated}
-  #splashBar{height:34%;width:0%;transition:width .25s ease;
-    background:url('assets/img/ui/bar_fill.png') center/100% 100% no-repeat;image-rendering:pixelated}
+  #splashBarWrap{position:relative;width:min(60vw,360px);aspect-ratio:320/64;image-rendering:pixelated}
+  #splashFrame{position:absolute;inset:0;background:url('assets/img/ui/bar_base.png') center/100% 100% no-repeat;image-rendering:pixelated;pointer-events:none}
+  #splashTrack{position:absolute;left:11%;right:11%;top:40%;bottom:40%;overflow:hidden;border-radius:3px}
+  #splashBar{height:100%;width:0%;transition:width .25s ease;background:linear-gradient(180deg,#ff9a3a 0%,#e5533a 55%,#b5312a 100%);box-shadow:0 0 4px rgba(255,150,60,.5)}
   #splashTxt{font-family:'IM Fell English',serif;font-style:italic;color:#c9b48a;font-size:15px;letter-spacing:.5px}
   :root{
     --bg:#16110c;--bg2:#221a11;--bg3:#120d09;--ink:#ece3d0;--muted:#9a8b6f;
@@ -181,7 +181,7 @@
 <div id="splash">
   <img id="splashLogo" src="assets/img/aoa_logo.png" alt="Age of Ansem"/>
   <div id="splashSub">The Black Bull</div>
-  <div id="splashBarWrap"><div id="splashBar"></div></div>
+  <div id="splashBarWrap"><div id="splashFrame"></div><div id="splashTrack"><div id="splashBar"></div></div></div>
   <div id="splashTxt">Forjando el reino…</div>
 </div>
 <div class="app">

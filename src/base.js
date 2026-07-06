@@ -306,14 +306,14 @@ function buildMap(){
   // garantizar zona de arranque sólida (centro-sur)
   const sx0=Math.floor(GW/2)-3, sy0=GH-6;
   for(let y=sy0;y<GH-1;y++)for(let x=sx0;x<sx0+6;x++) if(isIn(x,y)) S.land[y][x]=true;
-  // mesetas de DOS niveles: relieve real, escalones con acantilado (menos chato)
-  const nMes=rint(3,5);
+  // mesetas de DOS niveles: bloques COHERENTES (pocas, sólidas, borde suave)
+  const nMes=rint(2,3);
   for(let m=0;m<nMes;m++){
     let mx=0,my=0,tr=0;
-    do{ mx=rint(4,GW-5); my=rint(2,Math.floor(GH*0.6)); tr++; }while(tr<50&&!isLand(mx,my));
-    const mr=Phaser.Math.FloatBetween(2.2,3.8), ph=Math.random()*6.28;
+    do{ mx=rint(5,GW-6); my=rint(3,Math.floor(GH*0.5)); tr++; }while(tr<50&&!isLand(mx,my));
+    const mr=Phaser.Math.FloatBetween(2.6,3.6), ph=Math.random()*6.28;
     for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
-      const wob=0.55*Math.sin(Math.atan2(y-my,x-mx)*3+ph);   // borde orgánico, no un círculo
+      const wob=0.28*Math.sin(Math.atan2(y-my,x-mx)*2+ph);   // borde apenas orgánico, sin púas
       if(S.land[y][x]&&Math.hypot(x-mx,y-my)<mr+wob&&y<GH-3) S.elev[y][x]=1;
     }
   }
@@ -330,12 +330,21 @@ function buildMap(){
       if(S.elev[y][x]===1 && Math.hypot(x-bx,y-by)<br+wob) S.elev[y][x]=2;
     }
   }
+  // erosión: sacar protrusiones finas/aisladas para que las mesetas sean BLOQUES coherentes (nada de púas sueltas)
+  for(let it=0;it<3;it++){
+    const snap=S.elev.map(r=>r.slice());
+    for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){ if(!snap[y][x]) continue;
+      let altos=0; for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]) if(isIn(x+dx,y+dy)&&snap[y+dy][x+dx]>=snap[y][x]) altos++;
+      if(altos<2) S.elev[y][x]=snap[y][x]-1;   // menos de 2 vecinos del mismo nivel → baja un escalón
+    }
+  }
   // el nivel-2 nunca toca el borde directo: siempre queda un escalón de nivel-1 alrededor
   for(let it=0;it<2;it++)for(let y=0;y<GH;y++)for(let x=0;x<GW;x++) if(S.elev[y][x]===2){
     let expuesto=false;
     for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]) if(!(isIn(x+dx,y+dy)&&S.elev[y+dy][x+dx]>=1)) expuesto=true;
     if(expuesto) S.elev[y][x]=1;
   }
+  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++) if(S.elev[y][x]&&!isLand(x,y+1)) S.elev[y][x]=0;   // no colgar sobre el agua
   // acantilado: una fila de piedra por cada escalón que baja hacia el sur
   for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
     const aca=S.elev[y][x], deb=isIn(x,y+1)?S.elev[y+1][x]:0;
@@ -805,6 +814,26 @@ function parar(a){
   setTool(a,null); a.spr.play('pawn_blue-i',true);
   refreshHUD(); if(S.sel&&S.sel.ref===a) renderSel();
 }
+function aguaCerca(tx,ty){ for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]) if(isIn(tx+dx,ty+dy)&&!S.land[ty+dy][tx+dx]) return {x:tx+dx,y:ty+dy}; return null; }
+// el aldeano ocioso se pega un chapuzón: salta al agua, se zambulle y sale (aprovecha el splash)
+function chapuzon(a,cur){
+  const w=aguaCerca(cur.x,cur.y); if(!w) return;
+  a.estado='chapuzon'; a.path=null; a.spr.play('pawn_blue-r',true);
+  const wx=(BX+w.x)*T+T/2, wy=(BY+w.y)*T+T/2, sx=a.spr.x, sy=a.spr.y;
+  scene.tweens.add({targets:a.spr,x:wx,y:wy-6,duration:520,ease:'Sine.easeIn',onComplete:()=>{
+    if(a.dead||!a.spr.active){ return; }
+    splashAt(wx,wy,0.7); sfxAt('door',0.3,wx,wy);
+    a.spr.play('pawn_blue-i',true);
+    scene.tweens.add({targets:a.spr,y:wy+8,scaleX:0.7,scaleY:0.5,alpha:0.6,duration:300,ease:'Sine.easeIn',onComplete:()=>{  // se zambulle
+      scene.time.delayedCall(rint(500,1100),()=>{
+        if(a.dead||!a.spr.active){ return; }
+        splashAt(wx,wy,0.7);
+        a.spr.setScale(0.7).setAlpha(1);
+        scene.tweens.add({targets:a.spr,x:sx,y:sy,duration:600,ease:'Sine.easeOut',onComplete:()=>{ if(!a.dead&&a.spr.active){ a.estado='libre'; a.spr.play('pawn_blue-i',true); } }});
+      });
+    }});
+  }});
+}
 function despedir(a){
   if(a.dustEv)a.dustEv.remove(); if(a.tween)a.tween.remove();
   killMark(a); killBar(a);
@@ -1052,7 +1081,7 @@ function scatterEyeCandy(n){
 // hitos más grandes y variados: espantapájaros, cartel, calavera en cruz
 function scatterLandmarks(){
   // hitos + deco real del pack (árbol muerto, pica con calavera, huesos)
-  const props=[['deco18',0.7],['deco17',0.85],['deco16',0.85],['dead_tree',0.7],['dead_tree',0.7],['skull_spike',0.7],['bones1',0.7],['deco13',1.0]];
+  const props=[['deco18',0.7],['deco17',0.85],['deco16',0.85],['dead_tree',0.42],['skull_spike',0.5],['bones1',0.6],['deco13',1.0]];
   for(const [tex,esc] of props){
     for(let tr=0;tr<60;tr++){ const tx=rint(1,GW-2), ty=rint(1,GH-2);
       if(!isLand(tx,ty)||S.cliff[ty][tx]||S.grid[ty][tx]!==null) continue;
@@ -1563,7 +1592,7 @@ function scatterBanners(){
   const tc=byTC(); if(!tc) return;
   const combo=pick([['war','pawn'],['war','war'],['war','pawn'],['war','war']]);   // aleatorio: guerrero+aldeano o dos guerreros
   const xs=[(BX+tc.tx-0.05)*T+T/2, (BX+tc.tx+CAT.castle.fw-0.95)*T+T/2];
-  const y=(BY+tc.ty+CAT.castle.fh)*T+6;
+  const y=(BY+tc.ty+CAT.castle.fh)*T+16;   // claramente delante del Ayuntamiento (no detrás del muro)
   combo.forEach((tipo,i)=>{
     const u=tipo==='war'?crearGuerrero(xs[i],y):spawnAldeano(xs[i],y,true);
     if(u) u.spr.setFlipX(i===1);
@@ -1897,7 +1926,12 @@ function seguirRuta(u,dtReal){                        // seguir la ruta (rodeand
   else if(u.moveT){ pt=u.moveT; if(Phaser.Math.Distance.Between(u.spr.x,u.spr.y,pt.x,pt.y)<6){ u.moveT=null; pt=null; } }
   if(!pt) return;
   const sp=58*dtReal, ang=Math.atan2(pt.y-u.spr.y,pt.x-u.spr.x);
-  u.spr.x+=Math.cos(ang)*sp; u.spr.y+=Math.sin(ang)*sp; u.spr.setFlipX(Math.cos(ang)<0); u.spr.setDepth(u.spr.y);
+  const nx=u.spr.x+Math.cos(ang)*sp, ny=u.spr.y+Math.sin(ang)*sp;   // nunca pisar agua ni acantilado (desliza contra el borde)
+  if(landAtPx(nx,ny)){ u.spr.x=nx; u.spr.y=ny; }
+  else if(landAtPx(nx,u.spr.y)){ u.spr.x=nx; }
+  else if(landAtPx(u.spr.x,ny)){ u.spr.y=ny; }
+  else { u.path=null; u.moveT=null; }                              // atascado: soltar la orden en vez de trabarse
+  u.spr.setFlipX(Math.cos(ang)<0); u.spr.setDepth(u.spr.y);
 }
 function muereUnidad(u,esUnidad){
   u.dead=true; killMark(u); killBar(u); if(esUnidad) S.units=S.units.filter(x=>x!==u);
@@ -2111,12 +2145,15 @@ function update(time,delta){
       a.wT-=dtReal;
       if(a.wT<=0){ a.wT=rint(4,9);
         const cur=tileOfPx(a.spr.x,a.spr.y);
-        for(let i=0;i<8;i++){ const nx=Phaser.Math.Clamp(cur.x+rint(-3,3),0,GW-1), ny=Phaser.Math.Clamp(cur.y+rint(-3,3),0,GH-1);
+        if(Math.random()<0.12 && aguaCerca(cur.x,cur.y)){ chapuzon(a,cur); }   // de vez en cuando: se tira al agua
+        else for(let i=0;i<8;i++){ const nx=Phaser.Math.Clamp(cur.x+rint(-3,3),0,GW-1), ny=Phaser.Math.Clamp(cur.y+rint(-3,3),0,GH-1);
           if(walkable(nx,ny)&&S.grid[ny][nx]===null){
             const path=findPath(cur.x,cur.y,nx,ny);
             if(path){ a.estado='paseo'; a.path=path; if(path.length){const p=a.path.shift(); a.tx=p.x; a.ty=p.y;} a.spr.play('pawn_blue-r',true); }
             break; } }
       }
+    } else if(a.estado==='chapuzon'){
+      /* la secuencia la maneja chapuzon() con tweens/timers; acá no se mueve */
     } else if(a.estado==='paseo'){
       const dx=a.tx-a.spr.x, dy=a.ty-a.spr.y, d=Math.hypot(dx,dy);
       if(d<5){ if(a.path&&a.path.length){ const p=a.path.shift(); a.tx=p.x; a.ty=p.y; }
@@ -2126,6 +2163,7 @@ function update(time,delta){
     // niebla: revelar al moverse
     const tk=Math.floor(a.spr.x/T)+','+Math.floor(a.spr.y/T);
     if(tk!==a.lastTile){ a.lastTile=tk; revelar(a.spr.x,a.spr.y,4); }
+    a.spr.setDepth(a.spr.y);
     moveMark(a);
     if(a.hp<a.maxhp||(S.sel&&S.sel.ref===a)) drawHp(a,a.hp/a.maxhp,32,a.spr.y-a.markOff+12); else hideBar(a);
   }
@@ -2137,13 +2175,14 @@ function update(time,delta){
         const tk=Math.floor(u.spr.x/T)+','+Math.floor(u.spr.y/T); if(tk!==u.lastTile){ u.lastTile=tk; revelar(u.spr.x,u.spr.y,4); } }
       else if(key===uAnim(u.tipo,'r')) u.spr.play(uAnim(u.tipo,'i'),true);
     }
+    u.spr.setDepth(u.spr.y);                             // profundidad al día: nunca detrás del edificio si está adelante
     moveMark(u);
     if(u.hp!=null&&(u.hp<u.maxhp||(S.sel&&S.sel.ref===u))) drawHp(u,u.hp/u.maxhp,30,u.spr.y-58); else hideBar(u); }
 
   updateAnimals(dtReal,dt);
   updateAllies(dtReal);
   if(dlgT>0){ dlgT-=dtReal; if(dlgT<=0) ocultarDialogo(); }
-  chatT-=dtReal; if(chatT<=0){ chatT=Phaser.Math.FloatBetween(5,9); soltarBocadillo(); }
+  chatT-=dtReal; if(chatT<=0){ chatT=Phaser.Math.FloatBetween(14,26); soltarBocadillo(); }
 
   for(const b of S.buildings){
     const c=CAT[b.tipo];
