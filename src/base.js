@@ -1146,6 +1146,15 @@ function reponerGranja(b){                             // vuelve a llenar la res
 }
 
 /* ===== el monarca doblega una bestia salvaje → aliado que pelea por vos ===== */
+function costoConvertir(m){ const cfg=FAUNA[m.tipo]; return cfg.jefe?20:cfg.dmg>=10?10:6; }
+function monjeDisponible(x,y){   // monje vivo más cercano: SÓLO un monje puede doblegar bestias
+  const monjes=S.units.filter(u=>!u.dead&&u.tipo==='monje'); if(!monjes.length) return null;
+  return monjes.reduce((m,u)=>Phaser.Math.Distance.Between(x,y,u.spr.x,u.spr.y)<Phaser.Math.Distance.Between(x,y,m.spr.x,m.spr.y)?u:m,monjes[0]);
+}
+function mandarConvertir(u,m){    // manda al monje hacia la bestia; la convierte al llegar (ver loop de unidades)
+  u.convertT=m; u.convCost=costoConvertir(m); u.forced=null; u.target=null;
+  moverMilitar(u,m.spr.x,m.spr.y);
+}
 function convertirBestia(m,costo){
   const cfg=FAUNA[m.tipo];
   if(S.ambar<costo){ sfx('creak',0.4); toast(L('Convertir cuesta ◆ ','Converting costs ◆ ')+costo+'.'); return; }
@@ -1487,8 +1496,15 @@ function ordenar(p){
   }
   if(sel.t==='militar'){
     const u=sel.ref;
-    const en=S.raid.gob.find(g=>!g.dead&&Phaser.Math.Distance.Between(wp.x,wp.y,g.spr.x,g.spr.y)<44)
-          || S.animals.find(m=>!m.dead&&Phaser.Math.Distance.Between(wp.x,wp.y,m.spr.x,m.spr.y)<44);
+    const ani=S.animals.find(m=>!m.dead&&Phaser.Math.Distance.Between(wp.x,wp.y,m.spr.x,m.spr.y)<44);
+    if(u.tipo==='monje'){                                 // el monje NO ataca: mueve, o convierte una bestia
+      if(ani){ const costo=costoConvertir(ani);
+        if(S.ambar<costo){ toast(L('No te alcanza el ◆ para convertir.','Not enough ◆ to convert.')); sfx('creak',0.3); }
+        else { mandarConvertir(u,ani); ordenIcono(ani.spr.x,ani.spr.y,'ic5',L('✝️ Convertir','✝️ Convert'),'#8ee0a0',0.6); } }
+      else { moverMilitar(u,wp.x,wp.y); marcaMover(wp.x,wp.y); }
+      return;
+    }
+    const en=S.raid.gob.find(g=>!g.dead&&Phaser.Math.Distance.Between(wp.x,wp.y,g.spr.x,g.spr.y)<44) || ani;
     if(en){ u.forced=en; u.target=en; u.moveT=null; u.path=null; ordenIcono(en.spr.x,en.spr.y,'ic5',L('¡Ataque!','Attack!'),'#ff9a6a',0.6); }
     else { moverMilitar(u,wp.x,wp.y); marcaMover(wp.x,wp.y); }
     return;
@@ -1638,8 +1654,12 @@ function renderSel(){
     const m=sel.ref, cfg=FAUNA[m.tipo];
     $('selNom').textContent=cfg.nom; $('selLvl').textContent=L('Carne: ','Meat: ')+cfg.carne+(cfg.dmg?L(' · ⚠️ contraataca',' · ⚠️ fights back'):L(' · pacífico',' · peaceful')); setHp(m.hp,m.maxhp);
     accion('CAZAR',()=>{ const a=aldLibreCerca(m.spr.x,m.spr.y); if(a){mandarCazar(a,m); toast(L('🏹 A cazar.','🏹 Off to hunt.'));} else toast(L('No hay aldeanos libres.','No free villagers.')); },false);
-    const costo=cfg.jefe?20:cfg.dmg>=10?10:6;         // el monarca doblega CUALQUIER bestia a su bando
-    accion(L('👑 CONVERTIR (◆ ','👑 CONVERT (◆ ')+costo+')',()=>convertirBestia(m,costo),S.ambar<costo);
+    const costo=costoConvertir(m);                    // SÓLO un monje puede doblegar la bestia (con ◆)
+    accion(L('✝️ MANDAR MONJE (◆ ','✝️ SEND MONK (◆ ')+costo+')',()=>{
+      const u=monjeDisponible(m.spr.x,m.spr.y);
+      if(!u){ toast(L('Necesitás un MONJE para convertir bestias.','You need a MONK to convert beasts.')); sfx('creak',0.3); return; }
+      mandarConvertir(u,m); toast(L('✝️ El monje va a doblegar a ','✝️ The monk goes to tame ')+cfg.nom+'.');
+    },S.ambar<costo);
   } else if(sel.t==='pila'){
     const pile=sel.ref;
     $('selNom').textContent=L('Carne','Meat'); $('selLvl').textContent='+'+pile.carne+L(' comida al recogerla',' food when gathered'); setHp(null);
@@ -2763,6 +2783,13 @@ function update(time,delta){
             if(u.tipo==='guerrero'){ u.spr.play('war-a',true); u.spr.once('animationcomplete',()=>{ if(u.spr&&u.spr.active&&!u.dead) u.spr.play('war-r',true); }); }
             dañarObjetivo(tg,2,0xffffff);
             if(tg.dead){ u.forced=null; u.spr.play(uAnim(u.tipo,'i'),true); } } }
+      } else if(u.tipo==='monje'&&u.convertT){          // el monje camina hasta la bestia y la convierte al llegar
+        const m=u.convertT;
+        if(m.dead||!S.animals.includes(m)){ u.convertT=null; u.moveT=null; u.spr.play('monk-i',true); }
+        else{ const d=Phaser.Math.Distance.Between(u.spr.x,u.spr.y,m.spr.x,m.spr.y);
+          if(d>40){ u.moveT={x:m.spr.x,y:m.spr.y}; seguirRuta(u,dtReal);
+            if((u.spr.anims.currentAnim&&u.spr.anims.currentAnim.key)!=='monk-r') u.spr.play('monk-r',true); }
+          else { u.moveT=null; u.path=null; convertirBestia(m,u.convCost||costoConvertir(m)); u.convertT=null; u.spr.play('monk-i',true); } }
       } else {
         seguirRuta(u,dtReal);
         const moving=(u.path&&u.path.length)||u.moveT, key=u.spr.anims.currentAnim&&u.spr.anims.currentAnim.key;
