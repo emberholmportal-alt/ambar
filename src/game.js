@@ -411,6 +411,14 @@ function create(){
   const inSand=(x,y)=>sand.has(pkey(x,y));
   sand.forEach(k=>{const [x,y]=k.split(',').map(Number); rt.drawFrame('ground',sandIdx(x,y,inSand),x*T,y*T);});
 
+  // ---- campos dorados: parches orgánicos de pasto seco para variar el terreno (verde + dorado) ----
+  const dry=new Set();
+  for(let b=0;b<6;b++){ const dcx=rint(6,COLS-6), dcy=rint(4,ROWS-4), rr=rint(2,4);
+    for(let y=dcy-rr;y<=dcy+rr;y++)for(let x=dcx-rr;x<=dcx+rr;x++)
+      if(y>=0&&y<ROWS&&x>=0&&x<COLS&&isLand(x,y)&&!inSand(x,y)&&Math.hypot(x-dcx,y-dcy)<=rr+Math.random()) dry.add(pkey(x,y)); }
+  const inDry=(x,y)=>dry.has(pkey(x,y));
+  dry.forEach(k=>{const [x,y]=k.split(',').map(Number); rt.drawFrame('ground',sandIdx(x,y,inDry),x*T,y*T);});
+
   npcGroup=this.physics.add.group();
   this.physics.add.collider(npcGroup,obstacles);
   this.physics.world.setBounds(T,T,WORLD_W-2*T,WORLD_H-2*T);
@@ -503,6 +511,8 @@ function create(){
   for(let i=0;i<26;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)){ placeDecoImg('rock'+rint(1,4),t.x,t.y,Phaser.Math.FloatBetween(0.7,1.0)); bloquear(t.x,t.y); }}   // las rocas bloquean
   for(let i=0;i<12;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)){ placeDecoImg('goldstone'+rint(1,6),t.x,t.y,Phaser.Math.FloatBetween(0.5,0.7)); bloquear(t.x,t.y); }}   // piedras de oro sueltas
   for(let i=0;i<80;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)) placeDecoImg('tdeco'+rint(1,18),t.x,t.y,Phaser.Math.FloatBetween(0.65,1));}   // usa TODAS las decos (1-18)
+  for(let i=0;i<95;i++){const t=randFree(); if(t&&!inSand(t.x,t.y))                    // matojos de pasto: textura/detalle del suelo
+    scene.add.image(t.x*T+T/2+rint(-18,18),t.y*T+T/2+rint(-14,14),'ground',pick([4,14,24])).setOrigin(0.5,0.6).setScale(Phaser.Math.FloatBetween(0.7,1.0)).setDepth(-19);}
   for(let i=0;i<9;i++){const t=randFree(); if(t) spawnSheep(t.x,t.y);}
 
   // ---- casillas caminables ----
