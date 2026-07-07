@@ -25,10 +25,9 @@
   .live{display:flex;align-items:center;gap:8px;font-weight:700;letter-spacing:.14em;font-size:12px;color:var(--ember)}
   .dot{width:9px;height:9px;border-radius:50%;background:var(--ember);box-shadow:0 0 10px var(--ember);animation:pulse 1.6s ease-in-out infinite}
   @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.8)}}
-  .brand{display:flex;flex-direction:column;line-height:1.05;margin-right:auto}
-  .brand h1{margin:0;font-family:var(--title);font-weight:700;font-size:22px;letter-spacing:.04em;color:var(--brass-hi);text-shadow:0 2px 0 #000,0 0 10px rgba(0,0,0,.55)}
-  .brand h1 b{color:var(--ink);font-weight:700}
-  .brand span{font-family:var(--flavor);font-style:italic;font-size:11px;color:var(--muted);margin-top:2px}
+  .brand{display:flex;align-items:center;gap:13px;line-height:1.15;margin-right:auto}
+  .brandlogo{height:40px;width:auto;image-rendering:pixelated;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6));flex:none}
+  .brand span{font-family:var(--flavor);font-style:italic;font-size:12px;color:var(--muted);max-width:330px}
   .stat{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
   .stat .k{font-size:9px;color:var(--muted);letter-spacing:.16em}
   .stat .v{font-size:14px;font-variant-numeric:tabular-nums;color:var(--brass-hi)}
@@ -95,7 +94,37 @@
   .guild .gt{font-family:var(--display);font-weight:700;font-size:12px;color:#e6dcc6;line-height:1.1}
   .guild .gl{font-family:var(--flavor);font-style:italic;font-size:11px;color:var(--muted);margin-top:1px}
   .credit{font-size:9px;color:#6d6350;padding:8px 14px 12px;background:var(--bg3);line-height:1.4}
-  @media(max-width:900px){.stage{flex-direction:column}.viewport{height:52%}.side{width:auto;height:48%;border-left:none;border-top:1px solid var(--line)}.brand h1{font-size:18px}.iris{width:120px;height:120px}.srow .gn{width:96px}}
+  /* ==== cartel de estado del dev (comando de consola) ==== */
+  .devbar{position:absolute;left:0;right:0;bottom:0;z-index:50;display:flex;justify-content:center;
+    padding:0 14px 16px;pointer-events:none;transform:translateY(140%);opacity:0;transition:transform .4s cubic-bezier(.2,.9,.2,1),opacity .4s}
+  .devbar.on{transform:translateY(0);opacity:1}
+  .devbar-in{display:flex;align-items:center;gap:12px;max-width:min(92%,720px);pointer-events:auto;
+    background:linear-gradient(180deg,#221a11,#120d09);border:1px solid var(--line2);border-radius:11px;
+    box-shadow:0 8px 26px rgba(0,0,0,.6),inset 0 0 0 1px rgba(240,213,100,.08),0 0 22px rgba(229,83,58,.12);
+    padding:11px 18px;font-size:14px}
+  .devbar-tag{flex:none;font-family:var(--mono);font-weight:700;font-size:10px;letter-spacing:.18em;color:#120d09;
+    background:linear-gradient(180deg,var(--brass-hi),var(--brass));border-radius:4px;padding:4px 8px 5px;box-shadow:0 1px 2px rgba(0,0,0,.5)}
+  .devbar-status{font-family:var(--display);font-weight:700;color:var(--brass-hi);letter-spacing:.02em;text-shadow:0 1px 0 #000}
+  .devbar-sep{color:var(--brass-dim)}
+  .devbar-beta{font-family:var(--flavor);font-style:italic;color:var(--ink)}
+  .devbar-beta b{color:var(--ember);font-style:normal;font-weight:700}
+  @media(max-width:900px){.devbar-in{flex-wrap:wrap;justify-content:center;gap:6px;font-size:12px;text-align:center}.devbar-sep{display:none}}
+  /* ==== logo de canal (marca de agua broadcast en el viewport) ==== */
+  .vplogo{position:absolute;left:14px;bottom:64px;z-index:9;height:40px;width:auto;opacity:.5;image-rendering:pixelated;pointer-events:none;filter:drop-shadow(0 2px 5px rgba(0,0,0,.7));mix-blend-mode:screen}
+  /* ==== diálogo GRANDE en primer plano durante el corte de cámara ==== */
+  .dialog{position:absolute;left:50%;bottom:64px;transform:translateX(-50%) translateY(22px);z-index:12;
+    display:flex;align-items:center;gap:15px;max-width:min(78%,560px);
+    background:linear-gradient(180deg,#efe2c0,#dcc99b);border:3px solid #7a5a34;border-radius:12px;
+    box-shadow:0 4px 16px rgba(0,0,0,.45),inset 0 0 0 1px #b89a63;
+    padding:12px 22px;opacity:0;pointer-events:none;transition:opacity .28s ease,transform .28s ease}
+  .dialog.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  .dialog .dlgPort{flex:0 0 auto;width:70px;height:70px;border:3px solid #7a5a34;border-radius:9px;
+    background:radial-gradient(circle at 50% 40%,#3a2c1c,#241a10);overflow:hidden;box-shadow:inset 0 0 8px rgba(0,0,0,.6)}
+  .dialog .dlgPort img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated}
+  .dialog .dlgBody{min-width:0}
+  .dialog .dlgWho{font-family:var(--display);font-weight:700;font-size:14px;color:#7a3410;letter-spacing:.02em;margin-bottom:3px}
+  .dialog .dlgTxt{font-family:var(--flavor);font-style:italic;font-size:18px;color:#2e2214;line-height:1.25}
+  @media(max-width:900px){.stage{flex-direction:column}.viewport{height:52%}.side{width:auto;height:48%;border-left:none;border-top:1px solid var(--line)}.brandlogo{height:30px}.brand span{display:none}.iris{width:120px;height:120px}.srow .gn{width:96px}.dialog .dlgTxt{font-size:15px}.vplogo{height:30px;bottom:56px}}
   @media(prefers-reduced-motion:reduce){.dot{animation:none}.entry{animation:none}}
 </style>
 </head>
@@ -104,7 +133,7 @@
   <div class="topbar">
     <div class="live"><span class="dot"></span><span data-es="EN VIVO" data-en="LIVE">EN VIVO</span></div>
     <div class="brand">
-      <h1>ÁMBAR<b> · </b><span data-es="La Isla Partida" data-en="The Divided Isle">La Isla Partida</span></h1>
+      <img class="brandlogo" src="assets/img/aoa_logo.png" alt="Age of Ansem"/>
       <span data-es="Crónica perpetua de cuatro gremios · transmitida por el Ojo del Vigía" data-en="A perpetual chronicle of four guilds · streamed by the Watcher’s Eye">Crónica perpetua de cuatro gremios · transmitida por el Ojo del Vigía</span>
     </div>
     <div class="stat"><span class="k" data-es="ESPECTADORES" data-en="VIEWERS">ESPECTADORES</span><span class="v" id="viewers">1.204</span></div>
@@ -122,6 +151,11 @@
         <div class="rec"><span class="rd"></span><span data-es="OBSERVANDO" data-en="WATCHING">OBSERVANDO</span></div>
       </div>
       <div class="watching"><div class="lbl" data-es="AHORA OBSERVANDO" data-en="NOW WATCHING">AHORA OBSERVANDO</div><div class="txt" id="watch">El Ojo del Vigía sobrevuela la isla de Ámbar…</div></div>
+      <img class="vplogo" src="assets/img/aoa_logo.png" alt="Age of Ansem"/>
+      <div class="dialog" id="dialog">
+        <div class="dlgPort"><img id="dlgImg" alt=""></div>
+        <div class="dlgBody"><div class="dlgWho" id="dlgWho"></div><div class="dlgTxt" id="dlgTxt"></div></div>
+      </div>
     </div>
     <aside class="side">
       <header><span class="h" data-es="La Crónica" data-en="The Chronicle">La Crónica</span><span class="clk" id="clock">Día 1 · 06:00</span></header>
@@ -139,6 +173,14 @@
       </div>
       <div class="credit" data-es="Arte: Tiny Swords · Pixel Frog (uso libre; no redistribuir el pack suelto). Sonido: Kenney (CC0)." data-en="Art: Tiny Swords · Pixel Frog (free use; do not redistribute the pack). Sound: Kenney (CC0).">Arte: Tiny Swords · Pixel Frog (uso libre; no redistribuir el pack suelto). Sonido: Kenney (CC0).</div>
     </aside>
+  </div>
+  <div class="devbar" id="devbar" role="status" aria-live="polite">
+    <div class="devbar-in">
+      <span class="devbar-tag">DEV</span>
+      <span class="devbar-status" id="devStatus"></span>
+      <span class="devbar-sep">·</span>
+      <span class="devbar-beta" id="devBeta"></span>
+    </div>
   </div>
 </div>
 <script src="src/game.js"></script>

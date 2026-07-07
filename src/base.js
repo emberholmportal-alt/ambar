@@ -614,7 +614,7 @@ function create(){
   const home=addBuilding('castle',hx,hy,{listo:true});
   homePos={x:(BX+hx+2.5)*T, y:(BY+hy)*T};
   revelar(homePos.x,homePos.y,7);
-  for(let i=0;i<3;i++){ const a=spawnAldeano(home.x+rint(-60,60),home.y+rint(10,30),true); if(a) revelar(a.spr.x,a.spr.y,5); }
+  for(let i=0;i<2;i++){ const a=spawnAldeano(home.x+rint(-60,60),home.y+rint(10,30),true); if(a) revelar(a.spr.x,a.spr.y,5); }   // arranque con SOLO 2 aldeanos (+ la guardia inicial)
   scatterScenery();
   scatterLandmarks();
 
@@ -1951,13 +1951,14 @@ function crearArqueroTecho(cas, gratis){
   const s=scene.add.sprite(x,y,'archer_blue_i').setOrigin(0.5,0.72).setScale(0.62).setDepth(cas.y+60).play('arq-i');
   const arc={spr:s, cas, tipo:'arqtecho', hp:u.hp, maxhp:u.hp, cd:0, dead:false, roofT:null, av:randAv()};
   hitPersonaje(s);
+  addMark(arc,0xffe36b,62);                                          // triángulo amarillo de selección (verde al tocarlo)
   s.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'techo',ref:arc}); });
   cas.archers.push(arc);
   if(!gratis){ sfx('bong',0.5); toast(L('🏹 Arquero en el techo.','🏹 Archer on the roof.')); }
   return arc;
 }
 function matarArqueroTecho(arc){
-  if(arc.dead) return; arc.dead=true; killBar(arc);
+  if(arc.dead) return; arc.dead=true; killBar(arc); killMark(arc);
   const d=scene.add.sprite(arc.spr.x,arc.spr.y,'dead').play('dead-a').setOrigin(0.5,0.72).setScale(0.5).setDepth(arc.spr.y);
   d.once('animationcomplete',()=>scene.tweens.add({targets:d,alpha:0,duration:1500,onComplete:()=>d.destroy()}));
   arc.spr.destroy(); sfx('creak',0.5);
@@ -1990,6 +1991,8 @@ function updateArquerosTecho(dtReal){
         }
       }
       drawHp(arc, arc.hp/arc.maxhp, 26, arc.spr.y-30);   // el arquero de techo SIEMPRE muestra su barra de vida
+      moveMark(arc);                                     // el triángulo sigue al arquero sobre el techo
+      if(arc.mark){ arc.mark.setDepth(cas.y+62); arc.markBg.setDepth(cas.y+61); }   // por encima del edificio y del sprite
     }
   }
 }
