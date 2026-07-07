@@ -137,6 +137,7 @@ function ocultarDialogoGrande(){ const b=$('dialog'); if(b) b.classList.remove('
 let escAcc=0, escNext=8000;
 let camAcc=0, camNext=6000;
 let carAcc=0, carNext=14000;
+let usrAcc=0, usrNext=6000;
 function ocupar(n,ms){ n.busy=true; n.path=null; if(n.spr.body) n.spr.body.setVelocity(0);
   scene.time.delayedCall(ms,()=>{ if(n) n.busy=false; }); }
 function npcCerca(n,r){ return livingNpcs().find(o=>o!==n&&!o.busy&&Math.hypot(o.spr.x-n.spr.x,o.spr.y-n.spr.y)<r); }
@@ -648,6 +649,7 @@ function create(){
   for(const g of HUM){ spawnWorker(g.id,'waxe'); spawnWorker(g.id,'wpick'); }      // leñador y minero por facción humana
   spawnWorker(pick(HUM).id,'wgold'); spawnWorker(pick(HUM).id,'wgold');            // cargadores de oro
   spawnWorker(pick(HUM).id,'wmeat'); spawnWorker(pick(HUM).id,'wmeat');            // recolectores de carne (van a la pastura)
+  poblarUsuarios();                                                                // etiqueta unidades con nombres del roster (usuarios reales)
   for(let i=0;i<N_MONSTERS;i++){ const t=randFree(); if(t) spawnMonster(pick(ROAMERS),t.x,t.y); }
 
   // ---- barcos y tiburón navegando el mar abierto ----
@@ -934,6 +936,44 @@ function showLabel(n){hideLabels(); if(n.dead)return;
     {fontFamily:'ui-monospace,monospace',fontSize:'11px',color:'#ece3d0',align:'center',stroke:'#120d09',strokeThickness:3,lineSpacing:1}).setOrigin(0.5,1).setDepth(100001).setResolution(2);}
 function hideLabels(){npcs.forEach(n=>{if(n.label){n.label.destroy();n.label=null;}});}
 
+/* ===== nameplates de usuarios reales (roster): etiqueta persistente sobre la unidad ===== */
+// Semilla para que la ciudad no se vea vacía al principio. Se reemplaza por el ranking real del backend (Render).
+const SEED_USERS=['Rocky','BlackDuval','Aragorn','Creed','Pex','gamonoy','Kurt','Endless','Wilton-C','Bastianvoid','Heavenscape','Bonecrew'];
+function localUser(){ try{ const s=JSON.parse(localStorage.getItem('aoa_session')||'null'); return s&&s.username; }catch(e){ return null; } }
+function getRoster(){                                   // COSTURA: hoy usuario local + semilla; mañana fetch al leaderboard del backend
+  const out=[], seen=new Set();
+  const me=localUser(); if(me){ out.push({name:me, me:true, rank:1}); seen.add(me); }
+  SEED_USERS.forEach((n,i)=>{ if(!seen.has(n)){ out.push({name:n, rank:out.length+1}); seen.add(n); } });
+  return out;
+}
+function nameplate(n,entry){
+  if(!n||n.dead||!n.spr||n._plate) return;
+  n.user=entry.name;
+  const crown = entry.rank===1 ? ' 👑' : '';
+  const box=scene.add.container(n.spr.x,n.spr.y-44).setDepth(100000);
+  const t=scene.add.text(5,0,entry.name+crown,{fontFamily:'"Grenze Gotisch",Georgia,serif',fontSize:'13px',
+    color: entry.me?'#f0d564':'#f4ecd6', stroke:'#120d09',strokeThickness:3}).setOrigin(0.5,0.5).setResolution(3);
+  const w=Math.ceil(t.width)+22;
+  const bg=scene.add.graphics();
+  bg.fillStyle(0x140f0a,0.82); bg.lineStyle(1, entry.me?0xf0d564:0xc9a227, 0.7);
+  bg.fillRoundedRect(-w/2,-10,w,20,6); bg.strokeRoundedRect(-w/2,-10,w,20,6);
+  const dotCol=(guildById[n.guild]&&guildById[n.guild].color)||0xc9a227;
+  const dot=scene.add.circle(-w/2+9,0,3.2,dotCol);
+  box.add([bg,dot,t]); n._plate=box;
+}
+function killPlate(n){ if(n&&n._plate){ n._plate.destroy(); n._plate=null; n.user=null; } }
+function poblarUsuarios(){                              // reclama unidades con nombres del roster (idempotente: la ciudad se va llenando)
+  if(!scene) return;
+  const roster=getRoster(); if(!roster.length) return;
+  const claimed=new Set(npcs.filter(n=>n.user).map(n=>n.user));
+  const libres=livingNpcs().filter(n=>!n.user&&n.spr);          // unidades sin nombre = candidatas a reclamar
+  for(const e of roster){
+    if(claimed.has(e.name)) continue;
+    const n=libres.pop(); if(!n) break;
+    nameplate(n,e); claimed.add(e.name);
+  }
+}
+
 /* ===== efectos ===== */
 function burst(x,y,color,count,rise,dp){for(let i=0;i<count;i++){const p=scene.add.image(x,y,'dot').setTint(color).setDepth(dp||99999).setScale(Phaser.Math.FloatBetween(0.5,1.4)).setAlpha(0.95);
   scene.tweens.add({targets:p,x:x+rint(-28,28),y:y-rise-rint(0,26),alpha:0,scale:0.1,duration:rint(500,1200),ease:'Quad.easeOut',onComplete:()=>p.destroy()});}}
@@ -980,7 +1020,7 @@ function grave(x,y){
   g.fillStyle(0x2c3320,0.5); g.fillEllipse(x,y,20,6);
 }
 function killNpc(n){
-  if(!n||n.dead||n.sheep||n.monster)return; n.dead=true;
+  if(!n||n.dead||n.sheep||n.monster)return; n.dead=true; killPlate(n);
   npcs=npcs.filter(x=>x!==n);
   const gx=n.spr.x,gy=n.spr.y;
   n.spr.body.setVelocity(0); n.spr.destroy();
@@ -998,7 +1038,7 @@ function defect(n){
   burst(n.spr.x,n.spr.y-30,g.color,10,10);
 }
 function poofMonster(n){
-  if(!n||n.dead)return; n.dead=true; npcs=npcs.filter(x=>x!==n);
+  if(!n||n.dead)return; n.dead=true; killPlate(n); npcs=npcs.filter(x=>x!==n);
   ring(n.spr.x,n.spr.y-12,0xb060d0); burst(n.spr.x,n.spr.y-14,0x9b6fce,10,10);
   n.spr.destroy();
 }
@@ -1163,6 +1203,9 @@ function update(time,delta){
     }
     n.spr.setDepth(n.spr.y);
     if(n.label){ n.label.x=n.spr.x; n.label.y=n.spr.y-52; }
+    if(n._plate){ const cam=scene.cameras.main, wv=cam.worldView;   // nameplate persistente: sigue a la unidad, tamaño constante en pantalla
+      const vis=wv.contains(n.spr.x,n.spr.y); n._plate.setVisible(vis);
+      if(vis){ n._plate.x=n.spr.x; n._plate.y=n.spr.y-44; n._plate.setScale(1/cam.zoom); n._plate.setDepth(n.spr.y+40); } }
   }
   if(paused) return;
 
@@ -1190,6 +1233,9 @@ function update(time,delta){
 
   carAcc+=delta*m;                                        // carrera de aldeanos (con zoom y festejo del ganador)
   if(carAcc>=carNext){ carAcc=0; carNext=rint(16000,28000); carreraNpcs(); }
+
+  usrAcc+=delta*m;                                        // roster: la ciudad se va llenando de usuarios reales
+  if(usrAcc>=usrNext){ usrAcc=0; usrNext=8000; poblarUsuarios(); }
 }
 
 function seedFeed(){
