@@ -136,6 +136,7 @@ function ocultarDialogoGrande(){ const b=$('dialog'); if(b) b.classList.remove('
 /* ===== escenas absurdas: discusiones, peleas y chapuzones (vida ambiente del stream) ===== */
 let escAcc=0, escNext=8000;
 let camAcc=0, camNext=6000;
+let carAcc=0, carNext=14000;
 function ocupar(n,ms){ n.busy=true; n.path=null; if(n.spr.body) n.spr.body.setVelocity(0);
   scene.time.delayedCall(ms,()=>{ if(n) n.busy=false; }); }
 function npcCerca(n,r){ return livingNpcs().find(o=>o!==n&&!o.busy&&Math.hypot(o.spr.x-n.spr.x,o.spr.y-n.spr.y)<r); }
@@ -180,8 +181,35 @@ function escenaAbsurda(){
   }
 }
 
+/* ===== carrera: unos aldeanos corren una picada por la calle (con ganador y festejo) ===== */
+function carreraNpcs(){
+  if(cameraBusy||manualView) return;
+  const pool=livingNpcs().filter(n=>!n.busy&&!n._bub&&n.spr&&n.spr.body);
+  if(pool.length<3) return;
+  const a=pick(pool);
+  const near=pool.filter(n=>n!==a && Math.hypot(n.spr.x-a.spr.x,n.spr.y-a.spr.y)<T*3.2).slice(0,3);
+  if(near.length<2) return;                                  // hacen falta al menos 3 corredores juntos
+  const racers=[a].concat(near);
+  const dir=a.spr.x<WORLD_W/2?1:-1, len=T*4.5, midY=a.spr.y, startX=a.spr.x, finX=startX+dir*len;
+  if(!walkableAtPx(finX,midY)||!walkableAtPx(startX+dir*len*0.5,midY)) return;   // pista despejada (tierra)
+  const win=rint(0,racers.length-1);
+  racers.forEach((n,i)=>{
+    ocupar(n,4800); n.spr.x=startX; n.spr.y=midY-18+i*13; n.spr.setFlipX(dir<0); n.spr.setDepth(n.spr.y);
+    if(n.animR) n.spr.play(n.animR,true);
+    dustPuff(n.spr.x,n.spr.y+8,1,0xcaa46a);
+    const dur=i===win?2500:rint(2700,3500);
+    scene.tweens.add({targets:n.spr,x:finX+rint(-6,6),duration:dur,ease:'Sine.easeInOut',delay:280,
+      onUpdate:()=>n.spr.setDepth(n.spr.y),
+      onComplete:()=>{ if(n.animI) n.spr.play(n.animI,true);
+        if(i===win){ burst(n.spr.x,n.spr.y-24,0xf0d564,14,14); ring(n.spr.x,n.spr.y-10,0xf0d564);
+          burbuja(n,L('¡Gané la carrera!','I won the race!')); n._bub=1; scene.time.delayedCall(3400,()=>{ if(n) n._bub=null; }); } }});
+  });
+  if(verEscena(startX+dir*len*0.5, midY, L('¡Carrera por las calles de Ámbar!','A street race across Amber!')))
+    mostrarDialogoGrande(a, L('¡El último invita la cerveza!','Last one buys the ale!'));
+}
+
 let scene, obstacles, npcGroup, npcs=[], buildings=[], walkTiles=[], blocked=[], land=[], elev=[], cliff=[];   // elev/cliff = mesetas con acantilados
-let treeSpots=[], gmPos=null;                 // sitios de trabajo (bosque y mina)
+let treeSpots=[], gmPos=null, meatSpots=[];   // sitios de trabajo (bosque, mina y pastura)
 let cameraBusy=false, baseZoom=1, baseCX=WORLD_W/2, baseCY=WORLD_H/2;
 let paused=false, speed=1, nightRect=null, soundOn=false, manualView=false;
 const SPDF=0.6;                              // factor global de velocidad: antes iban demasiado rápido
@@ -608,7 +636,7 @@ function create(){
   for(let i=0;i<60;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)) placeDecoImg('tdeco'+rint(1,18),t.x,t.y,Phaser.Math.FloatBetween(0.65,1));}   // usa TODAS las decos (1-18)
   for(let i=0;i<55;i++){const t=randFree(); if(t&&!inSand(t.x,t.y))                    // matojos de pasto: textura/detalle del suelo
     scene.add.image(t.x*T+T/2+rint(-18,18),t.y*T+T/2+rint(-14,14),'ground',pick([4,14,24])).setOrigin(0.5,0.6).setScale(Phaser.Math.FloatBetween(0.7,1.0)).setDepth(-19);}
-  for(let i=0;i<9;i++){const t=randFree(); if(t) spawnSheep(t.x,t.y);}
+  for(let i=0;i<9;i++){const t=randFree(); if(t){ spawnSheep(t.x,t.y); meatSpots.push({x:t.x*T+T/2,y:t.y*T+T/2}); }}   // pasturas = sitios de recolección de carne
 
   // ---- casillas caminables ----
   for(let y=1;y<ROWS-1;y++)for(let x=1;x<COLS-1;x++) if(isLand(x,y)&&!blocked[y][x]) walkTiles.push({x:x*T+T/2,y:y*T+T/2});
@@ -619,6 +647,7 @@ function create(){
   const HUM=GUILDS.filter(g=>g.kind==='humano');
   for(const g of HUM){ spawnWorker(g.id,'waxe'); spawnWorker(g.id,'wpick'); }      // leñador y minero por facción humana
   spawnWorker(pick(HUM).id,'wgold'); spawnWorker(pick(HUM).id,'wgold');            // cargadores de oro
+  spawnWorker(pick(HUM).id,'wmeat'); spawnWorker(pick(HUM).id,'wmeat');            // recolectores de carne (van a la pastura)
   for(let i=0;i<N_MONSTERS;i++){ const t=randFree(); if(t) spawnMonster(pick(ROAMERS),t.x,t.y); }
 
   // ---- barcos y tiburón navegando el mar abierto ----
@@ -777,16 +806,43 @@ function spawnNpc(gid,tipo){
   n.lx=n.spr.x; n.ly=n.spr.y; retarget(n); npcs.push(n); return n;
 }
 const POPMIX=['warrior','warrior','warrior','pawn','pawn','pawn','archer','monk'];
-function spawnWorker(gid,job){                       // leñador/minero/cargador que patrulla sitio ↔ barrio
+function spawnWorker(gid,job){                       // leñador/minero/cargador/cazador que patrulla sitio ↔ barrio
   const g=guildById[gid]||pick(GUILDS);
-  const site = job==='waxe' ? (pick(treeSpots)||gmPos) : gmPos;
+  const site = job==='waxe'  ? (pick(treeSpots)||gmPos)
+             : job==='wmeat' ? (pick(meatSpots)||pick(treeSpots)||gmPos)
+             :                  gmPos;
   if(!site) return null;
   const home={x:g.cx*T+T/2, y:g.cy*T+T/2};
   const n=spawnNpc(g.id,'pawn'); if(!n) return null;
-  n.tipo=job; n.animI=job+'_'+g.tex+'-i'; n.animR=job+'_'+g.tex+'-r';
-  n.spr.setTexture(job+'_'+g.tex+'_i',0); n.spr.play(n.animI);
+  if(job==='wmeat'){ n.tipo='wmeat'; }              // cazador: usa el sprite de aldeano (no hay hoja propia de carne)
+  else { n.tipo=job; n.animI=job+'_'+g.tex+'-i'; n.animR=job+'_'+g.tex+'-r';
+    n.spr.setTexture(job+'_'+g.tex+'_i',0); n.spr.play(n.animI); }
   n.patrol=[site,home]; n.pIx=0; n.tx=site.x; n.ty=site.y;
   return n;
+}
+/* ===== trabajo visible: el aldeano llega al recurso, lo golpea y salen íconos de recurso ===== */
+const WJOBS={ waxe:{icon:'res_wood',col:0xb5793a}, wpick:{icon:'res_gold',col:0xf0d564},
+              wgold:{icon:'res_gold',col:0xf0d564}, wmeat:{icon:'res_meat',col:0xd06a52} };
+function esTrabajador(n){ return !!(n && WJOBS[n.tipo]); }
+function popRecurso(x,y,key,col){                     // ícono de recurso que flota hacia arriba (feedback de cosecha)
+  const ic=scene.add.image(x,y,key).setDepth(99994).setScale(0.42).setAlpha(0);
+  scene.tweens.add({targets:ic,alpha:1,y:y-8,duration:220,ease:'Back.easeOut'});
+  scene.tweens.add({targets:ic,alpha:0,y:y-36,delay:520,duration:560,ease:'Quad.easeOut',onComplete:()=>ic.destroy()});
+  if(col) burst(x,y,col,4,8);
+}
+function trabajarEnSitio(n){                          // golpes de trabajo con polvo + recurso; al terminar vuelve al barrio
+  const w=WJOBS[n.tipo]; if(!w||n.dead) return;
+  n.working=true; n.busy=true; if(n.spr.body) n.spr.body.setVelocity(0);
+  if(n.animR) n.spr.play(n.animR,true);              // hoja de acción (hacha/pico/cosecha)
+  let hits=rint(3,5);
+  const golpe=()=>{ if(!n||n.dead||!n.working) return;
+    dustPuff(n.spr.x, n.spr.y+6, 1, 0x8a6b45);
+    popRecurso(n.spr.x+rint(-6,6), n.spr.y-24, w.icon, w.col);
+    sfx('clash',0.10);
+    if(--hits>0) scene.time.delayedCall(rint(520,780), golpe);
+    else { n.working=false; n.busy=false; retarget(n); }   // carga lista → vuelve al barrio
+  };
+  scene.time.delayedCall(320, golpe);
 }
 function spawnSheep(tx,ty,home){
   const sp0=nearWalkable(tx,ty); tx=sp0.x; ty=sp0.y;
@@ -1092,6 +1148,7 @@ function update(time,delta){
       if(!walkableAtPx(jx,jy)){ jx=p.x; jy=p.y; } n.tx=jx; n.ty=jy;
     } else if(d<6||n.stuck>700){
       n.stuck=0; n.spr.body.setVelocity(0); n.path=null;
+      if(esTrabajador(n) && !n.working && n.pIx===0){ trabajarEnSitio(n); continue; }   // llegó al recurso: lo trabaja a la vista
       if(n.idle<=0){ n.idle=rint(400,1800);
         n.spr.play((n.faceUp&&n.animIB)?n.animIB:n.animI,true); n.spr.setFlipX(!!n.faceLeft); }
       else { n.idle-=delta*m; if(n.idle<=0) retarget(n); }
@@ -1130,6 +1187,9 @@ function update(time,delta){
 
   camAcc+=delta*m;                                        // director de cámara: cortes con zoom aunque no haya evento
   if(camAcc>=camNext){ camAcc=0; camNext=rint(7000,12000); directorCamara(); }
+
+  carAcc+=delta*m;                                        // carrera de aldeanos (con zoom y festejo del ganador)
+  if(carAcc>=carNext){ carAcc=0; carNext=rint(16000,28000); carreraNpcs(); }
 }
 
 function seedFeed(){
