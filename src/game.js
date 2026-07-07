@@ -138,6 +138,7 @@ let escAcc=0, escNext=8000;
 let camAcc=0, camNext=6000;
 let carAcc=0, carNext=14000;
 let usrAcc=0, usrNext=6000;
+let rosAcc=0, rosNext=25000;
 function ocupar(n,ms){ n.busy=true; n.path=null; if(n.spr.body) n.spr.body.setVelocity(0);
   scene.time.delayedCall(ms,()=>{ if(n) n.busy=false; }); }
 function npcCerca(n,r){ return livingNpcs().find(o=>o!==n&&!o.busy&&Math.hypot(o.spr.x-n.spr.x,o.spr.y-n.spr.y)<r); }
@@ -649,7 +650,7 @@ function create(){
   for(const g of HUM){ spawnWorker(g.id,'waxe'); spawnWorker(g.id,'wpick'); }      // leñador y minero por facción humana
   spawnWorker(pick(HUM).id,'wgold'); spawnWorker(pick(HUM).id,'wgold');            // cargadores de oro
   spawnWorker(pick(HUM).id,'wmeat'); spawnWorker(pick(HUM).id,'wmeat');            // recolectores de carne (van a la pastura)
-  poblarUsuarios();                                                                // etiqueta unidades con nombres del roster (usuarios reales)
+  refreshRoster(); poblarUsuarios();                                               // etiqueta unidades con nombres del roster (usuarios reales)
   for(let i=0;i<N_MONSTERS;i++){ const t=randFree(); if(t) spawnMonster(pick(ROAMERS),t.x,t.y); }
 
   // ---- barcos y tiburón navegando el mar abierto ----
@@ -940,10 +941,19 @@ function hideLabels(){npcs.forEach(n=>{if(n.label){n.label.destroy();n.label=nul
 // Semilla para que la ciudad no se vea vacía al principio. Se reemplaza por el ranking real del backend (Render).
 const SEED_USERS=['Rocky','BlackDuval','Aragorn','Creed','Pex','gamonoy','Kurt','Endless','Wilton-C','Bastianvoid','Heavenscape','Bonecrew'];
 function localUser(){ try{ const s=JSON.parse(localStorage.getItem('aoa_session')||'null'); return s&&s.username; }catch(e){ return null; } }
-function getRoster(){                                   // COSTURA: hoy usuario local + semilla; mañana fetch al leaderboard del backend
-  const out=[], seen=new Set();
-  const me=localUser(); if(me){ out.push({name:me, me:true, rank:1}); seen.add(me); }
-  SEED_USERS.forEach((n,i)=>{ if(!seen.has(n)){ out.push({name:n, rank:out.length+1}); seen.add(n); } });
+let _rosterCache=null;                                  // roster traído del backend (si hay)
+async function refreshRoster(){                         // COSTURA: si hay backend, trae el ranking real; si no, no hace nada
+  const API=(window.AOA_API||'').replace(/\/$/,'');
+  if(!API) return;
+  try{ const r=await fetch(API+'/api/roster?limit=48');
+    if(r.ok){ const j=await r.json(); if(Array.isArray(j)&&j.length) _rosterCache=j.map(e=>({name:e.name, rank:e.rank})); }
+  }catch(e){}
+}
+function getRoster(){                                   // usuario local (destacado) + backend, o local + semilla si no hay backend
+  const me=localUser(), out=[], seen=new Set();
+  if(me){ out.push({name:me, me:true, rank:1}); seen.add(me); }
+  const base = (_rosterCache&&_rosterCache.length) ? _rosterCache : SEED_USERS.map((n,i)=>({name:n, rank:i+1}));
+  base.forEach(e=>{ if(!seen.has(e.name)){ out.push(e); seen.add(e.name); } });
   return out;
 }
 function nameplate(n,entry){
@@ -1236,6 +1246,9 @@ function update(time,delta){
 
   usrAcc+=delta*m;                                        // roster: la ciudad se va llenando de usuarios reales
   if(usrAcc>=usrNext){ usrAcc=0; usrNext=8000; poblarUsuarios(); }
+
+  rosAcc+=delta*m;                                        // refresca el ranking del backend (si está configurado)
+  if(rosAcc>=rosNext){ rosAcc=0; refreshRoster(); }
 }
 
 function seedFeed(){

@@ -9,6 +9,8 @@ const AOA_AUTH = (function(){
   const PUMP_URL   = 'https://pump.fun';          // reemplazar por el link del token cuando exista
   const AUTH_MODE  = TOKEN_MINT ? 'live' : 'stub';   // 'stub' = sin token: deja pasar para poder probar todo el flujo
 
+  function API(){ return (window.AOA_API || '').replace(/\/$/, ''); }   // backend en Render (vacío = client-only)
+
   function getProvider(){ const p = (window.phantom && window.phantom.solana) || window.solana; return (p && p.isPhantom) ? p : null; }
   function hasWallet(){ return !!getProvider(); }
 
@@ -32,9 +34,26 @@ const AOA_AUTH = (function(){
   }
 
   async function isHolder(pubkey){                  // { holder, amount, stub }
+    if(API()){                                      // backend: verificación server-side
+      try{ const r = await fetch(API()+'/api/holder/'+encodeURIComponent(pubkey));
+        if(r.ok) return await r.json();
+      }catch(e){}                                    // si el backend falla, cae al chequeo local
+    }
     if(AUTH_MODE === 'stub') return { holder:true, amount:null, stub:true };
     const amt = await balanceOf(pubkey);
     return { holder: amt >= MIN_HOLD, amount: amt, stub:false };
+  }
+
+  async function register(pubkey, username, proof){ // registra el usuario (backend si hay; si no, local)
+    if(API()){
+      const r = await fetch(API()+'/api/register', { method:'POST', headers:{'content-type':'application/json'},
+        body: JSON.stringify({ pubkey, username, proof }) });
+      if(r.status === 409) throw { code:'NAME_TAKEN', msg:'Ese nombre ya está en uso.' };
+      if(r.status === 403) throw { code:'NOT_HOLDER', msg:'La billetera no holdea el token.' };
+      if(!r.ok) throw { code:'ERR', msg:'No se pudo registrar.' };
+      return await r.json();                          // { ok, username, session_token, stub }
+    }
+    return { ok:true, username, session_token:null, stub:(AUTH_MODE==='stub') };   // client-only
   }
 
   async function signProof(pubkey){                 // firma un nonce → sirve para atribuir el score en el backend (más adelante)
@@ -58,6 +77,6 @@ const AOA_AUTH = (function(){
   function getSession(){ try{ return JSON.parse(localStorage.getItem('aoa_session')||'null'); }catch(e){ return null; } }
   function clearSession(){ try{ localStorage.removeItem('aoa_session'); }catch(e){} }
 
-  return { AUTH_MODE, TOKEN_MINT, MIN_HOLD, PUMP_URL, getProvider, hasWallet, connect, isHolder, signProof, validName, saveSession, getSession, clearSession };
+  return { AUTH_MODE, TOKEN_MINT, MIN_HOLD, PUMP_URL, getProvider, hasWallet, connect, isHolder, register, signProof, validName, saveSession, getSession, clearSession };
 })();
 window.AOA_AUTH = AOA_AUTH;
