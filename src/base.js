@@ -992,7 +992,7 @@ function moverA(a,tx,ty,cb){
 function parar(a){
   if(a.dustEv){a.dustEv.remove();a.dustEv=null;}
   if(a.tween){a.tween.remove();a.tween=null;}
-  a.estado='libre'; a.task=null; a.path=null; a.onArrive=null; a.objAnimal=null; a.objPile=null; a.objEnemigo=null; a.bId=null; a.carga=null; a.fuente=null; a.cruza=false;
+  a.estado='libre'; a.task=null; a.path=null; a.onArrive=null; a.objAnimal=null; a.objPile=null; a.objEnemigo=null; a.objGanado=null; a.bId=null; a.carga=null; a.fuente=null; a.cruza=false;
   setTool(a,null); a.spr.play('pawn_blue-i',true);
   refreshHUD(); if(S.sel&&S.sel.ref===a) renderSel();
 }
@@ -1098,6 +1098,23 @@ function mandarAtacarU(a,g){                           // el aldeano ataca a un 
   a.objEnemigo=g; a.objAnimal=null; a.objPile=null; a.bId=null; a.task=null; a.carga=a.carga;
   if(a.dustEv){a.dustEv.remove();a.dustEv=null;} a.estado='atacandoU'; a.atkT=0;
 }
+function mandarFaenar(a,ally){                         // el aldeano faena una bestia leal de GANADO (oveja/cerdo) por su carne
+  a.objGanado=ally; a.objAnimal=null; a.objPile=null; a.objEnemigo=null; a.bId=null; a.task=null;
+  if(a.dustEv){a.dustEv.remove();a.dustEv=null;} a.estado='faenando'; a.tarT=0;
+}
+function faenarGanado(ally){                           // convierte al ganado leal en una pila de carne (con humo)
+  if(ally.dead) return; ally.dead=true; killBar(ally);
+  const px=ally.spr.x, py=ally.spr.y;
+  humoPoof(px,py-10,6);
+  ally.spr.destroy(); S.allies=S.allies.filter(x=>x!==ally);
+  const psp=hitBicho(scene.add.image(px,py,'res_meat').setScale(0.55).setDepth(py));
+  scene.tweens.add({targets:psp,y:py-6,duration:600,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+  const pile={id:'p'+S.nextId++, x:px, y:py, carne:ally.carne||80, spr:psp};
+  psp.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'pila',ref:pile}); });
+  S.piles.push(pile);
+  if(S.sel&&S.sel.ref===ally) deseleccionar();
+  refreshHUD();
+}
 function mandarCazar(a,m){
   a.objAnimal=m;
   moverA(a,tileOfPx(m.spr.x,m.spr.y).x,tileOfPx(m.spr.x,m.spr.y).y,null);
@@ -1188,8 +1205,10 @@ function convertirBestia(m,costo){
   S.animals=S.animals.filter(x=>x!==m);
   m.spr.setTint(0x9fd2ff);          // aura leal
   const perHit=cfg.jefe?8:cfg.dmg>=10?5:3;
+  const esGanado=(m.tipo==='oveja'||m.tipo==='jabali');   // el ganado convertido obedece pero SIGUE dando carne
   const ally={spr:m.spr, tipo:'bestia', beast:m.tipo, nom:cfg.nom, hp:m.hp, maxhp:m.maxhp, dmg:perHit,
-              dead:false, atkCd:0, target:null, forced:null, moveT:null, wT:rint(3,7), run:cfg.run, idle:cfg.anim};
+              dead:false, atkCd:0, target:null, forced:null, moveT:null, wT:rint(3,7), run:cfg.run, idle:cfg.anim,
+              ganado:esGanado, carne:cfg.carne};
   m.spr.removeAllListeners('pointerdown'); hitBicho(m.spr);   // ahora es una unidad tuya: seleccionable
   m.spr.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'allie',ref:ally}); });
   addMark(ally,0x8ad0ff, m.spr.displayHeight*m.spr.originY+10);   // marcador celeste = tuyo
@@ -1553,6 +1572,8 @@ function ordenar(p){
   const a=sel.ref;
   const gob=S.raid.on?S.raid.gob.find(g=>!g.dead&&Phaser.Math.Distance.Between(wp.x,wp.y,g.spr.x,g.spr.y)<44):null;
   if(gob){ mandarAtacarU(a,gob); ordenIcono(gob.spr.x,gob.spr.y,'ic5',L('¡Atacar!','Attack!'),'#ff9a6a',0.6); return; }   // el aldeano puede atacar enemigos por orden
+  const gAlly=S.allies.find(x=>!x.dead&&x.ganado&&Phaser.Math.Distance.Between(wp.x,wp.y,x.spr.x,x.spr.y)<40);
+  if(gAlly){ mandarFaenar(a,gAlly); ordenIcono(gAlly.spr.x,gAlly.spr.y,'res_meat',L('Faenar','Butcher'),'#ffd9b0'); return; }   // ganado leal: el aldeano puede faenarlo por su carne
   const an=S.animals.find(m=>!m.dead&&Phaser.Math.Distance.Between(wp.x,wp.y,m.spr.x,m.spr.y)<40);
   if(an){ mandarCazar(a,an); ordenIcono(an.spr.x,an.spr.y,'res_meat',L('Cazar ','Hunt ')+FAUNA[an.tipo].nom.toLowerCase(),'#ffd9b0'); return; }
   const pile=S.piles.find(m=>Phaser.Math.Distance.Between(wp.x,wp.y,m.x,m.y)<40);
@@ -1669,8 +1690,11 @@ function renderSel(){
     const t=$('selVacio'); t.style.display='block'; t.innerHTML=L('Clic derecho: reposicionar la unidad.','Right-click: reposition the unit.');
   } else if(sel.t==='allie'){
     const u=sel.ref;
-    $('selNom').textContent=u.nom+L(' (leal)',' (loyal)'); $('selLvl').textContent=L('Bestia doblegada por el monarca','Beast tamed by the monarch'); setHp(u.hp,u.maxhp);
-    const t=$('selVacio'); t.style.display='block'; t.innerHTML=L('Clic derecho: moverla o mandarla a atacar.<br>Lucha por vos en las oleadas.','Right-click: move it or send it to attack.<br>It fights for you in the waves.');
+    $('selNom').textContent=u.nom+L(' (leal)',' (loyal)'); $('selLvl').textContent=u.ganado?L('Ganado leal · te obedece y da carne','Loyal livestock · obeys you and gives meat'):L('Bestia doblegada por el monarca','Beast tamed by the monarch'); setHp(u.hp,u.maxhp);
+    const t=$('selVacio'); t.style.display='block'; t.innerHTML=u.ganado
+      ? L('Clic derecho: moverla.<br>Mandá un aldeano (🥩 FAENAR) para sacarle la carne.','Right-click: move it.<br>Send a villager (🥩 BUTCHER) to harvest its meat.')
+      : L('Clic derecho: moverla o mandarla a atacar.<br>Lucha por vos en las oleadas.','Right-click: move it or send it to attack.<br>It fights for you in the waves.');
+    if(u.ganado) accion(L('🥩 FAENAR (carne)','🥩 BUTCHER (meat)'),()=>{ const a=aldLibreCerca(u.spr.x,u.spr.y); if(a){ mandarFaenar(a,u); toast(L('El aldeano va a faenar el ganado.','The villager goes to butcher the livestock.')); } else toast(L('No hay aldeanos libres.','No free villagers.')); },false);
   } else if(sel.t==='techo'){
     const u=sel.ref;
     $('selNom').textContent=L('Arquero de techo','Roof Archer'); $('selLvl').textContent=L('Fijo al Ayuntamiento · recibe el daño primero','Fixed to the Town Hall · takes damage first'); setHp(u.hp,u.maxhp); setAv(u.av);
@@ -2765,6 +2789,18 @@ function update(time,delta){
         } else { a.atkT+=dtReal;
           if(a.atkT>0.9){ a.atkT=0; golpearEnemigo(g,1,0xffffff); burstAt(g.spr.x,g.spr.y-14,0xffffff); sfxAt('clash',0.3,a.spr.x,a.spr.y);
             if(g.dead) parar(a); } }
+      }
+    } else if(a.estado==='faenando'){                    // faena una bestia leal de ganado por su carne
+      const g=a.objGanado;
+      if(!g||g.dead||S.allies.indexOf(g)<0){ parar(a); }
+      else { const d=Phaser.Math.Distance.Between(a.spr.x,a.spr.y,g.spr.x,g.spr.y);
+        if(d>34){ const sp=66*dtReal, ang=Math.atan2(g.spr.y-a.spr.y,g.spr.x-a.spr.x);
+          const nx=a.spr.x+Math.cos(ang)*sp, ny=a.spr.y+Math.sin(ang)*sp;
+          if(landAtPx(nx,ny)){ a.spr.x=nx; a.spr.y=ny; }
+          a.spr.setFlipX(Math.cos(ang)<0); a.spr.setDepth(a.spr.y);
+          if(a.spr.anims.currentAnim&&a.spr.anims.currentAnim.key!=='pawn_blue-r') a.spr.play('pawn_blue-r',true);
+        } else { a.tarT+=dtReal; if(a.spr.anims.currentAnim&&a.spr.anims.currentAnim.key!=='pawn_blue-i') a.spr.play('pawn_blue-i',true);
+          if(a.tarT>1.5){ faenarGanado(g); parar(a); } }
       }
     } else if(a.estado==='recolectando'){
       const p=a.objPile;
