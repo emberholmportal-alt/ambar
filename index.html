@@ -284,5 +284,15 @@
   </div>
 </div>
 <script src="src/base.js"></script>
+<script>
+// vigía de carga: si a los 14s el splash sigue puesto (cache/CDN/asset lento), ofrece reintentar.
+(function(){ setTimeout(function(){ var sp=document.getElementById('splash');
+  if(sp && !sp.classList.contains('hide') && !document.getElementById('splashRetry')){
+    var d=document.createElement('div'); d.id='splashRetry';
+    d.style.cssText='margin-top:14px;font-family:var(--mono);font-size:13px;color:#e7c766;text-align:center';
+    d.innerHTML='La carga está tardando más de lo normal.<br><button style="margin-top:8px;font-family:inherit;font-size:12px;color:#120d09;background:#e7c766;border:none;border-radius:6px;padding:8px 16px;cursor:pointer" onclick="location.reload(true)">↻ Reintentar</button>';
+    sp.appendChild(d);
+  }},14000); })();
+</script>
 </body>
 </html>

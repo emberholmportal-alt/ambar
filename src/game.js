@@ -59,7 +59,8 @@ const DIALOGO={
   sol:[['Un día Ámbar tendrá un solo estandarte.','One day Amber will fly one banner.'],['La isla está partida y sangra por la grieta.','The isle is split and bleeds at the seam.'],['Al alba se ve mejor quién traiciona.','At dawn you see who betrays.']],
   goblin:[['¡Fuego! ¡Fuego! ¡Más fuego!','Fire! Fire! More fire!'],['Los humanos guardan oro rico y brillante…','The humans hoard shiny rich gold…'],['¡La horda no teme al muro!','The horde fears no wall!']],
   villano:[['El cuervo ve todo, hasta tus deudas.','The crow sees all — even your debts.'],['Un rey muerto vale más que uno vivo.','A dead king is worth more than a live one.'],['Las catacumbas guardan mejores secretos.','The catacombs keep better secrets.']],
-  comun:[['Cuatro estandartes, una sola isla. Nunca alcanza.','Four banners, one island. Never enough.'],['Dicen que hubo un rey. Ahora sólo hay gremios.','They say there was a king. Now only guilds.'],['La crónica lo cuenta todo, hasta lo que callamos.','The chronicle tells all — even what we hush.'],['¿Paz? En Ámbar eso dura hasta la próxima campana.','Peace? Here it lasts till the next bell.']],
+  comun:[['Cuatro estandartes, una sola isla. Nunca alcanza.','Four banners, one island. Never enough.'],['Dicen que hubo un rey. Ahora sólo hay gremios.','They say there was a king. Now only guilds.'],['La crónica lo cuenta todo, hasta lo que callamos.','The chronicle tells all — even what we hush.'],['¿Paz? En Ámbar eso dura hasta la próxima campana.','Peace? Here it lasts till the next bell.'],
+    ['Juro que ese árbol me miró raro.','I swear that tree looked at me funny.'],['¿Otra vez sopa de nabo? Prefiero al goblin.','Turnip soup again? I’d rather fight the goblin.'],['Si el vigía me está mirando… ¡hola, mamá!','If the Watcher’s Eye is on me… hi, mom!'],['Perdí una oveja. Estaba justo… acá. Creo.','Lost a sheep. It was right… here. I think.'],['Me pagan en “gloria”. La gloria no se come.','They pay me in “glory.” You can’t eat glory.'],['¿Viste al del casco torcido? Ese esconde algo.','See the guy with the crooked helm? He’s hiding something.'],['Un día me voy a los muelles y no vuelvo.','One day I’ll walk to the docks and not come back.'],['El herrero subió el precio del oro. Otra vez.','The smith raised gold prices. Again.']],
 };
 
 /* ===== puntos por gremio (temporada en vivo, en memoria) ===== */
@@ -111,6 +112,7 @@ function decirAlgo(){
 
 /* ===== escenas absurdas: discusiones, peleas y chapuzones (vida ambiente del stream) ===== */
 let escAcc=0, escNext=8000;
+let camAcc=0, camNext=6000;
 function ocupar(n,ms){ n.busy=true; n.path=null; if(n.spr.body) n.spr.body.setVelocity(0);
   scene.time.delayedCall(ms,()=>{ if(n) n.busy=false; }); }
 function npcCerca(n,r){ return livingNpcs().find(o=>o!==n&&!o.busy&&Math.hypot(o.spr.x-n.spr.x,o.spr.y-n.spr.y)<r); }
@@ -161,8 +163,8 @@ let evAcc=0, evNext=2200, worldMin=6*60, clkAcc=0, viewers=1204, tViewers=1204, 
 const rint=(a,b)=>Math.floor(Math.random()*(b-a+1))+a, pick=a=>a[Math.floor(Math.random()*a.length)];
 
 /* ===== parámetros (tuneables) ===== */
-const NPC_START=150, NPC_MAX=200;            // pobladores (guerreros+aldeanos) inicial / techo — reino más poblado
-const N_MONSTERS=12;                         // bichos que merodean de fondo
+const NPC_START=95, NPC_MAX=140;             // pobladores: reino poblado pero sin ahogar el arranque en equipos modestos
+const N_MONSTERS=10;                         // bichos que merodean de fondo
 const WSCALE=0.72, PSCALE=0.62;              // escala guerreros (110×98) y pawns/goblins (frames 192)
 
 /* ===== catálogo de texturas Tiny Swords ===== */
@@ -194,6 +196,7 @@ new Phaser.Game({type:Phaser.AUTO,backgroundColor:'#123041',
   scene:{preload,create,update}});
 
 function preload(){
+  this.load.on('loaderror',f=>{ console.warn('⚠ asset no cargó:',f&&f.key,f&&f.src); });
   const W={blue:"assets/img/warrior_blue.png",red:"assets/img/warrior_red.png",purple:"assets/img/warrior_purple.png",yellow:"assets/img/warrior_yellow.png"};
   for(const k in W) this.load.spritesheet('warrior_'+k, W[k], {frameWidth:110,frameHeight:98});
   this.load.spritesheet('sheep','assets/img/sheep.png',{frameWidth:64,frameHeight:64});
@@ -269,6 +272,14 @@ function preload(){
   ['fire','clash','coins','latch','bell','door','bong','creak'].forEach(k=>this.load.audio('s_'+k,'assets/sfx/'+k+'.ogg'));
 }
 function makeDot(s){const g=s.add.graphics({add:false});g.fillStyle(0xffffff,1);g.fillCircle(4,4,4);g.generateTexture('dot',8,8);g.destroy();}
+function makeBird(s){const g=s.add.graphics({add:false});g.lineStyle(2,0x2a2318,1);g.beginPath();g.moveTo(0,4);g.lineTo(5,0);g.lineTo(10,4);g.strokePath();g.generateTexture('bird',12,6);g.destroy();}
+function bandada(){                                     // una bandada cruza el cielo de vez en cuando
+  if(!scene||paused) return;
+  const dir=Math.random()<0.5?1:-1, y0=rint(40,WORLD_H*0.32), n=rint(3,6);
+  for(let i=0;i<n;i++){ const b=scene.add.image(dir>0?-40-i*22:WORLD_W+40+i*22, y0+rint(-16,16),'bird').setDepth(89500).setAlpha(0.7).setScale(Phaser.Math.FloatBetween(0.8,1.3));
+    scene.tweens.add({targets:b,y:'+=6',duration:340,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});   // aleteo
+    scene.tweens.add({targets:b,x:dir>0?WORLD_W+80:-80,duration:rint(9000,15000),ease:'Linear',delay:i*160,onComplete:()=>b.destroy()}); }
+}
 
 /* ===== isla orgánica ===== */
 function buildIsland(){
@@ -354,7 +365,7 @@ function nudgeToLand(x,y){ let gx=x,gy=y,tr=0;
 function randFree(){for(let i=0;i<80;i++){const x=rint(1,COLS-2),y=rint(1,ROWS-2); if(isLand(x,y)&&!blocked[y][x]) return{x,y};}return null;}
 
 function create(){
-  scene=this; makeDot(this);
+  scene=this; makeDot(this); makeBird(this);
   buildIsland();
   obstacles=this.physics.add.staticGroup();
 
@@ -558,8 +569,8 @@ function create(){
     scene.add.sprite(t.x*T+T/2,t.y*T+T-4,b).play({key:b+'-a',startFrame:rint(0,7)}).setOrigin(0.5,1).setScale(Phaser.Math.FloatBetween(0.5,0.7)).setDepth(t.y*T+T-4);}}
   for(let i=0;i<26;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)){ placeDecoImg('rock'+rint(1,4),t.x,t.y,Phaser.Math.FloatBetween(0.7,1.0)); bloquear(t.x,t.y); }}   // las rocas bloquean
   for(let i=0;i<12;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)){ placeDecoImg('goldstone'+rint(1,6),t.x,t.y,Phaser.Math.FloatBetween(0.5,0.7)); bloquear(t.x,t.y); }}   // piedras de oro sueltas
-  for(let i=0;i<80;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)) placeDecoImg('tdeco'+rint(1,18),t.x,t.y,Phaser.Math.FloatBetween(0.65,1));}   // usa TODAS las decos (1-18)
-  for(let i=0;i<95;i++){const t=randFree(); if(t&&!inSand(t.x,t.y))                    // matojos de pasto: textura/detalle del suelo
+  for(let i=0;i<60;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)) placeDecoImg('tdeco'+rint(1,18),t.x,t.y,Phaser.Math.FloatBetween(0.65,1));}   // usa TODAS las decos (1-18)
+  for(let i=0;i<55;i++){const t=randFree(); if(t&&!inSand(t.x,t.y))                    // matojos de pasto: textura/detalle del suelo
     scene.add.image(t.x*T+T/2+rint(-18,18),t.y*T+T/2+rint(-14,14),'ground',pick([4,14,24])).setOrigin(0.5,0.6).setScale(Phaser.Math.FloatBetween(0.7,1.0)).setDepth(-19);}
   for(let i=0;i<9;i++){const t=randFree(); if(t) spawnSheep(t.x,t.y);}
 
@@ -568,7 +579,7 @@ function create(){
 
   // ---- población: guerreros, aldeanos, arqueros y monjes ----
   for(let i=0;i<NPC_START;i++) spawnNpc(null, pick(POPMIX));                       // pobladores humanos (spawnNpc(null) ya elige sólo gremios humanos)
-  GUILDS.filter(g=>g.kind!=='humano').forEach(g=>{ for(let i=0;i<14;i++) spawnNpc(g.id, null); });   // ciudadanos goblin/villano en su barrio
+  GUILDS.filter(g=>g.kind!=='humano').forEach(g=>{ for(let i=0;i<10;i++) spawnNpc(g.id, null); });   // ciudadanos goblin/villano en su barrio
   const HUM=GUILDS.filter(g=>g.kind==='humano');
   for(const g of HUM){ spawnWorker(g.id,'waxe'); spawnWorker(g.id,'wpick'); }      // leñador y minero por facción humana
   spawnWorker(pick(HUM).id,'wgold'); spawnWorker(pick(HUM).id,'wgold');            // cargadores de oro
@@ -639,13 +650,24 @@ function create(){
   });
   this.game.canvas.addEventListener('dblclick',()=>{ manualView=false; cameraBusy=false; fitCamera(); });
   renderMarcador();                                  // el marcador ya se sembró; refresca por si la escena tardó
+  this.time.addEvent({delay:rint(9000,16000),loop:true,callback:()=>{ if(!paused&&Math.random()<0.7) bandada(); }});   // bandadas cruzando el cielo
 }
 
 /* ===== colocación ===== */
+function humoCasa(spr){                                 // chimenea: chispas de fuego + humo saliendo del techo
+  const cx2=spr.x+spr.displayWidth*0.16, cy2=spr.y-spr.displayHeight*0.80;
+  scene.time.addEvent({delay:rint(1100,2000),loop:true,callback:()=>{ if(paused||!spr.active) return;
+    if(Math.random()<0.75){ const e=scene.add.image(cx2+rint(-3,3),cy2,'dot').setTint(pick([0xffb347,0xff7a3a,0xffd36b])).setDepth(99998).setScale(Phaser.Math.FloatBetween(0.35,0.7)).setAlpha(0.9);   // brasa/fuego
+      scene.tweens.add({targets:e,y:cy2-rint(16,32),x:e.x+rint(-6,6),alpha:0,scale:0.1,duration:rint(900,1500),ease:'Sine.easeOut',onComplete:()=>e.destroy()}); }
+    const s=scene.add.image(cx2+rint(-3,3),cy2-4,'dot').setTint(0x9a9088).setDepth(99997).setScale(Phaser.Math.FloatBetween(0.6,1.1)).setAlpha(0.42);   // humo
+    scene.tweens.add({targets:s,y:cy2-rint(30,52),x:s.x+rint(-10,10),alpha:0,scale:0.2,duration:rint(1800,2800),ease:'Sine.easeOut',onComplete:()=>s.destroy()});
+  }});
+}
 function placeBuilding(key,tx,ty,sc,opt){
   opt=opt||{fw:1,fh:1};
   const x=tx*T+T/2, y=ty*T+T;
   const spr=scene.add.image(x,y,key).setOrigin(0.5,1).setScale(sc).setDepth(y);
+  if(/house/.test(key)) humoCasa(spr);                    // casas y chozas: humo+fuego en la chimenea
   const src=scene.textures.get(key).getSourceImage();
   const foot=scene.add.rectangle(x,y-12,src.width*sc*0.5,22).setOrigin(0.5,0.5).setVisible(false);
   scene.physics.add.existing(foot,true); obstacles.add(foot);
@@ -797,10 +819,19 @@ function fitCamera(){if(!scene)return;const cam=scene.cameras.main,vw=scene.scal
   if(nightRect) nightRect.setSize(vw,vh);
   if(manualView) return;                                    // lupa activa: no recentrar
   if(!cameraBusy){cam.setZoom(baseZoom);cam.centerOn(baseCX,baseCY);}}
-function cutToPos(x,y){if(cameraBusy||manualView)return;cameraBusy=true;const cam=scene.cameras.main,z=Math.min(Math.max(baseZoom*3.6,baseZoom+0.9),2.2);
-  cam.pan(x,y,650,'Sine.easeInOut'); cam.zoomTo(z,650,'Sine.easeInOut'); reticleLock(true);
-  scene.time.delayedCall(3600,()=>{cam.pan(baseCX,baseCY,850,'Sine.easeInOut');cam.zoomTo(baseZoom,850,'Sine.easeInOut');reticleLock(false);hideLabels();
+function cutToPos(x,y,hold){if(cameraBusy||manualView)return;cameraBusy=true;const cam=scene.cameras.main,z=Math.min(Math.max(baseZoom*4.2,baseZoom+1.1),2.9);   // zoom más dramático
+  cam.pan(x,y,600,'Sine.easeInOut'); cam.zoomTo(z,600,'Cubic.easeInOut'); reticleLock(true);
+  scene.time.delayedCall(hold||3400,()=>{cam.pan(baseCX,baseCY,850,'Sine.easeInOut');cam.zoomTo(baseZoom,850,'Sine.easeInOut');reticleLock(false);hideLabels();
     scene.time.delayedCall(880,()=>{cameraBusy=false;});});}
+// director de cámara: el Ojo del Vigía recorre la isla con zoom aunque no haya evento (para que siempre pase algo)
+function directorCamara(){
+  if(cameraBusy||manualView) return;
+  const living=livingNpcs(); if(!living.length) return;
+  const r=Math.random();
+  if(r<0.55){ const n=pick(living); setWatching(L('Siguiendo a ','Following ')+n.name+' · '+n.cls); showLabel(n); tViewers+=rint(40,140); cutToPos(n.spr.x,n.spr.y-18,2600); }
+  else if(r<0.8){ const g=pick(GUILDS); setWatching(L('Recorriendo ','Touring ')+g.name); tViewers+=rint(40,120); cutToPos(g.cx*T+T/2,g.cy*T+T/2,2600); }
+  else { const m=npcs.filter(n=>n.monster&&!n.dead); if(m.length){ const b=pick(m); setWatching(L('Vigilando a las fieras…','Watching the beasts…')); cutToPos(b.spr.x,b.spr.y-14,2400); } }
+}
 function showLabel(n){hideLabels(); if(n.dead)return;
   n.label=scene.add.text(n.spr.x,n.spr.y-52,`${n.name}\n${n.cls} · ${n.race}`,
     {fontFamily:'ui-monospace,monospace',fontSize:'11px',color:'#ece3d0',align:'center',stroke:'#120d09',strokeThickness:3,lineSpacing:1}).setOrigin(0.5,1).setDepth(100001).setResolution(2);}
@@ -1046,11 +1077,14 @@ function update(time,delta){
   evAcc+=delta*m;
   if(evAcc>=evNext){ evAcc=0; evNext=rint(2400,4200); fireEvent(); }
 
-  dlgAcc+=delta*m;                                        // burbujas de diálogo con lore del reino
-  if(dlgAcc>=dlgNext){ dlgAcc=0; dlgNext=rint(4200,8000); decirAlgo(); }
+  dlgAcc+=delta*m;                                        // burbujas de diálogo (más seguido y con humor)
+  if(dlgAcc>=dlgNext){ dlgAcc=0; dlgNext=rint(2200,4600); decirAlgo(); }
 
   escAcc+=delta*m;                                        // escenas absurdas: discusiones, peleas, chapuzones
-  if(escAcc>=escNext){ escAcc=0; escNext=rint(6500,13000); escenaAbsurda(); }
+  if(escAcc>=escNext){ escAcc=0; escNext=rint(5000,10000); escenaAbsurda(); }
+
+  camAcc+=delta*m;                                        // director de cámara: cortes con zoom aunque no haya evento
+  if(camAcc>=camNext){ camAcc=0; camNext=rint(7000,12000); directorCamara(); }
 }
 
 function seedFeed(){
