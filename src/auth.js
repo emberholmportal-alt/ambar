@@ -1,0 +1,63 @@
+/* Age of Ansem · capa de acceso a la beta (Solana / Phantom).
+   COSTURA: hoy funciona client-only. Cuando esté el backend en Render, sólo cambian
+   `isHolder` (verificación server-side) y `registerUser` (unicidad + persistencia). */
+const AOA_AUTH = (function(){
+  /* ==== CONFIG — DEFINIR AL LANZAR EL TOKEN EN PUMP.FUN ==== */
+  const TOKEN_MINT = null;                       // mint address del token SPL (pump.fun). null = token todavía no lanzado.
+  const RPC_URL    = 'https://api.mainnet-beta.solana.com';
+  const MIN_HOLD   = 1;                           // cantidad mínima de tokens para ser holder
+  const PUMP_URL   = 'https://pump.fun';          // reemplazar por el link del token cuando exista
+  const AUTH_MODE  = TOKEN_MINT ? 'live' : 'stub';   // 'stub' = sin token: deja pasar para poder probar todo el flujo
+
+  function getProvider(){ const p = (window.phantom && window.phantom.solana) || window.solana; return (p && p.isPhantom) ? p : null; }
+  function hasWallet(){ return !!getProvider(); }
+
+  async function connect(){
+    const p = getProvider();
+    if(!p) throw { code:'NO_WALLET', msg:'No encontramos Phantom en el navegador.' };
+    const r = await p.connect();
+    return r.publicKey.toString();
+  }
+
+  async function balanceOf(pubkey){                 // saldo SPL del token vía JSON-RPC (sin librerías)
+    if(!TOKEN_MINT) return 0;
+    const body = { jsonrpc:'2.0', id:1, method:'getParsedTokenAccountsByOwner',
+      params:[ pubkey, { mint:TOKEN_MINT }, { encoding:'jsonParsed' } ] };
+    const res = await fetch(RPC_URL, { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(body) });
+    const j = await res.json(); let total = 0;
+    ((j.result && j.result.value) || []).forEach(a => {
+      const t = a.account.data.parsed.info.tokenAmount; total += Number(t.uiAmount || 0);
+    });
+    return total;
+  }
+
+  async function isHolder(pubkey){                  // { holder, amount, stub }
+    if(AUTH_MODE === 'stub') return { holder:true, amount:null, stub:true };
+    const amt = await balanceOf(pubkey);
+    return { holder: amt >= MIN_HOLD, amount: amt, stub:false };
+  }
+
+  async function signProof(pubkey){                 // firma un nonce → sirve para atribuir el score en el backend (más adelante)
+    try{
+      const p = getProvider(); if(!p || !p.signMessage) return null;
+      const nonce = 'Age of Ansem · ingreso beta · ' + pubkey.slice(0,6) + ' · ' + Math.floor(Date.now()/1000);
+      const enc = new TextEncoder().encode(nonce);
+      const out = await p.signMessage(enc, 'utf8');
+      const bytes = out.signature || out;
+      return { nonce, sig: btoa(String.fromCharCode.apply(null, bytes)) };
+    }catch(e){ return null; }
+  }
+
+  function validName(n){ n = (n||'').trim(); return /^[\w .\-]{2,16}$/.test(n) ? n : null; }   // la unicidad la valida el backend
+
+  function saveSession(sess){
+    try{ localStorage.setItem('aoa_session', JSON.stringify(sess)); }catch(e){}
+    // espeja el perfil que la beta ya usa para el ranking (usuario + billetera)
+    try{ localStorage.setItem('aoa_profile', JSON.stringify({ user:sess.username||'', wallet:sess.pubkey||'' })); }catch(e){}
+  }
+  function getSession(){ try{ return JSON.parse(localStorage.getItem('aoa_session')||'null'); }catch(e){ return null; } }
+  function clearSession(){ try{ localStorage.removeItem('aoa_session'); }catch(e){} }
+
+  return { AUTH_MODE, TOKEN_MINT, MIN_HOLD, PUMP_URL, getProvider, hasWallet, connect, isHolder, signProof, validName, saveSession, getSession, clearSession };
+})();
+window.AOA_AUTH = AOA_AUTH;
