@@ -151,7 +151,7 @@ function escenaAbsurda(){
   }
 }
 
-let scene, obstacles, npcGroup, npcs=[], buildings=[], walkTiles=[], blocked=[], land=[];
+let scene, obstacles, npcGroup, npcs=[], buildings=[], walkTiles=[], blocked=[], land=[], elev=[], cliff=[];   // elev/cliff = mesetas con acantilados
 let treeSpots=[], gmPos=null;                 // sitios de trabajo (bosque y mina)
 let cameraBusy=false, baseZoom=1, baseCX=WORLD_W/2, baseCY=WORLD_H/2;
 let paused=false, speed=1, nightRect=null, soundOn=false, manualView=false;
@@ -199,6 +199,7 @@ function preload(){
   this.load.spritesheet('sheep','assets/img/sheep.png',{frameWidth:64,frameHeight:64});
   // terreno
   this.load.spritesheet('ground',TSB+'ground.png',{frameWidth:64,frameHeight:64});
+  this.load.spritesheet('tmg',TSB+'tilemap_grass.png',{frameWidth:64,frameHeight:64});   // mesetas: cima de pasto + cara de piedra (grass-on-elevation)
   this.load.image('water',TSB+'water.png');
   this.load.spritesheet('foam',TSB+'foam.png',{frameWidth:192,frameHeight:192});
   // edificios por facción + castillo real
@@ -290,6 +291,43 @@ function buildIsland(){
   for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) blocked[y][x]=!land[y][x];
 }
 const isLand=(x,y)=> y>=0&&y<ROWS&&x>=0&&x<COLS&&land[y][x];
+const isIn=(x,y)=> x>=0&&x<COLS&&y>=0&&y<ROWS;
+// cima de meseta con pasto (Tilemap_color1: grass-on-elevation) — autotile por vecinos de igual o mayor altura
+function geIdx(x,y){ const lv=elev[y][x];
+  const inE=(a,b)=>isIn(a,b)&&elev[b][a]>=lv;
+  const n=inE(x,y-1), s=inE(x,y+1), w=inE(x-1,y), e=inE(x+1,y);
+  if(n&&s&&w&&e) return 15;
+  if(!n&&!w) return 5; if(!n&&!e) return 8; if(!s&&!w) return 32; if(!s&&!e) return 35;
+  if(!n) return 6; if(!s) return 33; if(!w) return 14; if(!e) return 17;
+  return 15; }
+// cara de acantilado (piedra teal) bajo el borde sur de la meseta
+function gcIdx(x,y){ const l=isIn(x-1,y)&&cliff[y][x-1], r=isIn(x+1,y)&&cliff[y][x+1];
+  return l&&r?42 : (!l&&r)?41 : (l&&!r)?44 : 43; }
+// genera mesetas coherentes (blobs) lejos de plaza/barrios, deriva el acantilado sur y bloquea la cara
+function buildMesetas(evitar,esCalle){
+  esCalle=esCalle||(()=>false);
+  for(let y=0;y<ROWS;y++){ elev[y]=Array(COLS).fill(0); cliff[y]=Array(COLS).fill(false); }
+  const lejos=(x,y)=>evitar.every(p=>Math.hypot(x-p.x,y-p.y)>p.r);
+  let puestas=0, intentos=0;
+  while(puestas<4 && intentos++<60){
+    const mx=rint(6,COLS-7), my=rint(4,ROWS-6), mr=rint(2,4), p1=Math.random()*6.28;
+    if(!isLand(mx,my)||!lejos(mx,my)||esCalle(mx,my)) continue;
+    for(let y=my-mr-1;y<=my+mr+1;y++)for(let x=mx-mr-1;x<=mx+mr+1;x++){
+      const ang=Math.atan2(y-my,x-mx), wob=0.9*Math.sin(ang*3+p1);
+      if(isIn(x,y)&&isLand(x,y)&&isLand(x,y+1)&&lejos(x,y)&&!esCalle(x,y)&&Math.hypot(x-mx,y-my)<mr+wob) elev[y][x]=1;
+    }
+    puestas++;
+  }
+  // erosión: sacar púas sueltas (menos de 2 vecinos altos → baja)
+  for(let it=0;it<2;it++){ const snap=elev.map(r=>r.slice());
+    for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) if(snap[y][x]){ let a=0;
+      for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]) if(isIn(x+dx,y+dy)&&snap[y+dy][x+dx]) a++;
+      if(a<2) elev[y][x]=0; } }
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) if(elev[y][x]&&!isLand(x,y+1)) elev[y][x]=0;   // no colgar sobre el agua
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){                                                 // acantilado = fila de piedra al sur del escalón
+    if(elev[y][x] && isIn(x,y+1) && !elev[y+1][x] && isLand(x,y+1) && !esCalle(x,y+1)) cliff[y+1][x]=true;
+  }
+}
 // autotile 3×3 del bloque de pasto (cols 0-2; col 3 y fila 3 son variantes aisladas) — índice = fila*10+col
 function groundIdx(x,y){
   const n=isLand(x,y-1), s=isLand(x,y+1), w=isLand(x-1,y), e=isLand(x+1,y);
@@ -418,6 +456,16 @@ function create(){
       if(y>=0&&y<ROWS&&x>=0&&x<COLS&&isLand(x,y)&&!inSand(x,y)&&Math.hypot(x-dcx,y-dcy)<=rr+Math.random()) dry.add(pkey(x,y)); }
   const inDry=(x,y)=>dry.has(pkey(x,y));
   dry.forEach(k=>{const [x,y]=k.split(',').map(Number); rt.drawFrame('ground',sandIdx(x,y,inDry),x*T,y*T);});
+
+  // ---- MESETAS con acantilados (relieve real): cima de pasto + cara de piedra ----
+  const evitarMeseta=[{x:px,y:py,r:6}].concat(GUILDS.map(g=>({x:g.cx,y:g.cy,r:6})));
+  buildMesetas(evitarMeseta, inSand);
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) if(elev[y][x]) rt.drawFrame('tmg',geIdx(x,y),x*T,y*T);        // cima de pasto elevada
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) if(cliff[y][x]) rt.drawFrame('tmg',gcIdx(x,y),x*T,y*T);         // cara de acantilado
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) if(cliff[y][x]){                                                // sombra al pie + colisión de la pared
+    blocked[y][x]=true;
+    this.add.rectangle(x*T+T/2,y*T+T-1,T,9,0x0a1508,0.20).setOrigin(0.5,1).setDepth(-19);
+  }
 
   npcGroup=this.physics.add.group();
   this.physics.add.collider(npcGroup,obstacles);
