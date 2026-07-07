@@ -140,6 +140,7 @@ function preload(){
   // barra de carga del splash: avanza con el progreso real del preload
   this.load.on('progress',p=>{ const b=document.getElementById('splashBar'); if(b) b.style.width=Math.round(p*100)+'%';
     const r=document.getElementById('splashRunner'); if(r) r.style.left=Math.round(p*100)+'%'; });   // el jinete avanza con la barra
+  this.load.on('loaderror',f=>{ console.warn('⚠ asset no cargó:',f&&f.key,f&&f.src); });   // un asset colgado/404 no frena el arranque
   const TSB='assets/img/ts/';
   this.load.spritesheet('ground',TSB+'ground.png',{frameWidth:64,frameHeight:64});
   this.load.spritesheet('elev',TSB+'elevation.png',{frameWidth:64,frameHeight:64});

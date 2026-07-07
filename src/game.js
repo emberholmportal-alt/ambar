@@ -163,8 +163,8 @@ let evAcc=0, evNext=2200, worldMin=6*60, clkAcc=0, viewers=1204, tViewers=1204, 
 const rint=(a,b)=>Math.floor(Math.random()*(b-a+1))+a, pick=a=>a[Math.floor(Math.random()*a.length)];
 
 /* ===== parámetros (tuneables) ===== */
-const NPC_START=150, NPC_MAX=200;            // pobladores (guerreros+aldeanos) inicial / techo — reino más poblado
-const N_MONSTERS=12;                         // bichos que merodean de fondo
+const NPC_START=95, NPC_MAX=140;             // pobladores: reino poblado pero sin ahogar el arranque en equipos modestos
+const N_MONSTERS=10;                         // bichos que merodean de fondo
 const WSCALE=0.72, PSCALE=0.62;              // escala guerreros (110×98) y pawns/goblins (frames 192)
 
 /* ===== catálogo de texturas Tiny Swords ===== */
@@ -196,6 +196,7 @@ new Phaser.Game({type:Phaser.AUTO,backgroundColor:'#123041',
   scene:{preload,create,update}});
 
 function preload(){
+  this.load.on('loaderror',f=>{ console.warn('⚠ asset no cargó:',f&&f.key,f&&f.src); });
   const W={blue:"assets/img/warrior_blue.png",red:"assets/img/warrior_red.png",purple:"assets/img/warrior_purple.png",yellow:"assets/img/warrior_yellow.png"};
   for(const k in W) this.load.spritesheet('warrior_'+k, W[k], {frameWidth:110,frameHeight:98});
   this.load.spritesheet('sheep','assets/img/sheep.png',{frameWidth:64,frameHeight:64});
@@ -568,8 +569,8 @@ function create(){
     scene.add.sprite(t.x*T+T/2,t.y*T+T-4,b).play({key:b+'-a',startFrame:rint(0,7)}).setOrigin(0.5,1).setScale(Phaser.Math.FloatBetween(0.5,0.7)).setDepth(t.y*T+T-4);}}
   for(let i=0;i<26;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)){ placeDecoImg('rock'+rint(1,4),t.x,t.y,Phaser.Math.FloatBetween(0.7,1.0)); bloquear(t.x,t.y); }}   // las rocas bloquean
   for(let i=0;i<12;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)){ placeDecoImg('goldstone'+rint(1,6),t.x,t.y,Phaser.Math.FloatBetween(0.5,0.7)); bloquear(t.x,t.y); }}   // piedras de oro sueltas
-  for(let i=0;i<80;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)) placeDecoImg('tdeco'+rint(1,18),t.x,t.y,Phaser.Math.FloatBetween(0.65,1));}   // usa TODAS las decos (1-18)
-  for(let i=0;i<95;i++){const t=randFree(); if(t&&!inSand(t.x,t.y))                    // matojos de pasto: textura/detalle del suelo
+  for(let i=0;i<60;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)) placeDecoImg('tdeco'+rint(1,18),t.x,t.y,Phaser.Math.FloatBetween(0.65,1));}   // usa TODAS las decos (1-18)
+  for(let i=0;i<55;i++){const t=randFree(); if(t&&!inSand(t.x,t.y))                    // matojos de pasto: textura/detalle del suelo
     scene.add.image(t.x*T+T/2+rint(-18,18),t.y*T+T/2+rint(-14,14),'ground',pick([4,14,24])).setOrigin(0.5,0.6).setScale(Phaser.Math.FloatBetween(0.7,1.0)).setDepth(-19);}
   for(let i=0;i<9;i++){const t=randFree(); if(t) spawnSheep(t.x,t.y);}
 
@@ -578,7 +579,7 @@ function create(){
 
   // ---- población: guerreros, aldeanos, arqueros y monjes ----
   for(let i=0;i<NPC_START;i++) spawnNpc(null, pick(POPMIX));                       // pobladores humanos (spawnNpc(null) ya elige sólo gremios humanos)
-  GUILDS.filter(g=>g.kind!=='humano').forEach(g=>{ for(let i=0;i<14;i++) spawnNpc(g.id, null); });   // ciudadanos goblin/villano en su barrio
+  GUILDS.filter(g=>g.kind!=='humano').forEach(g=>{ for(let i=0;i<10;i++) spawnNpc(g.id, null); });   // ciudadanos goblin/villano en su barrio
   const HUM=GUILDS.filter(g=>g.kind==='humano');
   for(const g of HUM){ spawnWorker(g.id,'waxe'); spawnWorker(g.id,'wpick'); }      // leñador y minero por facción humana
   spawnWorker(pick(HUM).id,'wgold'); spawnWorker(pick(HUM).id,'wgold');            // cargadores de oro
