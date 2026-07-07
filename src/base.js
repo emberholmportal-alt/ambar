@@ -2677,6 +2677,18 @@ function guardarRecord(){
     fecha:new Date().toLocaleDateString(), user:(p.user||'').slice(0,18), wallet:p.wallet||''});
   recs.sort((a,b2)=>b2.score-a.score);
   try{ localStorage.setItem('aoa_records', JSON.stringify(recs.slice(0,10))); }catch(e){}
+  enviarScoreBackend();                                  // manda el score al ranking global (si hay backend + sesión)
+}
+// COSTURA: sube el score al backend usando la sesión de la billetera (vacío/sin sesión = no hace nada)
+function enviarScoreBackend(){
+  try{
+    const API=(window.AOA_API||'').replace(/\/$/,''); if(!API) return;
+    const s=JSON.parse(localStorage.getItem('aoa_session')||'null');
+    if(!s||!s.pubkey||!s.session_token) return;
+    fetch(API+'/api/score',{ method:'POST', headers:{'content-type':'application/json'},
+      body:JSON.stringify({ pubkey:s.pubkey, session_token:s.session_token,
+        score:S.score, wave:S.wave, survived:Math.floor(S.tSurv), resources:Math.floor(S.recursos), kills:S.kills }) }).catch(()=>{});
+  }catch(e){}
 }
 function mostrarRecords(){
   const ov=$('recordsOv'), ul=$('recordsList'); if(!ov||!ul) return;

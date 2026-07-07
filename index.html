@@ -136,6 +136,7 @@
     </div>
   </div>
 
+  <script src="src/config.js"></script>
   <script src="src/auth.js"></script>
   <script>
   (function(){
@@ -217,12 +218,21 @@
     $('btnPump').onclick=()=>window.open(A.PUMP_URL||'https://pump.fun','_blank','noopener');
 
     /* ---- paso 3: registrar usuario y entrar ---- */
-    function tryPlay(){
+    async function tryPlay(){
       const name = A.validName($('nameInput').value);
       if(!name){ $('nameHint').className='hint bad';
         $('nameHint').textContent=L('Nombre inválido: 2 a 16 caracteres (letras, números, espacio, . - _).','Invalid name: 2 to 16 chars (letters, numbers, space, . - _).'); return; }
-      A.saveSession({ pubkey, username:name, proof, ts:Math.floor(Date.now()/1000) });
-      location.href='/beta';
+      $('nameHint').className='hint'; $('nameHint').textContent=L('Registrando…','Registering…');
+      try{
+        const res = await A.register(pubkey, name, proof);      // backend si está; si no, local
+        A.saveSession({ pubkey, username:res.username||name, session_token:res.session_token||null, proof, ts:Math.floor(Date.now()/1000) });
+        location.href='/beta';
+      }catch(err){
+        $('nameHint').className='hint bad';
+        $('nameHint').textContent = (err && err.code==='NAME_TAKEN') ? L('Ese nombre ya está en uso. Probá otro.','That name is taken. Try another.')
+          : (err && err.code==='NOT_HOLDER') ? L('La billetera no holdea el token.','Wallet doesn’t hold the token.')
+          : L('No se pudo registrar. Reintentá.','Could not register. Retry.');
+      }
     }
     $('btnPlay').onclick=tryPlay;
     $('nameInput').addEventListener('keydown',e=>{ if(e.key==='Enter') tryPlay(); });
