@@ -1949,29 +1949,31 @@ function spawnShip(){
 }
 
 /* ===== EL ASEDIO — oleadas, piratas navales, jefe y puntaje ===== */
+// Vida base subida: antes casi todos tenían hp:1-2 y las tropas los mataban de un toque.
+// Ahora aguantan 2-4 golpes y la vida escala por oleada (ver spawnEnemy).
 const ENEMY={
-  torch: {tex:'goblin_torch',ai:'gt-i',  ar:'gt-r',  hp:1, dmg:11, esc:0.62, sp:46},
-  spear: {tex:'spear_run',   ai:'sp-i',  ar:'sp-r',  hp:1, dmg:11, esc:0.52, sp:46},
-  tnt:   {tex:'goblin_tnt',  ai:'gtnt-i',ar:'gtnt-r',hp:2, dmg:20, esc:0.62, sp:40},
-  gnoll: {tex:'gnoll_walk',  ai:'gnoll-i',ar:'gnoll-r',hp:1,dmg:9, esc:0.6,  sp:66},         // rápido y débil (horda)
-  pigrider:{tex:'pigrider_idle',ai:'prid-i',ar:'prid-r',hp:5,dmg:22,esc:0.5, sp:52},         // montado, tanque
-  shaman:{tex:'shaman_idle', ai:'sham-i',ar:'sham-r',hp:2,dmg:16, esc:0.58, sp:40, ranged:true}, // lanza rayos a distancia
-  thief: {tex:'thief_idle',  ai:'thief-i',ar:'thief-r',hp:1,dmg:0, esc:0.58, sp:78, ladron:true}, // roba recursos y huye
-  troll: {tex:'troll_i',     ai:'troll-i',ar:'troll-r',aa:'troll-a',hp:11,dmg:28,esc:0.42, sp:30},            // tanque pesado y lento
-  pshark:{tex:'pshark_i',    ai:'pshark-i',ar:'pshark-r',aa:'pshark-a',hp:3,dmg:15,esc:0.62, sp:48},       // pirata (llega por mar)
-  bfish: {tex:'bfish_i',     ai:'bfish-i',ar:'bfish-r',hp:2,dmg:34,esc:0.6,  sp:44, ranged:true, bomba:true}, // pez bomba naval
-  toro:  {tex:'minotaur_idle',ai:'toro-i',ar:'toro-r',hp:16,dmg:30,esc:0.62,boss:true, sp:38},
-  lizard:{tex:'lizard_run',  ai:'lizard-i',ar:'lizard-r',hp:1,dmg:8, esc:0.7,  sp:74},        // lagarto veloz (enjambre)
-  spider:{tex:'spider_run',  ai:'spider-i',ar:'spider-r',hp:1,dmg:7, esc:0.55, sp:78},        // araña rapidísima
-  snake: {tex:'snake_run',   ai:'snake-i',ar:'snake-r',hp:2,dmg:12, esc:0.5,  sp:58},         // víbora
-  turtle:{tex:'turtle_walk', ai:'turtle-w',ar:'turtle-w',hp:9,dmg:14, esc:0.5,  sp:24},        // tortuga acorazada (tanque lento)
-  gnome: {tex:'gnome_r',     ai:'gnome-i',ar:'gnome-r',aa:'gnome-a',hp:1,dmg:10, esc:0.6,  sp:68},          // gnomo de gorro rojo (enjambre)
-  skull: {tex:'skull_r',     ai:'skull-i',ar:'skull-r',aa:'skull-a',hp:2,dmg:13, esc:0.6,  sp:52},          // no-muerto
-  panda: {tex:'panda_r',     ai:'panda-i',ar:'panda-r',hp:6,dmg:18, esc:0.55, sp:44},          // luchador pesado
-  hshark:{tex:'hshark_r',    ai:'hshark-i',ar:'hshark-r',hp:3,dmg:20, esc:0.62, sp:46, ranged:true}, // arponero (naval, tira a distancia)
+  torch: {tex:'goblin_torch',ai:'gt-i',  ar:'gt-r',  hp:4, dmg:11, esc:0.62, sp:46},
+  spear: {tex:'spear_run',   ai:'sp-i',  ar:'sp-r',  hp:4, dmg:11, esc:0.52, sp:46},
+  tnt:   {tex:'goblin_tnt',  ai:'gtnt-i',ar:'gtnt-r',hp:5, dmg:20, esc:0.62, sp:40},
+  gnoll: {tex:'gnoll_walk',  ai:'gnoll-i',ar:'gnoll-r',hp:3,dmg:9, esc:0.6,  sp:66},         // rápido y débil (horda)
+  pigrider:{tex:'pigrider_idle',ai:'prid-i',ar:'prid-r',hp:11,dmg:22,esc:0.5, sp:52},         // montado, tanque
+  shaman:{tex:'shaman_idle', ai:'sham-i',ar:'sham-r',hp:5,dmg:16, esc:0.58, sp:40, ranged:true}, // lanza rayos a distancia
+  thief: {tex:'thief_idle',  ai:'thief-i',ar:'thief-r',hp:3,dmg:0, esc:0.58, sp:78, ladron:true}, // roba recursos y huye
+  troll: {tex:'troll_i',     ai:'troll-i',ar:'troll-r',aa:'troll-a',hp:22,dmg:28,esc:0.42, sp:30},            // tanque pesado y lento
+  pshark:{tex:'pshark_i',    ai:'pshark-i',ar:'pshark-r',aa:'pshark-a',hp:7,dmg:15,esc:0.62, sp:48},       // pirata (llega por mar)
+  bfish: {tex:'bfish_i',     ai:'bfish-i',ar:'bfish-r',hp:5,dmg:34,esc:0.6,  sp:44, ranged:true, bomba:true}, // pez bomba naval
+  toro:  {tex:'minotaur_idle',ai:'toro-i',ar:'toro-r',hp:34,dmg:30,esc:0.62,boss:true, sp:38},
+  lizard:{tex:'lizard_run',  ai:'lizard-i',ar:'lizard-r',hp:3,dmg:8, esc:0.7,  sp:74},        // lagarto veloz (enjambre)
+  spider:{tex:'spider_run',  ai:'spider-i',ar:'spider-r',hp:3,dmg:7, esc:0.55, sp:78},        // araña rapidísima
+  snake: {tex:'snake_run',   ai:'snake-i',ar:'snake-r',hp:5,dmg:12, esc:0.5,  sp:58},         // víbora
+  turtle:{tex:'turtle_walk', ai:'turtle-w',ar:'turtle-w',hp:18,dmg:14, esc:0.5,  sp:24},        // tortuga acorazada (tanque lento)
+  gnome: {tex:'gnome_r',     ai:'gnome-i',ar:'gnome-r',aa:'gnome-a',hp:3,dmg:10, esc:0.6,  sp:68},          // gnomo de gorro rojo (enjambre)
+  skull: {tex:'skull_r',     ai:'skull-i',ar:'skull-r',aa:'skull-a',hp:5,dmg:13, esc:0.6,  sp:52},          // no-muerto
+  panda: {tex:'panda_r',     ai:'panda-i',ar:'panda-r',hp:12,dmg:18, esc:0.55, sp:44},          // luchador pesado
+  hshark:{tex:'hshark_r',    ai:'hshark-i',ar:'hshark-r',hp:6,dmg:20, esc:0.62, sp:46, ranged:true}, // arponero (naval, tira a distancia)
   // reino rival: leva humana enemiga (púrpura)
-  rpawn: {tex:'pawn_purple', ai:'pawn_purple-i',ar:'pawn_purple-r',hp:4,dmg:13, esc:0.5,  sp:52},           // campesino rival con garrote
-  rarcher:{tex:'archer_purple_i',ai:'rarq-i',ar:'rarq-r',hp:3,dmg:14, esc:0.5,  sp:46, ranged:true},        // arquero rival (tira flechas)
+  rpawn: {tex:'pawn_purple', ai:'pawn_purple-i',ar:'pawn_purple-r',hp:7,dmg:13, esc:0.5,  sp:52},           // campesino rival con garrote
+  rarcher:{tex:'archer_purple_i',ai:'rarq-i',ar:'rarq-r',hp:6,dmg:14, esc:0.5,  sp:46, ranged:true},        // arquero rival (tira flechas)
 };
 function costaTiles(){                             // tiles de tierra pegados al agua (borde de la isla)
   const out=[];
@@ -1987,8 +1989,9 @@ function spawnEnemy(kind,tx,ty){
   const s=scene.add.sprite(gx,gy,e.tex).setOrigin(0.5,0.72).setScale(e.esc).setDepth(gy);
   if(e.tint) s.setTint(e.tint);
   s.play(e.ar); revelar(gx,gy,3);
-  const boostHp=e.hp + (e.boss?Math.floor(S.wave/5)*6:Math.floor(S.wave/4));   // más vida en oleadas altas
-  const boostDmg=Math.round(e.dmg*(1+S.wave*0.05));                            // más daño con el tiempo
+  const waveScale=1+(S.wave-1)*0.15;                                           // +15% de vida por oleada: cada oleada más dura
+  const boostHp=Math.max(1,Math.round(e.hp*waveScale)) + (e.boss?Math.floor(S.wave/5)*20:0);
+  const boostDmg=Math.round(e.dmg*(1+S.wave*0.06));                            // más daño con el tiempo
   const g={spr:s,kind,ai:e.ai,ar:e.ar,hp:boostHp,maxhp:boostHp,dmg:boostDmg,sp:e.sp||46,ranged:!!e.ranged,bomba:!!e.bomba,ladron:!!e.ladron,boss:!!e.boss,target:null,atkT:0,dead:false};
   if(e.boss){ g.glow=scene.add.image(gx,gy-6,'dot').setTint(0xff3a2a).setScale(6).setAlpha(0.28).setDepth(gy-1);
     scene.tweens.add({targets:g.glow,scale:8,alpha:0.14,duration:700,yoyo:true,repeat:-1}); }
@@ -2058,6 +2061,12 @@ function componerOleada(w){                          // devuelve {flavor, spawns
   else { // goblins clásicos
     for(let i=0;i<costaN;i++) add(canTnt&&Math.random()<Math.min(0.5,0.08*w)?'tnt':pick(['torch','torch','spear']),1);
     if(canThief&&Math.random()<0.4)add('thief',1); }
+  // sprinkle de variedad: desde la oleada 3 sumá 1-2 tipos extra desbloqueados, para que ninguna sea monotemática
+  if(w>=3){
+    const extra=[['gnoll',canGnoll],['tnt',canTnt],['lizard',canLiz],['snake',canSnake],['skull',canSkull],['gnome',canGnome],['spider',canSpider]]
+      .filter(([,ok])=>ok).map(([k])=>k);
+    for(let i=0;i<Math.min(2,1+Math.floor(w/6)) && extra.length;i++) add(pick(extra),1);
+  }
   const naval = flavor==='piratas' || (w>=3 && Math.random()<0.25);
   // El Black Bull: seguro en oleadas jefe (5,10,...) y con chance en otras (desde la 4)
   let bossCount = flavor==='jefe' ? 1+Math.floor(w/10) : (w>=4 && Math.random()<0.16 ? 1 : 0);
