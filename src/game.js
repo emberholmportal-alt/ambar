@@ -17,6 +17,7 @@ const hex=c=>'#'+c.toString(16).padStart(6,'0');
 
 /* ===== datos ===== */
 const T=64, COLS=58, ROWS=36, WORLD_W=COLS*T, WORLD_H=ROWS*T;   // reino más grande
+const MAR=2600;                                   // mar extra alrededor del mundo: cubre el letterbox (nada de sombra negra)
 // Cada gremio: nombre + lema + lore (para el reino dividido). name/lema/lore son getters bilingües.
 const GUILDS=[
   {id:'guardia',tex:'blue',  kind:'humano', color:0x4a90c2, cx:15,      cy:12,
@@ -109,6 +110,28 @@ function decirAlgo(){
   const n=pick(pool); const lines=(DIALOGO[n.guild]||[]).concat(DIALOGO.comun); const line=pick(lines);
   burbuja(n, L(line[0],line[1])); scene.time.delayedCall(3700,()=>{ if(n) n._bub=null; });
 }
+function lineaDe(n){ const lines=(DIALOGO[n&&n.guild]||[]).concat(DIALOGO.comun); const l=pick(lines); return L(l[0],l[1]); }
+
+/* ===== diálogo GRANDE en primer plano (igual que el juego principal): acompaña el corte de cámara ===== */
+let dlgHideEv=null;
+function retratoNpc(n,size){                          // recorta el frame actual del sprite a dataURL (bichos sin avatar)
+  try{ const fr=n.spr.frame, src=fr.texture.getSourceImage();
+    const c=document.createElement('canvas'); c.width=size; c.height=size; const cx=c.getContext('2d'); cx.imageSmoothingEnabled=false;
+    cx.drawImage(src, fr.cutX, fr.cutY, fr.cutWidth, fr.cutHeight, 0,0,size,size); return c.toDataURL('image/png');
+  }catch(e){ return null; } }
+function quienDe(n){ const g=guildById[n&&n.guild];
+  if(n&&n.name) return n.name + (g?' · '+g.name:'');
+  return g? g.name : L('Isla de Ámbar','Isle of Amber'); }
+function mostrarDialogoGrande(n,txt,quien){
+  const box=$('dialog'); if(!box||!n||!n.spr||n.dead) return;
+  const img=$('dlgImg'); const src=n.av?('assets/img/ts/av/'+n.av+'.png'):retratoNpc(n,96);
+  if(src){ img.src=src; img.style.display='block'; } else img.style.display='none';
+  $('dlgWho').textContent=quien||quienDe(n); $('dlgTxt').textContent=txt;
+  box.classList.remove('on'); void box.offsetWidth; box.classList.add('on');
+  if(dlgHideEv) dlgHideEv.remove(false);
+  dlgHideEv=scene.time.delayedCall(4200,ocultarDialogoGrande);
+}
+function ocultarDialogoGrande(){ const b=$('dialog'); if(b) b.classList.remove('on'); }
 
 /* ===== escenas absurdas: discusiones, peleas y chapuzones (vida ambiente del stream) ===== */
 let escAcc=0, escNext=8000;
@@ -122,7 +145,7 @@ function aguaCercaPx(px,py){ const t=tileOf(px,py);
 function splashFx(x,y){ const f=scene.add.sprite(x,y,'pfx_splash').setDepth(y+2).setScale(0.75).play('pfxsplash');   // salpicadura real (pfx_splash)
   f.once('animationcomplete',()=>f.destroy()); burst(x,y-6,0x9fd3e0,8,8); sfx('door',0.2); }
 function encarar(a,b){ a.spr.setFlipX(b.spr.x<a.spr.x); b.spr.setFlipX(a.spr.x<b.spr.x); }
-function verEscena(x,y,txt){ if(cameraBusy||manualView) return; setWatching(txt); tViewers+=rint(60,220); cutToPos(x,y); }   // corte de cámara con zoom a la escena
+function verEscena(x,y,txt){ if(cameraBusy||manualView) return false; setWatching(txt); tViewers+=rint(60,220); cutToPos(x,y); return true; }   // corte de cámara con zoom a la escena (true si cortó)
 function escenaAbsurda(){
   const living=livingNpcs().filter(n=>!n.busy&&!n._bub); if(living.length<2) return;
   const r=Math.random();
@@ -130,22 +153,26 @@ function escenaAbsurda(){
     const a=pick(living), b=npcCerca(a,130); if(!b) return;
     ocupar(a,1600); ocupar(b,1600); encarar(a,b);
     burst(a.spr.x,a.spr.y-30,0xffcf5a,6,10);
-    burbuja(a,L('¡Retirá lo dicho!','Take that back!')); a._bub=b._bub=1;
-    scene.time.delayedCall(850,()=>{ if(!b.dead){ burbuja(b,L('¡Obligame!','Make me!')); } });
+    const la=L('¡Retirá lo dicho!','Take that back!'), lb=L('¡Obligame!','Make me!');
+    burbuja(a,la); a._bub=b._bub=1;
+    scene.time.delayedCall(850,()=>{ if(!b.dead){ burbuja(b,lb); } });
     scene.time.delayedCall(1700,()=>{ a._bub=null; b._bub=null; });
-    if(Math.random()<0.5) verEscena((a.spr.x+b.spr.x)/2,(a.spr.y+b.spr.y)/2-10, L('Discusión en la calle…','A street argument…'));
+    if(Math.random()<0.5 && verEscena((a.spr.x+b.spr.x)/2,(a.spr.y+b.spr.y)/2-10, L('Discusión en la calle…','A street argument…'))){
+      mostrarDialogoGrande(a,la); scene.time.delayedCall(1000,()=>mostrarDialogoGrande(b,lb));
+    }
   } else if(r<0.68){                                     // pelea corta: chispas y polvareda
     const a=pick(living), b=npcCerca(a,120); if(!b) return;
     ocupar(a,1200); ocupar(b,1200); encarar(a,b);
     const mx=(a.spr.x+b.spr.x)/2, my=(a.spr.y+b.spr.y)/2;
     ring(mx,my-8,0xd64545); burst(mx,my-6,0xffffff,12,8); dustPuff(mx,my,2,0); sfx('clash',0.25);
-    verEscena(mx,my-10, L('¡Pelea callejera!','A street brawl!'));
+    if(verEscena(mx,my-10, L('¡Pelea callejera!','A street brawl!'))){ mostrarDialogoGrande(a,lineaDe(a)); scene.time.delayedCall(1100,()=>mostrarDialogoGrande(b,lineaDe(b))); }
   } else {                                               // chapuzón: un aldeano se tira al agua y sale
     const cand=living.filter(n=>n.tipo==='pawn'||n.tipo==='warrior'); const a=pick(cand)||pick(living);
     const wp=aguaCercaPx(a.spr.x,a.spr.y); if(!wp) return;
     const ox=a.spr.x, oy=a.spr.y; ocupar(a,2800);
-    verEscena(ox,oy-10, L('¡Alguien se tiró al agua!','Someone jumped in the water!'));
-    burbuja(a,L('¡Al agua!','Cannonball!')); a._bub=1; scene.time.delayedCall(2600,()=>{ if(a) a._bub=null; });
+    const laq=L('¡Al agua!','Cannonball!');
+    if(verEscena(ox,oy-10, L('¡Alguien se tiró al agua!','Someone jumped in the water!'))) mostrarDialogoGrande(a,laq);
+    burbuja(a,laq); a._bub=1; scene.time.delayedCall(2600,()=>{ if(a) a._bub=null; });
     scene.tweens.add({targets:a.spr,x:wp.x,y:wp.y,duration:620,ease:'Sine.easeIn',onComplete:()=>{
       splashFx(wp.x,wp.y); a.spr.setVisible(false);
       scene.time.delayedCall(700,()=>{ if(a.spr){ a.spr.setVisible(true); splashFx(wp.x,wp.y);
@@ -440,7 +467,7 @@ function create(){
   an.create({key:'pfxsplash',frames:an.generateFrameNumbers('pfx_splash',{start:0,end:-1}),frameRate:14,repeat:0});
 
   // ---- mar + foam + suelo (RenderTexture: 1 draw call para todo el piso) ----
-  this.add.tileSprite(0,0,WORLD_W,WORLD_H,'water').setOrigin(0,0).setDepth(-30);
+  this.add.tileSprite(-MAR,-MAR,WORLD_W+MAR*2,WORLD_H+MAR*2,'water').setOrigin(0,0).setDepth(-30);   // el mar desborda el mundo → sin franja negra
   for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
     if(!land[y][x]) continue;
     let coast=false;
@@ -639,7 +666,7 @@ function create(){
   }
 
   nightRect=this.add.rectangle(0,0,10,10,0x0a1436,0).setOrigin(0,0).setScrollFactor(0).setDepth(90000);
-  this.cameras.main.setBounds(0,0,WORLD_W,WORLD_H);
+  this.cameras.main.setBounds(-MAR,-MAR,WORLD_W+MAR*2,WORLD_H+MAR*2);   // deja ver el mar de relleno en pantallas anchas
   fitCamera(); this.scale.on('resize',fitCamera);
 
   // ---- lupa: rueda = zoom hacia el puntero · arrastrar = mover · doble click = vista general ----
@@ -703,8 +730,13 @@ function banner(tx,ty,color){
   const fl=scene.add.triangle(x+2,y-16,0,0,20,6,0,14,color).setOrigin(0,0).setDepth(y+40);
   fl.setStrokeStyle(1,0x120d09,0.6);
 }
-function placeTorch(tx,ty){                            // brasero: llama animada de Tiny Swords + glow
+function placeTorch(tx,ty){                            // fogata: anillo de piedras + llama animada de Tiny Swords + glow
   const x=tx*T+T/2, y=ty*T+T-4;
+  // anillo de piedritas alrededor del fuego para que se lea como fogata de verdad
+  for(const[dx,dy]of [[-15,-1],[15,-2],[-9,5],[10,5],[0,7]]){
+    if(Math.random()<0.22) continue;
+    scene.add.image(x+dx,y+dy,'rock'+rint(1,4)).setOrigin(0.5,0.9).setScale(0.3+Math.random()*0.09).setDepth(y+dy-2).setFlipX(Math.random()<0.5);
+  }
   const glow=scene.add.circle(x,y-20,22,0xffb060,0.26).setDepth(y-1);
   scene.add.sprite(x,y,'fire').play({key:'fire-a',startFrame:rint(0,6)}).setOrigin(0.5,1).setScale(0.34).setDepth(y);
   scene.tweens.add({targets:glow,alpha:{from:0.16,to:0.34},scaleX:{from:0.9,to:1.2},scaleY:{from:0.9,to:1.2},duration:560,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
@@ -830,7 +862,7 @@ function fitCamera(){if(!scene)return;const cam=scene.cameras.main,vw=scene.scal
   if(!cameraBusy){cam.setZoom(baseZoom);cam.centerOn(baseCX,baseCY);}}
 function cutToPos(x,y,hold){if(cameraBusy||manualView)return;cameraBusy=true;const cam=scene.cameras.main,z=Math.min(Math.max(baseZoom*4.2,baseZoom+1.1),2.9);   // zoom más dramático
   cam.pan(x,y,600,'Sine.easeInOut'); cam.zoomTo(z,600,'Cubic.easeInOut'); reticleLock(true);
-  scene.time.delayedCall(hold||3400,()=>{cam.pan(baseCX,baseCY,850,'Sine.easeInOut');cam.zoomTo(baseZoom,850,'Sine.easeInOut');reticleLock(false);hideLabels();
+  scene.time.delayedCall(hold||3400,()=>{cam.pan(baseCX,baseCY,850,'Sine.easeInOut');cam.zoomTo(baseZoom,850,'Sine.easeInOut');reticleLock(false);hideLabels();ocultarDialogoGrande();
     scene.time.delayedCall(880,()=>{cameraBusy=false;});});}
 // director de cámara: el Ojo del Vigía recorre la isla con zoom aunque no haya evento (para que siempre pase algo)
 function directorCamara(){
@@ -1026,7 +1058,7 @@ function fireEvent(force){
   if(!cameraBusy){
     setWatching(text); tViewers+=rint(150,480);
     cutToPos(focus?focus.x:a.spr.x, focus?focus.y-20:a.spr.y-30);
-    if(!focus) showLabel(a);
+    if(!focus){ showLabel(a); scene.time.delayedCall(650,()=>mostrarDialogoGrande(a,lineaDe(a))); }
     scene.time.delayedCall(700,()=>applyConsequence(tpl,a,b,focus));
   } else {
     applyConsequence(tpl,a,b,focus);
