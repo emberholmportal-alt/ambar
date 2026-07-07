@@ -119,8 +119,8 @@ function npcCerca(n,r){ return livingNpcs().find(o=>o!==n&&!o.busy&&Math.hypot(o
 function aguaCercaPx(px,py){ const t=tileOf(px,py);
   for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]]){ const x=t.x+dx,y=t.y+dy;
     if(x>=0&&x<COLS&&y>=0&&y<ROWS&&!isLand(x,y)) return {x:x*T+T/2,y:y*T+T/2}; } return null; }
-function splashFx(x,y){ const f=scene.add.sprite(x,y,'foam').play({key:'foam-a'}).setScale(0.7).setDepth(y);
-  scene.time.delayedCall(700,()=>f.destroy()); burst(x,y-6,0x9fd3e0,10,8); sfx('door',0.2); }
+function splashFx(x,y){ const f=scene.add.sprite(x,y,'pfx_splash').setDepth(y+2).setScale(0.75).play('pfxsplash');   // salpicadura real (pfx_splash)
+  f.once('animationcomplete',()=>f.destroy()); burst(x,y-6,0x9fd3e0,8,8); sfx('door',0.2); }
 function encarar(a,b){ a.spr.setFlipX(b.spr.x<a.spr.x); b.spr.setFlipX(a.spr.x<b.spr.x); }
 function verEscena(x,y,txt){ if(cameraBusy||manualView) return; setWatching(txt); tViewers+=rint(60,220); cutToPos(x,y); }   // corte de cámara con zoom a la escena
 function escenaAbsurda(){
@@ -269,6 +269,11 @@ function preload(){
   // partículas Tiny Swords (Particle FX del Free Pack)
   this.load.spritesheet('dust1',TSB+'dust1.png',{frameWidth:64,frameHeight:64});
   this.load.spritesheet('dust2',TSB+'dust2.png',{frameWidth:64,frameHeight:64});
+  // Particle FX del pack (los que faltaban): nube de polvo, explosión, fuego y salpicadura reales
+  this.load.spritesheet('pfx_dust',TSB+'pfx_dust.png',{frameWidth:64,frameHeight:64});
+  this.load.spritesheet('pfx_boom',TSB+'pfx_boom.png',{frameWidth:192,frameHeight:192});
+  this.load.spritesheet('pfx_fire',TSB+'pfx_fire.png',{frameWidth:64,frameHeight:64});
+  this.load.spritesheet('pfx_splash',TSB+'pfx_splash.png',{frameWidth:192,frameHeight:192});
   ['fire','clash','coins','latch','bell','door','bong','creak'].forEach(k=>this.load.audio('s_'+k,'assets/sfx/'+k+'.ogg'));
 }
 function makeDot(s){const g=s.add.graphics({add:false});g.fillStyle(0xffffff,1);g.fillCircle(4,4,4);g.generateTexture('dot',8,8);g.destroy();}
@@ -429,6 +434,10 @@ function create(){
   an.create({key:'cerdo-run', frames:an.generateFrameNumbers('pig_run', {start:0,end:-1}),frameRate:10,repeat:-1});
   an.create({key:'dust1-a',frames:an.generateFrameNumbers('dust1',{start:0,end:-1}),frameRate:11,repeat:0});
   an.create({key:'dust2-a',frames:an.generateFrameNumbers('dust2',{start:0,end:-1}),frameRate:11,repeat:0});
+  an.create({key:'pfxdust',frames:an.generateFrameNumbers('pfx_dust',{start:0,end:-1}),frameRate:14,repeat:0});
+  an.create({key:'pfxboom',frames:an.generateFrameNumbers('pfx_boom',{start:0,end:-1}),frameRate:16,repeat:0});
+  an.create({key:'pfxfire',frames:an.generateFrameNumbers('pfx_fire',{start:0,end:-1}),frameRate:12,repeat:-1});
+  an.create({key:'pfxsplash',frames:an.generateFrameNumbers('pfx_splash',{start:0,end:-1}),frameRate:14,repeat:0});
 
   // ---- mar + foam + suelo (RenderTexture: 1 draw call para todo el piso) ----
   this.add.tileSprite(0,0,WORLD_W,WORLD_H,'water').setOrigin(0,0).setDepth(-30);
@@ -853,11 +862,15 @@ function dustPuff(x,y,count,tint){                    // humo/polvo Tiny Swords 
     p.once('animationcomplete',()=>p.destroy());
   }
 }
-function boom(x,y){ const e=scene.add.sprite(x,y,'explosion').setDepth(99999).setScale(0.9);
-  e.play('explosion-a'); e.once('animationcomplete',()=>e.destroy()); }
+function boom(x,y,esc){ const e=scene.add.sprite(x,y,'pfx_boom').setDepth(99999).setScale((esc||1)*1.0);   // explosión real (pfx_boom)
+  e.play('pfxboom'); e.once('animationcomplete',()=>e.destroy()); }
+function pfxDust(x,y,esc){ const d=scene.add.sprite(x,y,'pfx_dust').setDepth(99998).setScale((esc||1)*1.1).play('pfxdust');   // nube de polvo real
+  d.once('animationcomplete',()=>d.destroy()); }
+function fuegoFx(x,y,ms){ const fr=scene.add.sprite(x,y,'pfx_fire').setOrigin(0.5,0.9).setDepth(99997).setScale(1.0).play('pfxfire');   // ráfaga de fuego (loop corto)
+  scene.time.delayedCall(ms||900,()=>scene.tweens.add({targets:fr,alpha:0,duration:300,onComplete:()=>fr.destroy()})); return fr; }
 function playFx(kind,x,y){const rm=matchMedia('(prefers-reduced-motion:reduce)').matches;
-  if(kind==='fire'){ boom(x,y); dustPuff(x,y-18,4,0x8a8078); if(!rm)scene.cameras.main.shake(340,0.007); }
-  else if(kind==='clash'){ ring(x,y,0xffffff); dustPuff(x,y-6,2,0); burst(x,y,0xd64545,10,8); scene.cameras.main.flash(120,229,220,180); }
+  if(kind==='fire'){ boom(x,y,1.2); fuegoFx(x,y-6,1100); pfxDust(x,y-14,1.1); if(!rm)scene.cameras.main.shake(340,0.007); }
+  else if(kind==='clash'){ ring(x,y,0xffffff); pfxDust(x,y-4,0.9); burst(x,y,0xd64545,10,8); scene.cameras.main.flash(120,229,220,180); }
   else if(kind==='ring'){ ring(x,y,0xc9a227); burst(x,y-6,0xc9a227,12,12); }
   else if(kind==='confetti'){ [0xd64545,0x4a90c2,0x5fa55a,0x9b6fce,0xc9a227].forEach(c=>burst(x,y-6,c,6,16)); }}
 
@@ -866,7 +879,7 @@ function ruinBuilding(b){
   if(!b||b.ruined)return; b.ruined=true;
   b.spr.setTint(0x5a4438);
   scene.add.ellipse(b.x,b.y-4,b.spr.displayWidth*0.6,24,0x120b06,0.5).setDepth(b.y-1);
-  const f=scene.add.sprite(b.x,b.y-8,'fire').play('fire-a').setOrigin(0.5,1).setScale(0.85).setDepth(b.y+1);   // fuego animado persistente
+  const f=scene.add.sprite(b.x,b.y-8,'pfx_fire').play('pfxfire').setOrigin(0.5,0.9).setScale(1.25).setDepth(b.y+1);   // fuego real persistente (pfx_fire)
   const smoke=scene.time.addEvent({delay:900,loop:true,callback:()=>{
     if(paused)return; dustPuff(b.x+rint(-8,8), b.y-44, 1, 0x6e6660);
   }});
