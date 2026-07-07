@@ -17,6 +17,8 @@
   #splashSub{font-family:'UnifrakturCook','MedievalSharp',serif;font-weight:700;font-size:clamp(30px,6vw,58px);
     color:#e7c766;margin-top:-8px;letter-spacing:.02em;text-shadow:0 3px 0 #000,0 0 18px rgba(0,0,0,.7);
     animation:splashIn 1s .15s cubic-bezier(.2,.9,.25,1) both}
+  #splashVer{font-family:var(--mono);font-size:12px;letter-spacing:.3em;color:#a98a3c;text-transform:uppercase;
+    margin-top:2px;animation:splashIn 1s .3s cubic-bezier(.2,.9,.25,1) both}
   @keyframes splashIn{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
   #splashBarZone{position:relative;width:min(52vw,300px)}
   #splashBarWrap{width:100%;height:18px;background:#1a1208;border:2px solid #6b5226;border-radius:10px;
@@ -78,6 +80,13 @@
   .recordsList li{color:#e7dcc4;font-size:13px;line-height:1.35}
   .recordsList li b{color:#ffe36b}
   .recordsList .vacio{list-style:none;margin-left:-18px;color:#9a8f79;text-align:center;font-style:italic}
+  .recProfile{display:flex;gap:7px;flex-wrap:wrap;margin:2px 0 8px}
+  .recProfile input{flex:1;min-width:120px;font-family:var(--mono);font-size:12px;color:var(--ink);
+    background:var(--bg3);border:1px solid var(--brass-dim);border-radius:5px;padding:8px 9px}
+  .recProfile input:focus{outline:none;border-color:var(--brass)}
+  .recProfile #recSave{min-width:96px;padding:8px 12px}
+  .recWho{font-family:var(--mono);font-size:11px;color:var(--brass);margin:0 0 10px;letter-spacing:.04em}
+  .recWho b{color:#ffe36b;font-variant-numeric:tabular-nums}
   /* panel de OLEADA arriba del minimapa */
   .wavebar{padding:6px 9px 7px;border-radius:6px;font-size:11px;line-height:1.35;text-align:center;font-variant-numeric:tabular-nums;
     background:linear-gradient(180deg,#241a10,#140f0a);border:1px solid var(--line)}
@@ -199,6 +208,7 @@
 <div id="splash">
   <img id="splashLogo" src="assets/img/aoa_logo.png" alt="Age of Ansem"/>
   <div id="splashSub">The Black Bull</div>
+  <div id="splashVer">Beta · v0.9</div>
   <div id="splashBarZone"><div id="splashBarWrap"><div id="splashBar"></div></div><div id="splashRunner"></div></div>
 </div>
 <div class="app">
@@ -206,6 +216,7 @@
     <div id="game"></div>
     <div class="titlechip" id="ageBanner">
       <img class="minilogo" src="assets/img/aoa_logo.png" alt="Age of Ansem"/>
+      <div class="sub">Beta · v0.9</div>
     </div>
     <div class="menuwrap">
       <button class="iconbtn" id="btnMenu" title="Menú">☰</button>
@@ -219,6 +230,12 @@
     <div class="recordsOv" id="recordsOv">
       <div class="recordsBox frame">
         <div class="recordsH">🏆 RÉCORDS</div>
+        <div class="recProfile">
+          <input id="recUser" maxlength="18" placeholder="Nombre de usuario" autocomplete="off"/>
+          <input id="recWallet" maxlength="64" placeholder="Billetera (0x…)" autocomplete="off"/>
+          <button class="ghost" id="recSave">GUARDAR</button>
+        </div>
+        <div class="recWho" id="recWho"></div>
         <ol class="recordsList" id="recordsList"></ol>
         <button class="ghost" id="btnRecordsCerrar">CERRAR</button>
       </div>

@@ -660,7 +660,9 @@ function create(){
   $('btnMenu').onclick=()=>$('menu').classList.toggle('open');
   $('cronToggle')&&($('cronToggle').onclick=()=>{ const c=$('cronica'), min=c.classList.toggle('min'); $('cronToggle').textContent=min?'+':'–'; });
   $('btnDialog')&&($('btnDialog').onclick=()=>{ S.dialogOn=!S.dialogOn; $('btnDialog').textContent=(S.dialogOn?'💬':'🚫')+' '+L('DIÁLOGOS','DIALOGUES'); if(!S.dialogOn) ocultarDialogo(); });
-  $('btnIdioma')&&($('btnIdioma').onclick=()=>{ LANG=LANG==='es'?'en':'es'; try{localStorage.setItem('aoa_lang',LANG);}catch(e){} aplicarIdioma(); });
+  $('btnIdioma')&&($('btnIdioma').onclick=()=>{ LANG=LANG==='es'?'en':'es'; try{localStorage.setItem('aoa_lang',LANG);}catch(e){}
+    const box=$('cronicaList'); if(box) box.innerHTML='';                          // la crónica se escribe en el idioma del momento: al cambiar, limpiamos para no mezclar ES/EN
+    aplicarIdioma(); cronica(L('🌐 Idioma cambiado a español.','🌐 Language switched to English.'),randAv()); });
   aplicarIdioma();
   toast(L('EL ASEDIO · Preparate: construí defensas y entrená tropas. La primera oleada llega en ','THE SIEGE · Get ready: build defenses and train troops. The first wave arrives in ')+PREP0+'s.');
   cronica(L('Fundás tu pueblo. Que empiece el asedio.','You found your town. Let the siege begin.'),randAv());
@@ -1070,6 +1072,18 @@ function mandarGranja(a,b){                            // el aldeano saca CARNE 
     a.estado='peon'; a.bId=b.id; a.task=b.id; a.tarT=0; a.fuente={tipo:'granja', id:b.id};
     pegarAEdificio(a,b);                                // dedicado visualmente a la granja
     setTool(a,'waxe');                                  // faena la carne (hacha)
+    if(S.sel&&S.sel.ref===a) renderSel();
+  });
+}
+function mandarReparar(a,b,luegoGranja){               // el aldeano va a REPARAR el edificio dañado antes de seguir
+  const bs=bordesEdificio(b);
+  const cnt=S.ald.filter(o=>o!==a&&o.bId===b.id&&(o.estado==='reparando'||o.estado==='yendo')).length;
+  const slot=bs.length?bs[cnt%bs.length]:{x:b.tx,y:b.ty};
+  a.reparaLuego = !!luegoGranja && b.tipo==='granja';
+  moverA(a,slot.x,slot.y,()=>{
+    a.estado='reparando'; a.bId=b.id; a.task=b.id; a.tarT=0;
+    pegarAEdificio(a,b);
+    a.tool='hammer'; a.spr.setTexture('pawn_hammer',0).setScale(0.7); a.spr.play('phammer',true);   // martilla la reparación
     if(S.sel&&S.sel.ref===a) renderSel();
   });
 }
@@ -1539,7 +1553,8 @@ function ordenar(p){
   const b=S.buildings.find(bb=>occ===bb.id);
   if(b){
     if(b.estado==='esperando'||b.estado==='obra'){ mandarConstruir(a,b); ordenIcono(b.x,b.y,'ic1',L('Construir','Build'),'#e8c07a',0.6); return; }
-    if(b.tipo==='granja'&&b.estado==='ok'&&!b.danado&&!b.agotada){ mandarGranja(a,b); marcaOrden(b.x,b.y); return; }
+    if(b.danado){ mandarReparar(a,b,b.tipo==='granja'); ordenIcono(b.x,b.y,'ic1',L('Reparar','Repair'),'#8ee0a0',0.6); return; }   // dañado: el aldeano lo repara antes de seguir
+    if(b.tipo==='granja'&&b.estado==='ok'&&!b.agotada){ mandarGranja(a,b); marcaOrden(b.x,b.y); return; }
   }
   if(walkable(t.x,t.y)){ moverA(a,t.x,t.y,()=>parar(a)); marcaMover((BX+t.x)*T+T/2,(BY+t.y)*T+T/2); }
   else sfx('creak',0.3);
@@ -1682,7 +1697,10 @@ function renderSelEdificio(b){
       if(up&&b.nivel<MAXLVL.def) accion(L('MEJORAR (','UPGRADE (')+costoTxt(up.costo)+')',()=>mejorarB(b),b.estado!=='ok'); }
     if(b.tipo==='granja'&&b.estado==='ok'){            // granja: sacar carne (se gasta) o reponer cuando está agotada
       if(b.agotada) accion(L('🌾 REPONER (60 madera)','🌾 REFILL (60 wood)'),()=>reponerGranja(b),S.madera<60);
-      else accion(L('🍖 SACAR CARNE','🍖 GATHER MEAT'),()=>{ const a=aldLibreCerca(b.x,b.y); if(a){ mandarGranja(a,b); toast(L('Aldeano a sacar carne.','Villager gathering meat.')); } else toast(L('No hay aldeanos libres.','No free villagers.')); },false);
+      else accion(L('🍖 SACAR CARNE','🍖 GATHER MEAT'),()=>{ const a=aldLibreCerca(b.x,b.y);
+        if(!a){ toast(L('No hay aldeanos libres.','No free villagers.')); return; }
+        if(b.danado){ mandarReparar(a,b,true); toast(L('🔧 El aldeano repara la granja antes de sacar carne.','🔧 The villager repairs the farm before gathering meat.')); }
+        else { mandarGranja(a,b); toast(L('Aldeano a sacar carne.','Villager gathering meat.')); } },false);
     }
   }
   if(c.esTC){                                    // Ayuntamiento: arquero de techo + refugiar / liberar aldeanos
@@ -2580,6 +2598,9 @@ function aplicarIdioma(){
   set('btnIdioma','🌐 '+(LANG==='es'?'ENGLISH':'ESPAÑOL'));
   set('btnRecords','🏆 '+L('RÉCORDS','RECORDS'));
   set('btnRecordsCerrar',L('CERRAR','CLOSE'));
+  set('recSave',L('GUARDAR','SAVE'));
+  { const su=$('recUser'); if(su) su.placeholder=L('Nombre de usuario','Username');
+    const sw=$('recWallet'); if(sw) sw.placeholder=L('Billetera (0x…)','Wallet (0x…)'); }
   set('recordsH','🏆 '+L('RÉCORDS','RECORDS'));   // el <div class=recordsH> no tiene id; se setea abajo si existe
   // encabezados / paneles
   const rh=document.querySelector('.recordsH'); if(rh) rh.textContent='🏆 '+L('RÉCORDS','RECORDS');
@@ -2603,23 +2624,38 @@ function aplicarIdioma(){
 }
 /* ===== récords (persistidos localmente: sólo el listado de puntajes) ===== */
 function cargarRecords(){ try{ return JSON.parse(localStorage.getItem('aoa_records')||'[]'); }catch(e){ return []; } }
+/* perfil local (nombre de usuario + billetera). El login real por billetera y el backend van en un track aparte;
+   por ahora se guarda en localStorage y la billetera se muestra abreviada tipo 0x…B7To. */
+function cargarPerfil(){ try{ return JSON.parse(localStorage.getItem('aoa_profile')||'{}'); }catch(e){ return {}; } }
+function guardarPerfil(p){ try{ localStorage.setItem('aoa_profile', JSON.stringify(p)); }catch(e){} }
+function abrevBilletera(w){ if(!w) return ''; w=(''+w).trim(); if(w.length<=9) return w; return w.slice(0,4)+'…'+w.slice(-4); }
 function guardarRecord(){
-  const recs=cargarRecords();
-  recs.push({score:S.score, wave:S.wave, tSurv:Math.floor(S.tSurv), recursos:Math.floor(S.recursos), kills:S.kills, fecha:new Date().toLocaleDateString()});
+  const recs=cargarRecords(), p=cargarPerfil();
+  recs.push({score:S.score, wave:S.wave, tSurv:Math.floor(S.tSurv), recursos:Math.floor(S.recursos), kills:S.kills,
+    fecha:new Date().toLocaleDateString(), user:(p.user||'').slice(0,18), wallet:p.wallet||''});
   recs.sort((a,b2)=>b2.score-a.score);
   try{ localStorage.setItem('aoa_records', JSON.stringify(recs.slice(0,10))); }catch(e){}
 }
 function mostrarRecords(){
   const ov=$('recordsOv'), ul=$('recordsList'); if(!ov||!ul) return;
+  const p=cargarPerfil();
+  const iu=$('recUser'), iw=$('recWallet'), who=$('recWho');
+  if(iu) iu.value=p.user||''; if(iw) iw.value=p.wallet||'';
+  if(who) who.innerHTML = p.wallet ? L('Billetera: ','Wallet: ')+'<b>'+abrevBilletera(p.wallet)+'</b>' : L('<span style="opacity:.7">Sin billetera vinculada</span>','<span style="opacity:.7">No wallet linked</span>');
   const recs=cargarRecords();
   ul.innerHTML = recs.length ? recs.map(r=>{
     const m=Math.floor(r.tSurv/60), s=r.tSurv%60;
-    return '<li><b>'+r.score+' pts</b> · '+L('Oleada ','Wave ')+r.wave+' · '+m+'m '+s+'s · '+r.recursos+L(' rec. · ',' res. · ')+r.kills+L(' bajas ',' kills ')+'<span style="color:#9a8f79">('+r.fecha+')</span></li>';
+    const quien = (r.user||r.wallet) ? '<span style="color:#8ec8ff">'+(r.user||'')+(r.wallet?(r.user?' · ':'')+abrevBilletera(r.wallet):'')+'</span> · ' : '';
+    return '<li>'+quien+'<b>'+r.score+' pts</b> · '+L('Oleada ','Wave ')+r.wave+' · '+m+'m '+s+'s · '+r.recursos+L(' rec. · ',' res. · ')+r.kills+L(' bajas ',' kills ')+'<span style="color:#9a8f79">('+r.fecha+')</span></li>';
   }).join('') : '<li class="vacio">'+L('Todavía no hay récords. ¡Jugá una partida!','No records yet. Play a game!')+'</li>';
   ov.classList.add('open');
 }
 $('btnRecords')&&($('btnRecords').onclick=()=>{ $('menu').classList.remove('open'); mostrarRecords(); });
 $('btnRecordsCerrar')&&($('btnRecordsCerrar').onclick=()=>$('recordsOv').classList.remove('open'));
+$('recSave')&&($('recSave').onclick=()=>{
+  const user=(($('recUser')||{}).value||'').trim().slice(0,18), wallet=(($('recWallet')||{}).value||'').trim().slice(0,64);
+  guardarPerfil({user,wallet}); toast(L('Perfil guardado.','Profile saved.')); mostrarRecords();
+});
 $('recordsOv')&&($('recordsOv').onclick=e=>{ if(e.target===$('recordsOv')) $('recordsOv').classList.remove('open'); });
 
 /* ===== minimapa ===== */
@@ -2733,6 +2769,14 @@ function update(time,delta){
           if(a.carga.n>=CARRYCAP || b.reserva<=0) irADepositar(a);
         }
       }
+    } else if(a.estado==='reparando'){                   // repara el edificio dañado; si es granja, al terminar sigue sacando carne
+      const b=byId(a.task);
+      if(!b||!b.danado){                                 // ya no está dañado (o desapareció): seguí
+        if(b&&a.reparaLuego&&b.estado==='ok'&&!b.agotada&&b.reserva>0){ mandarGranja(a,b); } else parar(a);
+      } else { a.tarT+=dt; b.hp=Math.min(b.maxhp||100,(b.hp||1)+(b.maxhp||100)*dtReal*0.5);
+        if(a.tarT>=2.6){ b.danado=false; b.hp=b.maxhp||100; refreshBuilding(b); dustAt(b.x,b.y-10,3); sfx('bong',0.5);
+          flyText(b.x,b.y-24,L('🔧 Reparado','🔧 Repaired'),'#8ee0a0'); if(S.sel&&S.sel.ref===b) renderSel();
+          if(a.reparaLuego&&b.estado==='ok'&&!b.agotada&&b.reserva>0) mandarGranja(a,b); else parar(a); } }
     } else if(a.estado==='cargando'){                    // vuelve al Ayuntamiento con la carga; al llegar deposita
       const dx=a.tx-a.spr.x, dy=a.ty-a.spr.y, d=Math.hypot(dx,dy);
       if(d<6){ if(a.path&&a.path.length){ const p=a.path.shift(); a.tx=p.x; a.ty=p.y; }
