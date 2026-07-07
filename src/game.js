@@ -19,18 +19,24 @@ const hex=c=>'#'+c.toString(16).padStart(6,'0');
 const T=64, COLS=58, ROWS=36, WORLD_W=COLS*T, WORLD_H=ROWS*T;   // reino más grande
 // Cada gremio: nombre + lema + lore (para el reino dividido). name/lema/lore son getters bilingües.
 const GUILDS=[
-  {id:'guardia',tex:'blue',  color:0x4a90c2, cx:15,      cy:12,
+  {id:'guardia',tex:'blue',  kind:'humano', color:0x4a90c2, cx:15,      cy:12,
    _n:['Guardia de Hierro','Iron Guard'], _l:['“El muro es la palabra.”','“The wall is the word.”'],
    _lore:['Defienden la muralla norte y desconfían de todo lo que venga del mar.','They hold the north wall and distrust all that comes from the sea.']},
-  {id:'yunque', tex:'red',   color:0xd64545, cx:COLS-16, cy:12,
+  {id:'yunque', tex:'red',   kind:'humano', color:0xd64545, cx:COLS-16, cy:12,
    _n:['Orden del Yunque','Order of the Anvil'], _l:['“Lo que se forja, manda.”','“What is forged, rules.”'],
    _lore:['Herreros y mercaderes: controlan la forja y el oro de la isla.','Smiths and traders: they command the forge and the isle’s gold.']},
-  {id:'sombra', tex:'purple',color:0x9b6fce, cx:15,      cy:ROWS-13,
+  {id:'sombra', tex:'purple',kind:'humano', color:0x9b6fce, cx:15,      cy:ROWS-11,
    _n:['Los Sin Nombre','The Nameless'], _l:['“Nadie nos vio venir.”','“No one saw us coming.”'],
    _lore:['Contrabandistas de la Necrópolis; juran lealtad sólo a la sombra.','Smugglers of the Necropolis; loyal only to the shadow.']},
-  {id:'sol',    tex:'yellow',color:0xd8b53a, cx:COLS-16, cy:ROWS-13,
+  {id:'sol',    tex:'yellow',kind:'humano', color:0xd8b53a, cx:COLS-16, cy:ROWS-11,
    _n:['Casa del Sol','House of the Sun'], _l:['“Ámbar arde al alba.”','“Amber burns at dawn.”'],
    _lore:['Nobles del Jardín Colgante que sueñan con reunir la isla bajo una corona.','Nobles of the Hanging Garden who dream of one crown over the isle.']},
+  {id:'goblin', tex:'red',   kind:'goblin', color:0x6fae3a, cx:Math.floor(COLS/2), cy:6,
+   _n:['Horda de Colmillo Verde','Greenfang Horde'], _l:['“¡El fuego es ley!”','“Fire is law!”'],
+   _lore:['Goblins del bosque negro: incendian, saquean y ríen. No reconocen rey ni muro.','Goblins of the black wood: they burn, loot and cackle. They bow to no king or wall.']},
+  {id:'villano', tex:'purple',kind:'villano',color:0x8a3a5f, cx:Math.floor(COLS/2), cy:ROWS-6,
+   _n:['Cofradía del Cuervo','The Crow Covenant'], _l:['“Todo tiene un precio en sangre.”','“Everything has a price in blood.”'],
+   _lore:['Bandidos, nigromantes y ladrones exiliados; conspiran en las catacumbas del sur.','Bandits, necromancers and exiled thieves; they scheme in the southern catacombs.']},
 ];
 GUILDS.forEach(g=>{Object.defineProperty(g,'name',{get(){return L(g._n[0],g._n[1]);}});
   Object.defineProperty(g,'lema',{get(){return L(g._l[0],g._l[1]);}});
@@ -51,6 +57,8 @@ const DIALOGO={
   yunque:[['Sin nuestra forja, no habría espadas ni corona.','Without our forge, no swords, no crown.'],['La Guardia se cree dueña del mar.','The Guard thinks it owns the sea.'],['Todo se paga en oro, hasta la paz.','Everything’s paid in gold — even peace.']],
   sombra:[['Cuatro gremios, mil secretos.','Four guilds, a thousand secrets.'],['El Sol sueña con una corona que no existe.','The Sun dreams of a crown that isn’t.'],['Nadie manda sobre la sombra.','No one rules the shadow.']],
   sol:[['Un día Ámbar tendrá un solo estandarte.','One day Amber will fly one banner.'],['La isla está partida y sangra por la grieta.','The isle is split and bleeds at the seam.'],['Al alba se ve mejor quién traiciona.','At dawn you see who betrays.']],
+  goblin:[['¡Fuego! ¡Fuego! ¡Más fuego!','Fire! Fire! More fire!'],['Los humanos guardan oro rico y brillante…','The humans hoard shiny rich gold…'],['¡La horda no teme al muro!','The horde fears no wall!']],
+  villano:[['El cuervo ve todo, hasta tus deudas.','The crow sees all — even your debts.'],['Un rey muerto vale más que uno vivo.','A dead king is worth more than a live one.'],['Las catacumbas guardan mejores secretos.','The catacombs keep better secrets.']],
   comun:[['Cuatro estandartes, una sola isla. Nunca alcanza.','Four banners, one island. Never enough.'],['Dicen que hubo un rey. Ahora sólo hay gremios.','They say there was a king. Now only guilds.'],['La crónica lo cuenta todo, hasta lo que callamos.','The chronicle tells all — even what we hush.'],['¿Paz? En Ámbar eso dura hasta la próxima campana.','Peace? Here it lasts till the next bell.']],
 };
 
@@ -70,7 +78,9 @@ function puntuar(tpl,g,a){
     case 'HALLAZGO': sumarPuntos(g.id,rint(4,7)); break;
     case 'FIESTA': GUILDS.forEach(x=>sumarPuntos(x.id,1)); break;
     case 'TRAICIÓN': sumarPuntos(g.id,rint(2,4)); sumarPuntos(pick(rivales).id,-rint(2,4)); break;
-    case 'INVASIÓN': case 'DRAGÓN': case 'BESTIA': GUILDS.forEach(x=>sumarPuntos(x.id,-rint(0,2))); break;
+    case 'INVASIÓN': sumarPuntos('goblin',rint(3,6)); GUILDS.forEach(x=>{ if(x.kind==='humano') sumarPuntos(x.id,-rint(0,2)); }); break;   // los goblins ganan al invadir
+    case 'DRAGÓN': case 'BESTIA': GUILDS.forEach(x=>{ if(x.kind==='humano') sumarPuntos(x.id,-rint(0,2)); }); break;
+    case 'LADRÓN': sumarPuntos('villano',rint(2,4)); break;                              // el robo alimenta a la Cofradía
     case 'GREMIO': case 'REFUERZO': sumarPuntos(g.id,1); break;
   }
 }
@@ -91,9 +101,11 @@ function burbuja(n,txt){
   n._bub=box;
 }
 function decirAlgo(){
-  const living=livingNpcs().filter(n=>n.spr&&!n._bub);
-  if(!living.length) return;
-  const n=pick(living); const pool=(DIALOGO[n.guild]||[]).concat(DIALOGO.comun); const line=pick(pool);
+  const humanos=livingNpcs().filter(n=>n.spr&&!n._bub);
+  const faccion=npcs.filter(n=>n.faccion&&!n.dead&&n.spr&&!n._bub);   // goblins/villanos también hablan
+  const pool=humanos.concat(faccion);
+  if(!pool.length) return;
+  const n=pick(pool); const lines=(DIALOGO[n.guild]||[]).concat(DIALOGO.comun); const line=pick(lines);
   burbuja(n, L(line[0],line[1])); scene.time.delayedCall(3700,()=>{ if(n) n._bub=null; });
 }
 
@@ -108,6 +120,7 @@ function aguaCercaPx(px,py){ const t=tileOf(px,py);
 function splashFx(x,y){ const f=scene.add.sprite(x,y,'foam').play({key:'foam-a'}).setScale(0.7).setDepth(y);
   scene.time.delayedCall(700,()=>f.destroy()); burst(x,y-6,0x9fd3e0,10,8); sfx('door',0.2); }
 function encarar(a,b){ a.spr.setFlipX(b.spr.x<a.spr.x); b.spr.setFlipX(a.spr.x<b.spr.x); }
+function verEscena(x,y,txt){ if(cameraBusy||manualView) return; setWatching(txt); tViewers+=rint(60,220); cutToPos(x,y); }   // corte de cámara con zoom a la escena
 function escenaAbsurda(){
   const living=livingNpcs().filter(n=>!n.busy&&!n._bub); if(living.length<2) return;
   const r=Math.random();
@@ -118,15 +131,18 @@ function escenaAbsurda(){
     burbuja(a,L('¡Retirá lo dicho!','Take that back!')); a._bub=b._bub=1;
     scene.time.delayedCall(850,()=>{ if(!b.dead){ burbuja(b,L('¡Obligame!','Make me!')); } });
     scene.time.delayedCall(1700,()=>{ a._bub=null; b._bub=null; });
+    if(Math.random()<0.5) verEscena((a.spr.x+b.spr.x)/2,(a.spr.y+b.spr.y)/2-10, L('Discusión en la calle…','A street argument…'));
   } else if(r<0.68){                                     // pelea corta: chispas y polvareda
     const a=pick(living), b=npcCerca(a,120); if(!b) return;
     ocupar(a,1200); ocupar(b,1200); encarar(a,b);
     const mx=(a.spr.x+b.spr.x)/2, my=(a.spr.y+b.spr.y)/2;
     ring(mx,my-8,0xd64545); burst(mx,my-6,0xffffff,12,8); dustPuff(mx,my,2,0); sfx('clash',0.25);
+    verEscena(mx,my-10, L('¡Pelea callejera!','A street brawl!'));
   } else {                                               // chapuzón: un aldeano se tira al agua y sale
     const cand=living.filter(n=>n.tipo==='pawn'||n.tipo==='warrior'); const a=pick(cand)||pick(living);
     const wp=aguaCercaPx(a.spr.x,a.spr.y); if(!wp) return;
     const ox=a.spr.x, oy=a.spr.y; ocupar(a,2800);
+    verEscena(ox,oy-10, L('¡Alguien se tiró al agua!','Someone jumped in the water!'));
     burbuja(a,L('¡Al agua!','Cannonball!')); a._bub=1; scene.time.delayedCall(2600,()=>{ if(a) a._bub=null; });
     scene.tweens.add({targets:a.spr,x:wp.x,y:wp.y,duration:620,ease:'Sine.easeIn',onComplete:()=>{
       splashFx(wp.x,wp.y); a.spr.setVisible(false);
@@ -166,6 +182,8 @@ const MONDEF={
   spider:{ti:'spider_idle', ai:'spider-idle',ar:'spider-run', sc:PSCALE, fw:192, spd:48},
   pigrider:{ti:'pigrider_idle',ai:'pig-idle',ar:'pig-run',    sc:0.52,   fw:256, spd:58},
   tnt:   {ti:'goblin_tnt',  ai:'tnt-idle',   ar:'tnt-run',    sc:PSCALE, fw:192, spd:44},
+  skull: {ti:'skull_idle',  ai:'skull-idle', ar:'skull-run',  sc:PSCALE, fw:192, spd:40},
+  gnome: {ti:'gnome_idle',  ai:'gnome-idle', ar:'gnome-run',  sc:PSCALE, fw:192, spd:52},
 };
 const ROAMERS=['torch','spear','gnoll','bear','snake','spider'];
 
@@ -194,6 +212,7 @@ function preload(){
   this.load.spritesheet('tree',TSB+'tree_anim.png',{frameWidth:192,frameHeight:192});
   for(let i=1;i<=4;i++){ this.load.spritesheet('bush'+i,TSB+'bush'+i+'.png',{frameWidth:128,frameHeight:128}); this.load.image('rock'+i,TSB+'rock'+i+'.png'); }
   for(let i=1;i<=18;i++) this.load.image('tdeco'+i,TSB+'deco'+String(i).padStart(2,'0')+'.png');
+  for(let i=1;i<=6;i++) this.load.image('goldstone'+i,TSB+'goldstone'+i+'.png');   // piedras de oro sueltas (decoración)
   ['res_gold','res_meat','res_wood'].forEach(k=>this.load.image(k,TSB+k+'.png'));
   // unidades y muerte
   for(const c of COLORES) this.load.spritesheet('pawn_'+c,TSB+'pawn_'+c+'.png',{frameWidth:192,frameHeight:192});
@@ -215,6 +234,10 @@ function preload(){
   this.load.spritesheet('snake_run', TSB+'snake_run.png', {frameWidth:192,frameHeight:192});
   this.load.spritesheet('spider_idle',TSB+'spider_idle.png',{frameWidth:192,frameHeight:192});
   this.load.spritesheet('spider_run', TSB+'spider_run.png', {frameWidth:192,frameHeight:192});
+  this.load.spritesheet('skull_idle',TSB+'skull_i.png',{frameWidth:192,frameHeight:192});   // villanos: no-muerto
+  this.load.spritesheet('skull_run', TSB+'skull_r.png', {frameWidth:192,frameHeight:192});
+  this.load.spritesheet('gnome_idle',TSB+'gnome_i.png',{frameWidth:192,frameHeight:192});   // villanos: gnomo de gorro rojo
+  this.load.spritesheet('gnome_run', TSB+'gnome_r.png', {frameWidth:192,frameHeight:192});
   this.load.spritesheet('pigrider_idle',TSB+'pigrider_idle.png',{frameWidth:256,frameHeight:256});
   this.load.spritesheet('pigrider_run', TSB+'pigrider_run.png', {frameWidth:256,frameHeight:256});
   for(let i=1;i<=4;i++){ this.load.image('cloud'+i,TSB+'cloud'+i+'.png'); this.load.spritesheet('wrock'+i,TSB+'wrock'+i+'.png',{frameWidth:128,frameHeight:128}); }
@@ -334,6 +357,10 @@ function create(){
   an.create({key:'snake-run', frames:an.generateFrameNumbers('snake_run',{start:0,end:7}),frameRate:10,repeat:-1});
   an.create({key:'spider-idle',frames:an.generateFrameNumbers('spider_idle',{start:0,end:7}),frameRate:7,repeat:-1});
   an.create({key:'spider-run', frames:an.generateFrameNumbers('spider_run',{start:0,end:4}),frameRate:10,repeat:-1});
+  an.create({key:'skull-idle',frames:an.generateFrameNumbers('skull_idle',{start:0,end:7}),frameRate:8,repeat:-1});
+  an.create({key:'skull-run', frames:an.generateFrameNumbers('skull_run',{start:0,end:5}),frameRate:10,repeat:-1});
+  an.create({key:'gnome-idle',frames:an.generateFrameNumbers('gnome_idle',{start:0,end:7}),frameRate:8,repeat:-1});
+  an.create({key:'gnome-run', frames:an.generateFrameNumbers('gnome_run',{start:0,end:5}),frameRate:12,repeat:-1});
   an.create({key:'pig-idle',frames:an.generateFrameNumbers('pigrider_idle',{start:0,end:7}),frameRate:8,repeat:-1});
   an.create({key:'pig-run', frames:an.generateFrameNumbers('pigrider_run',{start:0,end:3}),frameRate:10,repeat:-1});
   for(let i=1;i<=4;i++) an.create({key:'wrock'+i+'-a',frames:an.generateFrameNumbers('wrock'+i,{start:0,end:7}),frameRate:5,repeat:-1});
@@ -409,15 +436,20 @@ function create(){
       scene.add.image(x*T+T/2,y*T+T-6,'fence',fr).setOrigin(0.5,1).setDepth(y*T+T-6);
       blocked[y][x]=true;
     }
-    placeBuilding('tower_'+g.tex, g.cx, g.cy-1, 0.8, {fw:1,fh:1});
     banner(g.cx, g.cy, g.color); placeTorch(g.cx+1, g.cy); placeTorch(g.cx-QRX+1, g.cy-QRY+1);
-    placeBuilding(pick(ESPECIALES)+'_'+g.tex, g.cx+rint(-2,2), g.cy+2, 0.78, {fw:2,fh:1});
-    let puestas=0, intentos=0;
-    while(puestas<8&&intentos++<70){
-      const hx=g.cx+rint(-QRX+1,QRX-1), hy=g.cy+rint(-QRY+1,QRY-1);
-      if(!isLand(hx,hy)||blocked[hy][hx]||inSand(hx,hy)) continue;
-      placeBuilding(pick(CASAS)+'_'+g.tex, hx, hy, Phaser.Math.FloatBetween(0.72,0.88), {fw:1,fh:1});
-      puestas++;
+    const casa=(kx,ky,tex,sc)=>{ if(!isLand(kx,ky)||blocked[ky][kx]||inSand(kx,ky)) return false; placeBuilding(tex,kx,ky,sc,{fw:1,fh:1}); return true; };
+    if(g.kind==='goblin'){                                   // aldea goblin: chozas + tótems
+      placeBuilding('goblin_house', g.cx, g.cy-1, 0.85, {fw:1,fh:1});
+      placeDecoImg('tdeco18',g.cx-1,g.cy+1,0.95); placeDecoImg('tdeco14',g.cx+2,g.cy+2,0.9);
+      let p=0,it=0; while(p<7&&it++<90){ if(casa(g.cx+rint(-QRX+1,QRX-1),g.cy+rint(-QRY+1,QRY-1),'goblin_house',Phaser.Math.FloatBetween(0.62,0.8))) p++; }
+    } else if(g.kind==='villano'){                            // guarida villana: torre oscura + casas púrpura + huesos
+      placeBuilding('tower_purple', g.cx, g.cy-1, 0.85, {fw:1,fh:1});
+      placeDecoImg('tdeco15',g.cx-1,g.cy+1,0.9); placeDecoImg('tdeco14',g.cx+2,g.cy+1,0.9);
+      let p=0,it=0; while(p<7&&it++<90){ if(casa(g.cx+rint(-QRX+1,QRX-1),g.cy+rint(-QRY+1,QRY-1),pick(CASAS)+'_purple',Phaser.Math.FloatBetween(0.68,0.85))) p++; }
+    } else {                                                  // barrio humano (torre + especial + casas del color)
+      placeBuilding('tower_'+g.tex, g.cx, g.cy-1, 0.8, {fw:1,fh:1});
+      placeBuilding(pick(ESPECIALES)+'_'+g.tex, g.cx+rint(-2,2), g.cy+2, 0.78, {fw:2,fh:1});
+      let p=0,it=0; while(p<8&&it++<70){ if(casa(g.cx+rint(-QRX+1,QRX-1),g.cy+rint(-QRY+1,QRY-1),pick(CASAS)+'_'+g.tex,Phaser.Math.FloatBetween(0.72,0.88))) p++; }
     }
   }
 
@@ -460,24 +492,28 @@ function create(){
   spawnPig(fa.x,fa.y+3,pen); spawnPig(fa.x+1,fa.y+4,pen);
   spawnPig(fa.x-4,fa.y,null); // un cerdo suelto
 
-  // ---- bosques animados + arbustos + rocas + decos por todos lados ----
-  for(let c=0;c<8;c++){ const t=randFree(); if(!t) continue;
-    for(let k=rint(3,7);k>0;k--){ const gx=Phaser.Math.Clamp(t.x+rint(-2,2),1,COLS-2), gy=Phaser.Math.Clamp(t.y+rint(-2,2),1,ROWS-2);
+  // ---- bosques animados + arbustos + rocas + decos por todos lados (densidad alta) ----
+  const bloquear=(x,y)=>{ if(blocked[y]) blocked[y][x]=true; };            // marca colisión en el prop
+  for(let c=0;c<13;c++){ const t=randFree(); if(!t) continue;             // más bosques
+    for(let k=rint(4,8);k>0;k--){ const gx=Phaser.Math.Clamp(t.x+rint(-2,2),1,COLS-2), gy=Phaser.Math.Clamp(t.y+rint(-2,2),1,ROWS-2);
       if(isLand(gx,gy)&&!blocked[gy][gx]&&!inSand(gx,gy)) placeTree(gx,gy); } }
-  for(let i=0;i<16;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)) placeTree(t.x,t.y);}
-  for(let i=0;i<18;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)){const b='bush'+rint(1,4);
-    scene.add.sprite(t.x*T+T/2,t.y*T+T-4,b).play({key:b+'-a',startFrame:rint(0,7)}).setOrigin(0.5,1).setScale(0.6).setDepth(t.y*T+T-4);}}
-  for(let i=0;i<14;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)) placeDecoImg('rock'+rint(1,4),t.x,t.y,0.8);}
-  for(let i=0;i<40;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)) placeDecoImg('tdeco'+rint(1,11),t.x,t.y,Phaser.Math.FloatBetween(0.7,1));}
-  for(let i=0;i<5;i++){const t=randFree(); if(t) spawnSheep(t.x,t.y);}
+  for(let i=0;i<30;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)) placeTree(t.x,t.y);}
+  for(let i=0;i<34;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)){const b='bush'+rint(1,4);
+    scene.add.sprite(t.x*T+T/2,t.y*T+T-4,b).play({key:b+'-a',startFrame:rint(0,7)}).setOrigin(0.5,1).setScale(Phaser.Math.FloatBetween(0.5,0.7)).setDepth(t.y*T+T-4);}}
+  for(let i=0;i<26;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)){ placeDecoImg('rock'+rint(1,4),t.x,t.y,Phaser.Math.FloatBetween(0.7,1.0)); bloquear(t.x,t.y); }}   // las rocas bloquean
+  for(let i=0;i<12;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)){ placeDecoImg('goldstone'+rint(1,6),t.x,t.y,Phaser.Math.FloatBetween(0.5,0.7)); bloquear(t.x,t.y); }}   // piedras de oro sueltas
+  for(let i=0;i<80;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)) placeDecoImg('tdeco'+rint(1,18),t.x,t.y,Phaser.Math.FloatBetween(0.65,1));}   // usa TODAS las decos (1-18)
+  for(let i=0;i<9;i++){const t=randFree(); if(t) spawnSheep(t.x,t.y);}
 
   // ---- casillas caminables ----
   for(let y=1;y<ROWS-1;y++)for(let x=1;x<COLS-1;x++) if(isLand(x,y)&&!blocked[y][x]) walkTiles.push({x:x*T+T/2,y:y*T+T/2});
 
   // ---- población: guerreros, aldeanos, arqueros y monjes ----
-  for(let i=0;i<NPC_START;i++) spawnNpc(null, pick(POPMIX));
-  for(const g of GUILDS){ spawnWorker(g.id,'waxe'); spawnWorker(g.id,'wpick'); }   // leñador y minero por facción
-  spawnWorker(pick(GUILDS).id,'wgold'); spawnWorker(pick(GUILDS).id,'wgold');      // cargadores de oro
+  for(let i=0;i<NPC_START;i++) spawnNpc(null, pick(POPMIX));                       // pobladores humanos (spawnNpc(null) ya elige sólo gremios humanos)
+  GUILDS.filter(g=>g.kind!=='humano').forEach(g=>{ for(let i=0;i<14;i++) spawnNpc(g.id, null); });   // ciudadanos goblin/villano en su barrio
+  const HUM=GUILDS.filter(g=>g.kind==='humano');
+  for(const g of HUM){ spawnWorker(g.id,'waxe'); spawnWorker(g.id,'wpick'); }      // leñador y minero por facción humana
+  spawnWorker(pick(HUM).id,'wgold'); spawnWorker(pick(HUM).id,'wgold');            // cargadores de oro
   for(let i=0;i<N_MONSTERS;i++){ const t=randFree(); if(t) spawnMonster(pick(ROAMERS),t.x,t.y); }
 
   // ---- barcos y tiburón navegando el mar abierto ----
@@ -589,7 +625,12 @@ function makeName(){const b=pick(NAME_B());return b?`${pick(NAME_A)} ${b}`:pick(
 /* ===== spawns ===== */
 function spawnNpc(gid,tipo){
   if(livingNpcs().length>=NPC_MAX) return null;
-  const g=gid?guildById[gid]:pick(GUILDS);
+  const g=gid?guildById[gid]:pick(GUILDS.filter(x=>x.kind==='humano'));
+  if(g.kind==='goblin'||g.kind==='villano'){                 // ciudadanos hostiles: merodean su barrio (usan el sistema de monstruos)
+    const kinds = g.kind==='goblin' ? ['torch','spear','gnoll','tnt','shaman'] : ['thief','skull','gnome','snake','spider'];
+    const m=spawnMonster(pick(kinds), Phaser.Math.Clamp(g.cx+rint(-4,4),1,COLS-2), Phaser.Math.Clamp(g.cy+rint(-3,3),1,ROWS-2), {tx:g.cx,ty:g.cy,r:5});
+    if(m){ m.guild=g.id; m.faccion=true; } return m;
+  }
   tipo=tipo||'warrior';
   const sp0=nearWalkable(Phaser.Math.Clamp(g.cx+rint(-3,3),1,COLS-2), Phaser.Math.Clamp(g.cy+rint(-2,3),1,ROWS-2));
   const sx=sp0.x, sy=sp0.y;
