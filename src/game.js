@@ -1218,7 +1218,46 @@ function aplicarIdioma(){
   renderMarcador();
   if(typeof feedEl!=='undefined'&&feedEl) feedEl.innerHTML='';                 // reinicia la crónica en el nuevo idioma
   seedFeed();
+  if(devEstado) devRender();                                                   // el cartel del dev también cambia de idioma
 }
+
+/* ===== comando de consola: cartel de estado del dev (siempre con el link de la beta) ===== */
+const DEV_PRESETS={
+  durmiendo:  ['🌙 El dev está durmiendo',   '🌙 The dev is sleeping'],
+  trabajando: ['⚒️ El dev está trabajando',  '⚒️ The dev is working'],
+  programando:['💻 El dev está programando', '💻 The dev is coding'],
+  comiendo:   ['🍖 El dev está comiendo',    '🍖 The dev is eating'],
+  stream:     ['🎥 El dev está transmitiendo','🎥 The dev is live'],
+  ausente:    ['🚪 El dev vuelve en un rato', '🚪 The dev is away, back soon'],
+};
+let devEstado=null, devHideTimer=null;
+function devRender(){
+  if(!devEstado) return;
+  const p=DEV_PRESETS[devEstado], msg = p ? L(p[0],p[1]) : ('📣 '+devEstado);
+  const ds=$('devStatus'), db=$('devBeta');
+  if(ds) ds.textContent=msg;
+  if(db) db.innerHTML=L('🎮 Los holders pueden probar la beta en ','🎮 Holders can test the beta at ')+'<b>ageofansem.xyz</b>';
+}
+window.dev=function(estado,ms){
+  const bar=$('devbar'); if(!bar) return 'sin cartel';
+  const key=(estado==null?'':String(estado)).toLowerCase().trim();
+  if(key===''||key==='off'||key==='ocultar'||key==='hide'){ devEstado=null; bar.classList.remove('on'); return 'cartel oculto'; }
+  devEstado = DEV_PRESETS[key] ? key : estado;                                 // preset conocido o texto libre
+  devRender(); bar.classList.add('on');
+  if(devHideTimer){ clearTimeout(devHideTimer); devHideTimer=null; }
+  if(ms&&ms>0) devHideTimer=setTimeout(()=>{ bar.classList.remove('on'); devEstado=null; }, ms);
+  return 'dev: '+(($('devStatus')&&$('devStatus').textContent)||key);
+};
+dev.durmiendo=()=>dev('durmiendo'); dev.trabajando=()=>dev('trabajando'); dev.off=()=>dev('off');
+dev.help=function(){
+  console.log('%c⚙ ESTADO DEL DEV — comando de consola','color:#f0d564;font-weight:bold;font-size:13px');
+  console.log("dev('durmiendo' | 'trabajando' | 'programando' | 'comiendo' | 'stream' | 'ausente')");
+  console.log("dev('texto libre')   ·   dev('trabajando', 8000)  // se oculta solo a los 8s");
+  console.log("dev.off()            // oculta el cartel");
+  console.log('Siempre acompaña con: 🎮 los holders pueden probar la beta en ageofansem.xyz');
+  return Object.keys(DEV_PRESETS);
+};
+try{ console.log('%c⚙ Comando disponible: %cdev.help()','color:#c9a227','color:#f0d564;font-weight:bold'); }catch(e){}
 
 // panel de dueño (pausa, velocidad y director de eventos): sólo visible con ?admin=1
 if(ADMIN){
