@@ -708,6 +708,13 @@ function flyText(x,y,txt,color){
 function dustAt(x,y,n){ for(let i=0;i<(n||3);i++){ const k=pick(['dust1','dust2']);
   const d=scene.add.sprite(x+rint(-24,24),y-rint(0,24),k).setDepth(99999).setScale(1.1);
   d.play({key:k+'-a',delay:i*80}); d.once('animationcomplete',()=>d.destroy()); } }
+function humoPoof(x,y,n){                              // nube de HUMO (dust del pack, gris, subiendo) al desaparecer un animal o agotarse un nodo
+  for(let i=0;i<(n||6);i++){ const k=pick(['dust1','dust2']);
+    const d=scene.add.sprite(x+rint(-18,18),y-rint(0,14),k).setDepth(99999).setScale(Phaser.Math.FloatBetween(1.0,1.7)).setAlpha(0.92).setTint(0xb8ab95);
+    d.play({key:k+'-a',delay:i*60});
+    scene.tweens.add({targets:d,y:d.y-rint(20,48),alpha:0,duration:850,ease:'Sine.easeOut'});
+    d.once('animationcomplete',()=>d.destroy()); }
+  sfx('door',0.22); }
 function marcaOrden(x,y){
   const r=scene.add.circle(x,y,6,0xffe9a0,0).setStrokeStyle(2,0xffe9a0,0.95).setDepth(99995);
   scene.tweens.add({targets:r,radius:22,alpha:0,duration:520,ease:'Quad.easeOut',onComplete:()=>r.destroy()});
@@ -985,7 +992,7 @@ function moverA(a,tx,ty,cb){
 function parar(a){
   if(a.dustEv){a.dustEv.remove();a.dustEv=null;}
   if(a.tween){a.tween.remove();a.tween=null;}
-  a.estado='libre'; a.task=null; a.path=null; a.onArrive=null; a.objAnimal=null; a.objPile=null; a.bId=null; a.carga=null; a.fuente=null; a.cruza=false;
+  a.estado='libre'; a.task=null; a.path=null; a.onArrive=null; a.objAnimal=null; a.objPile=null; a.objEnemigo=null; a.bId=null; a.carga=null; a.fuente=null; a.cruza=false;
   setTool(a,null); a.spr.play('pawn_blue-i',true);
   refreshHUD(); if(S.sel&&S.sel.ref===a) renderSel();
 }
@@ -1087,6 +1094,10 @@ function mandarReparar(a,b,luegoGranja){               // el aldeano va a REPARA
     if(S.sel&&S.sel.ref===a) renderSel();
   });
 }
+function mandarAtacarU(a,g){                           // el aldeano ataca a un enemigo por orden (débil, pero puede)
+  a.objEnemigo=g; a.objAnimal=null; a.objPile=null; a.bId=null; a.task=null; a.carga=a.carga;
+  if(a.dustEv){a.dustEv.remove();a.dustEv=null;} a.estado='atacandoU'; a.atkT=0;
+}
 function mandarCazar(a,m){
   a.objAnimal=m;
   moverA(a,tileOfPx(m.spr.x,m.spr.y).x,tileOfPx(m.spr.x,m.spr.y).y,null);
@@ -1136,6 +1147,7 @@ function scatterNodos(kind,n){
 }
 function agotarNodo(nd){
   const cfg=NODO[nd.kind];
+  humoPoof(nd.spr.x, nd.spr.y-8, nd.kind==='pepita'?5:6);   // humo al agotarse el recurso (oro, pepitas, veta, árbol)
   if(nd.kind==='arbol'){ nd.spr.anims&&nd.spr.anims.stop(); nd.spr.setTexture('tree',9); }
   else if(nd.kind==='veta') nd.spr.setTexture('goldmine_destroyed');
   else scene.tweens.add({targets:nd.spr,alpha:0,scale:0,duration:600,onComplete:()=>nd.spr.destroy()});   // la pepita se agota y desaparece
@@ -1267,7 +1279,7 @@ function scatterScenery(){                 // cueva + choza goblin como paisaje 
 function matarAnimal(m){
   if(m.dead) return; m.dead=true;
   killBar(m);
-  burstAt(m.spr.x,m.spr.y-14,0xd98a6a); dustAt(m.spr.x,m.spr.y,2);
+  humoPoof(m.spr.x,m.spr.y-10,7);                     // el animal se agota y desaparece con una nube de humo
   S.stats.cazado++;
   if(m.aoa){ S.ambar+=m.aoa; flyText(m.spr.x,m.spr.y-30,'+'+m.aoa+' ◆','#ffe36b'); }
   if(FAUNA[m.tipo]&&FAUNA[m.tipo].jefe){ S.stats.bull++; sfx('bong',0.8); toast(L('🐂 ¡Cazaste a THE BLACK BULL! Botín enorme de carne y ◆ $AOA.','🐂 You hunted THE BLACK BULL! Huge haul of meat and ◆ $AOA.')); }
@@ -1539,6 +1551,8 @@ function ordenar(p){
   }
   if(sel.t!=='aldeano') return;
   const a=sel.ref;
+  const gob=S.raid.on?S.raid.gob.find(g=>!g.dead&&Phaser.Math.Distance.Between(wp.x,wp.y,g.spr.x,g.spr.y)<44):null;
+  if(gob){ mandarAtacarU(a,gob); ordenIcono(gob.spr.x,gob.spr.y,'ic5',L('¡Atacar!','Attack!'),'#ff9a6a',0.6); return; }   // el aldeano puede atacar enemigos por orden
   const an=S.animals.find(m=>!m.dead&&Phaser.Math.Distance.Between(wp.x,wp.y,m.spr.x,m.spr.y)<40);
   if(an){ mandarCazar(a,an); ordenIcono(an.spr.x,an.spr.y,'res_meat',L('Cazar ','Hunt ')+FAUNA[an.tipo].nom.toLowerCase(),'#ffd9b0'); return; }
   const pile=S.piles.find(m=>Phaser.Math.Distance.Between(wp.x,wp.y,m.x,m.y)<40);
@@ -2738,6 +2752,19 @@ function update(time,delta){
             if(m.hp<=0){ matarAnimal(m); }
           }
         }
+      }
+    } else if(a.estado==='atacandoU'){                   // el aldeano persigue y golpea a un enemigo por orden
+      const g=a.objEnemigo;
+      if(!g||g.dead||S.raid.gob.indexOf(g)<0){ parar(a); }
+      else { const d=Phaser.Math.Distance.Between(a.spr.x,a.spr.y,g.spr.x,g.spr.y);
+        if(d>32){ const sp=66*dtReal, ang=Math.atan2(g.spr.y-a.spr.y,g.spr.x-a.spr.x);
+          const nx=a.spr.x+Math.cos(ang)*sp, ny=a.spr.y+Math.sin(ang)*sp;
+          if(landAtPx(nx,ny)){ a.spr.x=nx; a.spr.y=ny; }
+          a.spr.setFlipX(Math.cos(ang)<0); a.spr.setDepth(a.spr.y);
+          if(a.spr.anims.currentAnim&&a.spr.anims.currentAnim.key!=='pawn_blue-r') a.spr.play('pawn_blue-r',true);
+        } else { a.atkT+=dtReal;
+          if(a.atkT>0.9){ a.atkT=0; golpearEnemigo(g,1,0xffffff); burstAt(g.spr.x,g.spr.y-14,0xffffff); sfxAt('clash',0.3,a.spr.x,a.spr.y);
+            if(g.dead) parar(a); } }
       }
     } else if(a.estado==='recolectando'){
       const p=a.objPile;
