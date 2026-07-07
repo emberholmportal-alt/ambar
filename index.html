@@ -148,21 +148,21 @@
   .gameover button{margin-top:14px;font-size:14px;padding:12px 22px 14px}
 
   /* ---- PANEL INFERIOR: minimapa + recursos · selección · construcción ---- */
-  .bottom{display:flex;gap:10px;padding:8px 12px;background:linear-gradient(0deg,#0d0906,#1b140d);border-top:2px solid var(--brass-dim);z-index:20;height:214px}
+  .bottom{display:flex;gap:10px;padding:8px 12px;background:linear-gradient(0deg,#0d0906,#1b140d);border-top:2px solid var(--brass-dim);z-index:20;height:224px}
   .leftcol{flex:0 0 auto;display:flex;flex-direction:column;gap:7px}
   .mapbox{border:2px solid var(--brass-dim);border-radius:6px;background:#000;box-shadow:inset 0 0 0 1px rgba(0,0,0,.6);position:relative}
   .mmbtn{position:absolute;left:4px;bottom:4px;font-family:var(--mono);font-size:10px;cursor:pointer;
     background:linear-gradient(180deg,var(--bg2),var(--bg3));color:var(--brass-hi);border:1px solid var(--brass-dim);border-radius:4px;padding:2px 7px}
   .mmbtn:hover{background:var(--brass-dim);color:#120d09} .mmbtn:disabled{opacity:.45;cursor:default}
   #minimap{display:block;image-rendering:pixelated;cursor:crosshair;border-radius:4px}
-  /* recursos DEBAJO del minimapa (rellena el hueco) */
-  .resbar{display:grid;grid-template-columns:1fr 1fr;gap:5px}
-  .res{display:flex;align-items:center;gap:6px;padding:3px 8px 3px 4px;font-size:12px;font-variant-numeric:tabular-nums;border-radius:5px;
+  /* recursos DEBAJO del minimapa: oro · madera · comida en una sola fila (antes la comida caía a la 2ª fila y el panel la recortaba) */
+  .resbar{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px}
+  .res{display:flex;align-items:center;gap:5px;padding:3px 5px 3px 3px;font-size:12px;font-variant-numeric:tabular-nums;border-radius:5px;
     background:linear-gradient(180deg,#241a10,#140f0a);border:1px solid var(--line)}
-  .res img{width:22px;height:22px;image-rendering:pixelated}
+  .res img{width:20px;height:20px;image-rendering:pixelated}
   .res.lleno{border-color:var(--ember)}
   .res .cap{font-size:8.5px;color:var(--muted)}
-  .res.wide{grid-column:1 / -1;justify-content:center;gap:10px}
+  .res.wide{grid-column:span 2;justify-content:center;gap:10px}
   .ambar{color:var(--brass);font-weight:700}
   .ambar::before{content:"◆ ";color:var(--brass)}
 

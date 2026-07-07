@@ -457,6 +457,7 @@ function create(){
   for(const c of ['blue','red','purple','yellow']){
     an.create({key:'pawn_'+c+'-i',frames:an.generateFrameNumbers('pawn_'+c,{start:0,end:5}),frameRate:6,repeat:-1});
     an.create({key:'pawn_'+c+'-r',frames:an.generateFrameNumbers('pawn_'+c,{start:6,end:11}),frameRate:10,repeat:-1});
+    an.create({key:'pawn_'+c+'-carry',frames:an.generateFrameNumbers('pawn_'+c,{start:12,end:14}),frameRate:8,repeat:-1});   // cajón genérico al hombro (madera/carne)
   }
   // reino rival: arquero púrpura enemigo
   an.create({key:'rarq-i',frames:an.generateFrameNumbers('archer_purple_i',{start:0,end:-1}),frameRate:7,repeat:-1});
@@ -930,11 +931,10 @@ function setTool(a,tool){ a.tool=tool;
 }
 /* ===== economía: el aldeano CARGA poco y el recurso suma recién al depositarlo en el Ayuntamiento ===== */
 const CARRYCAP=12;                                    // cuánto puede cargar antes de tener que ir a dejar
-function setCarga(a){                                 // sprite del aldeano cargando el recurso (Pawn & Resources: el pawn lleva el fardo al hombro)
+function setCarga(a){                                 // sprite del aldeano cargando el recurso (Pawn & Resources)
   if(!a.carga){ setTool(a,null); return; }
-  // wgold_*_r es la ÚNICA animación de "pawn cargando" del pack (fardo/saco al hombro); sirve genérica para oro, madera y carne.
-  // (antes la madera/carne usaba wrock1, que es una ROCA de mar animada — se veía como una piedra flotando)
-  a.spr.setTexture('wgold_blue_r',0).setScale(0.7); a.spr.play('wgold-r',true);
+  if(a.carga.res==='oro'){ a.spr.setTexture('wgold_blue_r',0).setScale(0.7); a.spr.play('wgold-r',true); }        // pepita/saco de oro
+  else { a.spr.setTexture('pawn_blue',12).setScale(0.7); a.spr.play('pawn_blue-carry',true); }                    // cajón genérico al hombro (madera/carne) — ya NO el oro
   a.tool='carga';
 }
 function depositar(a){                                // deja la carga en el Ayuntamiento: recién ahí suma
@@ -1950,7 +1950,7 @@ function updateArquerosTecho(dtReal){
             sfxAt('arrow',0.4,arc.spr.x,arc.spr.y); }
         }
       }
-      if(arc.hp<arc.maxhp) drawHp(arc, arc.hp/arc.maxhp, 26, arc.spr.y-30); else hideBar(arc);
+      drawHp(arc, arc.hp/arc.maxhp, 26, arc.spr.y-30);   // el arquero de techo SIEMPRE muestra su barra de vida
     }
   }
 }
