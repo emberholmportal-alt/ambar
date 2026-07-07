@@ -949,11 +949,11 @@ async function refreshRoster(){                         // COSTURA: si hay backe
     if(r.ok){ const j=await r.json(); if(Array.isArray(j)&&j.length) _rosterCache=j.map(e=>({name:e.name, rank:e.rank})); }
   }catch(e){}
 }
-function getRoster(){                                   // usuario local (destacado) + backend, o local + semilla si no hay backend
+function getRoster(){                                   // usuario local (destacado) + usuarios reales del backend + semilla de relleno
   const me=localUser(), out=[], seen=new Set();
   if(me){ out.push({name:me, me:true, rank:1}); seen.add(me); }
-  const base = (_rosterCache&&_rosterCache.length) ? _rosterCache : SEED_USERS.map((n,i)=>({name:n, rank:i+1}));
-  base.forEach(e=>{ if(!seen.has(e.name)){ out.push(e); seen.add(e.name); } });
+  if(_rosterCache) _rosterCache.forEach(e=>{ if(!seen.has(e.name)){ out.push(e); seen.add(e.name); } });   // reales primero
+  SEED_USERS.forEach(n=>{ if(!seen.has(n)){ out.push({name:n, rank:out.length+1, seed:true}); seen.add(n); } });   // relleno: que no se vea vacía
   return out;
 }
 function nameplate(n,entry){
