@@ -711,7 +711,8 @@ function create(){
   this.cameras.main.setBounds(-MAR,-MAR,WORLD_W+MAR*2,WORLD_H+MAR*2);   // deja ver el mar de relleno en pantallas anchas
   fitCamera(); this.scale.on('resize',fitCamera);
 
-  // ---- lupa: rueda = zoom hacia el puntero · arrastrar = mover · doble click = vista general ----
+  // ---- lupa: rueda / pinch = zoom · arrastrar = mover · doble click = vista general ----
+  this.input.addPointer(1);   // 2º puntero para el pinch (mobile)
   this.input.on('wheel',(p,objs,dx,dy)=>{
     const cam=this.cameras.main;
     manualView=true; reticleLock(false);
@@ -720,9 +721,22 @@ function create(){
     const wp=cam.getWorldPoint(p.x,p.y);
     cam.centerOn(Phaser.Math.Linear(cam.midPoint.x,wp.x,0.3), Phaser.Math.Linear(cam.midPoint.y,wp.y,0.3));
   });
+  let livePinch=0;
   this.input.on('pointermove',p=>{
+    const cam=this.cameras.main, p1=this.input.pointer1, p2=this.input.pointer2;
+    if(p1&&p2&&p1.isDown&&p2.isDown){                       // pinch: dos dedos = zoom, anclado al punto medio
+      manualView=true; reticleLock(false);
+      const d=Phaser.Math.Distance.Between(p1.x,p1.y,p2.x,p2.y);
+      if(livePinch>0 && d>0){
+        const mx=(p1.x+p2.x)/2,my=(p1.y+p2.y)/2, before=cam.getWorldPoint(mx,my);
+        cam.setZoom(Phaser.Math.Clamp(cam.zoom*(d/livePinch), baseZoom*0.85, 3.4));
+        const after=cam.getWorldPoint(mx,my);
+        cam.scrollX+=before.x-after.x; cam.scrollY+=before.y-after.y;
+      }
+      livePinch=d; return;
+    }
+    livePinch=0;
     if(!manualView||!p.isDown) return;
-    const cam=this.cameras.main;
     cam.scrollX-=(p.x-p.prevPosition.x)/cam.zoom;
     cam.scrollY-=(p.y-p.prevPosition.y)/cam.zoom;
   });
@@ -1307,7 +1321,7 @@ const DEV_PRESETS={
   stream:     ['🎥 El dev está transmitiendo','🎥 The dev is live'],
   ausente:    ['🚪 El dev vuelve en un rato', '🚪 The dev is away, back soon'],
 };
-let devEstado=null, devHideTimer=null;
+let devEstado=null, devCycle=null, devOnceT=null;
 function devRender(){
   if(!devEstado) return;
   const p=DEV_PRESETS[devEstado], msg = p ? L(p[0],p[1]) : ('📣 '+devEstado);
@@ -1315,22 +1329,33 @@ function devRender(){
   if(ds) ds.textContent=msg;
   if(db) db.innerHTML=L('🎮 Los holders pueden probar la beta en ','🎮 Holders can test the beta at ')+'<b>ageofansem.xyz</b>';
 }
-window.dev=function(estado,ms){
+function devStop(){ if(devCycle){ clearInterval(devCycle); devCycle=null; } if(devOnceT){ clearTimeout(devOnceT); devOnceT=null; } }
+function devMsg(key){ return 'dev: '+(($('devStatus')&&$('devStatus').textContent)||key); }
+window.dev=function(estado, opts){
   const bar=$('devbar'); if(!bar) return 'sin cartel';
   const key=(estado==null?'':String(estado)).toLowerCase().trim();
+  devStop();
   if(key===''||key==='off'||key==='ocultar'||key==='hide'){ devEstado=null; bar.classList.remove('on'); return 'cartel oculto'; }
   devEstado = DEV_PRESETS[key] ? key : estado;                                 // preset conocido o texto libre
-  devRender(); bar.classList.add('on');
-  if(devHideTimer){ clearTimeout(devHideTimer); devHideTimer=null; }
-  if(ms&&ms>0) devHideTimer=setTimeout(()=>{ bar.classList.remove('on'); devEstado=null; }, ms);
-  return 'dev: '+(($('devStatus')&&$('devStatus').textContent)||key);
+  devRender();
+  // opts: número = mostrar UNA vez ese tiempo · {steady:true} = fijo · {show,hide} = ciclo a medida · sin opts = INTERMITENTE (aparece por momentos)
+  if(typeof opts==='number' && opts>0){ bar.classList.add('on'); devOnceT=setTimeout(()=>{ bar.classList.remove('on'); devEstado=null; }, opts); return devMsg(key); }
+  if(opts && opts.steady){ bar.classList.add('on'); return devMsg(key); }
+  const showMs=(opts&&opts.show)||8000, hideMs=(opts&&opts.hide)||14000;      // por defecto: 8s visible / 14s oculto, en loop
+  const tick=()=>{ if(!devEstado) return; bar.classList.add('on'); setTimeout(()=>{ if(devEstado&&devCycle) bar.classList.remove('on'); }, showMs); };
+  tick(); devCycle=setInterval(tick, showMs+hideMs);
+  return devMsg(key);
 };
 dev.durmiendo=()=>dev('durmiendo'); dev.trabajando=()=>dev('trabajando'); dev.off=()=>dev('off');
+dev.fijo=(e)=>dev(e,{steady:true});                                           // deja el cartel fijo (no intermitente)
 dev.help=function(){
-  console.log('%c⚙ ESTADO DEL DEV — comando de consola','color:#f0d564;font-weight:bold;font-size:13px');
-  console.log("dev('durmiendo' | 'trabajando' | 'programando' | 'comiendo' | 'stream' | 'ausente')");
-  console.log("dev('texto libre')   ·   dev('trabajando', 8000)  // se oculta solo a los 8s");
-  console.log("dev.off()            // oculta el cartel");
+  console.log('%c⚙ ESTADO DEL DEV — cartel del stream','color:#f0d564;font-weight:bold;font-size:13px');
+  console.log("dev('durmiendo' | 'trabajando' | 'programando' | 'comiendo' | 'stream' | 'ausente')   // aparece por momentos");
+  console.log("dev('texto libre')                     // cualquier mensaje");
+  console.log("dev('trabajando', 8000)                // lo muestra UNA vez, 8s");
+  console.log("dev('trabajando', {show:6000,hide:20000})  // ciclo a medida (ms)");
+  console.log("dev.fijo('trabajando')                 // fijo, sin parpadear");
+  console.log("dev.off()                              // apaga el cartel");
   console.log('Siempre acompaña con: 🎮 los holders pueden probar la beta en ageofansem.xyz');
   return Object.keys(DEV_PRESETS);
 };

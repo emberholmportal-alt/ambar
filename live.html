@@ -109,20 +109,21 @@
   .guild .gl{font-family:var(--flavor);font-style:italic;font-size:11px;color:var(--muted);margin-top:1px}
   .credit{font-size:9px;color:#6d6350;padding:8px 14px 12px;background:var(--bg3);line-height:1.4}
   /* ==== cartel de estado del dev (comando de consola) ==== */
+  /* ==== cartel del stream (comando dev): grande y legible en cámara ==== */
   .devbar{position:absolute;left:0;right:0;bottom:0;z-index:50;display:flex;justify-content:center;
-    padding:0 14px 16px;pointer-events:none;transform:translateY(140%);opacity:0;transition:transform .4s cubic-bezier(.2,.9,.2,1),opacity .4s}
+    padding:0 14px 28px;pointer-events:none;transform:translateY(140%);opacity:0;transition:transform .5s cubic-bezier(.2,.9,.2,1),opacity .5s}
   .devbar.on{transform:translateY(0);opacity:1}
-  .devbar-in{display:flex;align-items:center;gap:12px;max-width:min(92%,720px);pointer-events:auto;
-    background:linear-gradient(180deg,#221a11,#120d09);border:1px solid var(--line2);border-radius:11px;
-    box-shadow:0 8px 26px rgba(0,0,0,.6),inset 0 0 0 1px rgba(240,213,100,.08),0 0 22px rgba(229,83,58,.12);
-    padding:11px 18px;font-size:14px}
-  .devbar-tag{flex:none;font-family:var(--mono);font-weight:700;font-size:10px;letter-spacing:.18em;color:#120d09;
-    background:linear-gradient(180deg,var(--brass-hi),var(--brass));border-radius:4px;padding:4px 8px 5px;box-shadow:0 1px 2px rgba(0,0,0,.5)}
-  .devbar-status{font-family:var(--display);font-weight:700;color:var(--brass-hi);letter-spacing:.02em;text-shadow:0 1px 0 #000}
-  .devbar-sep{color:var(--brass-dim)}
-  .devbar-beta{font-family:var(--flavor);font-style:italic;color:var(--ink)}
+  .devbar-in{display:flex;align-items:center;gap:18px;max-width:min(94%,900px);pointer-events:auto;
+    background:linear-gradient(180deg,#241a10,#100b06);border:2px solid var(--brass-dim);border-radius:16px;
+    box-shadow:0 12px 40px rgba(0,0,0,.7),inset 0 0 0 1px rgba(240,213,100,.12),0 0 44px rgba(229,83,58,.22);
+    padding:18px 30px}
+  .devbar-tag{flex:none;font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:.2em;color:#120d09;
+    background:linear-gradient(180deg,var(--brass-hi),var(--brass));border-radius:6px;padding:6px 12px 7px;box-shadow:0 2px 4px rgba(0,0,0,.6)}
+  .devbar-status{font-family:var(--display);font-weight:800;font-size:clamp(20px,3vw,30px);color:var(--brass-hi);letter-spacing:.02em;text-shadow:0 2px 0 #000,0 0 14px rgba(240,213,100,.25)}
+  .devbar-sep{color:var(--brass-dim);font-size:22px}
+  .devbar-beta{font-family:var(--flavor);font-style:italic;font-size:clamp(15px,2vw,21px);color:var(--ink)}
   .devbar-beta b{color:var(--ember);font-style:normal;font-weight:700}
-  @media(max-width:900px){.devbar-in{flex-wrap:wrap;justify-content:center;gap:6px;font-size:12px;text-align:center}.devbar-sep{display:none}}
+  @media(max-width:900px){.devbar{padding-bottom:18px}.devbar-in{flex-wrap:wrap;justify-content:center;gap:8px;padding:12px 16px;text-align:center}.devbar-status{font-size:18px}.devbar-beta{font-size:14px}.devbar-sep{display:none}}
   /* ==== logo de canal (marca de agua broadcast en el viewport) ==== */
   .vplogo{position:absolute;left:14px;bottom:64px;z-index:9;height:40px;width:auto;opacity:.5;image-rendering:pixelated;pointer-events:none;filter:drop-shadow(0 2px 5px rgba(0,0,0,.7));mix-blend-mode:screen}
   /* ==== diálogo GRANDE en primer plano durante el corte de cámara ==== */

@@ -14,6 +14,7 @@ elif DATABASE_URL.startswith('postgresql://'):
 SOLANA_RPC_URL = os.getenv('SOLANA_RPC_URL', 'https://api.mainnet-beta.solana.com').strip()
 TOKEN_MINT     = os.getenv('TOKEN_MINT', '').strip()
 MIN_HOLD       = float(os.getenv('MIN_HOLD', '1') or 1)
+PUMP_URL       = os.getenv('PUMP_URL', '').strip()   # link de compra del token; vacío = se arma solo con el mint
 
 # Acceso abierto: deja entrar a cualquiera aunque TOKEN_MINT esté seteado (útil pre-lanzamiento).
 BETA_OPEN = _bool(os.getenv('BETA_OPEN', 'false'))

@@ -230,7 +230,7 @@
       }
     }
     $('btnRetry').onclick=runCheck;
-    $('btnPump').onclick=()=>window.open(A.PUMP_URL||'https://pump.fun','_blank','noopener');
+    $('btnPump').onclick=()=>{ (A.pumpUrl?A.pumpUrl():Promise.resolve(A.PUMP_URL||'https://pump.fun')).then(u=>window.open(u||'https://pump.fun','_blank','noopener')); };
 
     /* ---- paso 3: registrar usuario y entrar ---- */
     async function tryPlay(){
