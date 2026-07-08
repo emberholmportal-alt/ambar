@@ -70,6 +70,13 @@ VIEWER_WINDOW = 25.0
 def health():
     return {"ok": True, "mode": config.MODE, "open": config.BETA_OPEN}
 
+@app.get('/api/config')
+def public_config():
+    """Config pública para el front: modo y link de compra del token (se arma con el mint)."""
+    pump = config.PUMP_URL or (f"https://pump.fun/coin/{config.TOKEN_MINT}" if config.TOKEN_MINT else "https://pump.fun")
+    return {"mode": config.MODE, "open": config.BETA_OPEN, "token_set": bool(config.TOKEN_MINT),
+            "min_hold": config.MIN_HOLD, "pump_url": pump}
+
 @app.delete('/api/admin/user/{username}')
 def admin_delete_user(username: str, x_admin_secret: str = Header(None), db: Session = Depends(get_db)):
     """Borra un usuario y sus scores. Requiere el header X-Admin-Secret == AOA_SECRET."""

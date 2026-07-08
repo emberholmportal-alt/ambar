@@ -11,6 +11,15 @@ const AOA_AUTH = (function(){
 
   function API(){ return (window.AOA_API || '').replace(/\/$/, ''); }   // backend en Render (vacío = client-only)
 
+  let _cfg=null;
+  async function config(){                          // config pública (modo + link de compra del token)
+    if(_cfg) return _cfg;
+    if(API()){ try{ const r=await fetch(API()+'/api/config'); if(r.ok){ _cfg=await r.json(); return _cfg; } }catch(e){} }
+    _cfg={ mode:AUTH_MODE, open:false, token_set:!!TOKEN_MINT, min_hold:MIN_HOLD, pump_url:PUMP_URL };
+    return _cfg;
+  }
+  async function pumpUrl(){ const c=await config(); return (c&&c.pump_url)||PUMP_URL; }
+
   function getProvider(){                            // cualquier wallet de Solana inyectada (Phantom, Solflare, Backpack, etc.)
     const p = window.solana || (window.phantom && window.phantom.solana) || window.solflare || window.backpack;
     return (p && (p.connect || p.isPhantom || p.isSolflare)) ? p : null;
@@ -87,6 +96,6 @@ const AOA_AUTH = (function(){
   function getSession(){ try{ return JSON.parse(localStorage.getItem('aoa_session')||'null'); }catch(e){ return null; } }
   function clearSession(){ try{ localStorage.removeItem('aoa_session'); }catch(e){} }
 
-  return { AUTH_MODE, TOKEN_MINT, MIN_HOLD, PUMP_URL, getProvider, walletName, hasWallet, connect, disconnect, isHolder, register, signProof, validName, saveSession, getSession, clearSession };
+  return { AUTH_MODE, TOKEN_MINT, MIN_HOLD, PUMP_URL, config, pumpUrl, getProvider, walletName, hasWallet, connect, disconnect, isHolder, register, signProof, validName, saveSession, getSession, clearSession };
 })();
 window.AOA_AUTH = AOA_AUTH;

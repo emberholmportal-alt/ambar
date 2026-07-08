@@ -71,6 +71,10 @@ ok('BlackDuval' not in [e['name'] for e in c.get('/api/roster').json()], "usuari
 # health expone 'open'
 ok('open' in c.get('/api/health').json(), "health expone flag open")
 
+# config pública: sin token -> pump.fun genérico
+cfg = c.get('/api/config').json()
+ok(cfg['mode'] == 'stub' and cfg['token_set'] is False and cfg['pump_url'] == 'https://pump.fun', "config sin token")
+
 # presencia del live: 2 cids distintos -> 2 viewers
 ok(c.post('/api/live/ping', json={"cid": "a1"}).json()['viewers'] == 1, "ping cid a1 -> 1 viewer")
 ok(c.post('/api/live/ping', json={"cid": "b2"}).json()['viewers'] == 2, "ping cid b2 -> 2 viewers")
