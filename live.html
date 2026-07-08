@@ -32,6 +32,20 @@
   .stat .k{font-size:9px;color:var(--muted);letter-spacing:.16em}
   .stat .v{font-size:14px;font-variant-numeric:tabular-nums;color:var(--brass-hi)}
   .ctrls{display:flex;gap:8px;margin-left:10px;align-items:center}
+  /* ==== menú desplegable ==== */
+  .menuwrap{position:relative}
+  .menu{position:absolute;right:0;top:calc(100% + 6px);min-width:180px;background:linear-gradient(180deg,var(--bg2),var(--bg3));border:1px solid var(--line2);border-radius:9px;padding:6px;display:none;flex-direction:column;gap:2px;z-index:60;box-shadow:0 12px 32px rgba(0,0,0,.6)}
+  .menu.on{display:flex}
+  .menu a{font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:none;padding:9px 11px;border-radius:6px;letter-spacing:.02em}
+  .menu a:hover{background:rgba(201,162,39,.14);color:var(--brass-hi)}
+  /* ==== pantalla de carga ==== */
+  #liveSplash{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
+    background:radial-gradient(120% 120% at 50% 40%,#123041,#0a1b25 60%,#060d12);transition:opacity .6s ease}
+  #liveSplash.hide{opacity:0;pointer-events:none}
+  #liveSplash img{width:min(58vw,360px);height:auto;filter:drop-shadow(0 8px 24px rgba(0,0,0,.6))}
+  #liveSplash .spin{width:34px;height:34px;border:3px solid rgba(201,162,39,.22);border-top-color:var(--brass);border-radius:50%;animation:lspin .8s linear infinite}
+  @keyframes lspin{to{transform:rotate(360deg)}}
+  #liveSplash .lbl{font-family:var(--flavor);font-style:italic;color:var(--muted);font-size:14px;letter-spacing:.02em}
   .evsel{font-family:var(--mono);font-size:11px;color:var(--ink);background:var(--bg3);border:1px solid var(--brass-dim);border-radius:3px;padding:7px 8px;max-width:150px}
   button.ghost{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.08em;color:#f4ecda;background:url('assets/img/ui/ribbon_blue.png') center/100% 100% no-repeat;border:none;padding:10px 16px 12px;cursor:pointer;transition:.15s;min-width:88px;image-rendering:pixelated;text-shadow:0 1px 2px rgba(10,20,40,.8)}
   button.ghost:hover{filter:brightness(1.15)}
@@ -140,7 +154,19 @@
     <div class="ctrls">
       <button class="ghost" id="btnSound">SONIDO</button>
       <button class="ghost alt" id="btnLang">ENGLISH</button>
+      <div class="menuwrap">
+        <button class="ghost" id="btnMenu">☰ <span data-es="MENÚ" data-en="MENU">MENÚ</span></button>
+        <div class="menu" id="liveMenu">
+          <a href="/beta" data-es="⚔ Jugar la beta" data-en="⚔ Play the beta">⚔ Jugar la beta</a>
+          <a href="/" data-es="🏠 Inicio" data-en="🏠 Home">🏠 Inicio</a>
+        </div>
+      </div>
     </div>
+  </div>
+  <div id="liveSplash">
+    <img src="assets/img/aoa_logo.png" alt="Age of Ansem"/>
+    <div class="spin"></div>
+    <div class="lbl" data-es="Cargando la isla…" data-en="Loading the isle…">Cargando la isla…</div>
   </div>
   <div class="stage">
     <div class="viewport">
@@ -150,7 +176,7 @@
         <div class="cross h"></div><div class="cross v"></div><div class="iris"></div>
         <div class="rec"><span class="rd"></span><span data-es="OBSERVANDO" data-en="WATCHING">OBSERVANDO</span></div>
       </div>
-      <div class="watching"><div class="lbl" data-es="AHORA OBSERVANDO" data-en="NOW WATCHING">AHORA OBSERVANDO</div><div class="txt" id="watch">El Ojo del Vigía sobrevuela la isla de Ámbar…</div></div>
+      <div class="watching"><div class="lbl" data-es="AHORA OBSERVANDO" data-en="NOW WATCHING">AHORA OBSERVANDO</div><div class="txt" id="watch" data-es="El Ojo del Vigía sobrevuela la isla de Ámbar…" data-en="The Watcher’s Eye drifts over the isle of Amber…">El Ojo del Vigía sobrevuela la isla de Ámbar…</div></div>
       <img class="vplogo" src="assets/img/aoa_logo.png" alt="Age of Ansem"/>
       <div class="dialog" id="dialog">
         <div class="dlgPort"><img id="dlgImg" alt=""></div>
@@ -166,10 +192,10 @@
       <div class="feed" id="feed"></div>
       <div class="key">
         <div class="kh" data-es="LOS CUATRO GREMIOS DE ÁMBAR" data-en="THE FOUR GUILDS OF AMBER">LOS CUATRO GREMIOS DE ÁMBAR</div>
-        <div class="guild"><span class="sw" style="background:var(--g-guardia)"></span><div><div class="gt">Guardia de Hierro</div><div class="gl" data-es="Defienden la muralla norte y desconfían del mar." data-en="They hold the north wall and distrust the sea.">Defienden la muralla norte y desconfían del mar.</div></div></div>
-        <div class="guild"><span class="sw" style="background:var(--g-yunque)"></span><div><div class="gt">Orden del Yunque</div><div class="gl" data-es="Herreros y mercaderes: dueños de la forja y el oro." data-en="Smiths and traders: masters of forge and gold.">Herreros y mercaderes: dueños de la forja y el oro.</div></div></div>
-        <div class="guild"><span class="sw" style="background:var(--g-sombra)"></span><div><div class="gt">Los Sin Nombre</div><div class="gl" data-es="Contrabandistas de la Necrópolis, leales a la sombra." data-en="Necropolis smugglers, loyal only to the shadow.">Contrabandistas de la Necrópolis, leales a la sombra.</div></div></div>
-        <div class="guild"><span class="sw" style="background:var(--g-sol)"></span><div><div class="gt">Casa del Sol</div><div class="gl" data-es="Nobles que sueñan con reunir la isla bajo una corona." data-en="Nobles dreaming of one crown over the isle.">Nobles que sueñan con reunir la isla bajo una corona.</div></div></div>
+        <div class="guild"><span class="sw" style="background:var(--g-guardia)"></span><div><div class="gt" data-es="Guardia de Hierro" data-en="Iron Guard">Guardia de Hierro</div><div class="gl" data-es="Defienden la muralla norte y desconfían del mar." data-en="They hold the north wall and distrust the sea.">Defienden la muralla norte y desconfían del mar.</div></div></div>
+        <div class="guild"><span class="sw" style="background:var(--g-yunque)"></span><div><div class="gt" data-es="Orden del Yunque" data-en="Order of the Anvil">Orden del Yunque</div><div class="gl" data-es="Herreros y mercaderes: dueños de la forja y el oro." data-en="Smiths and traders: masters of forge and gold.">Herreros y mercaderes: dueños de la forja y el oro.</div></div></div>
+        <div class="guild"><span class="sw" style="background:var(--g-sombra)"></span><div><div class="gt" data-es="Los Sin Nombre" data-en="The Nameless">Los Sin Nombre</div><div class="gl" data-es="Contrabandistas de la Necrópolis, leales a la sombra." data-en="Necropolis smugglers, loyal only to the shadow.">Contrabandistas de la Necrópolis, leales a la sombra.</div></div></div>
+        <div class="guild"><span class="sw" style="background:var(--g-sol)"></span><div><div class="gt" data-es="Casa del Sol" data-en="House of the Sun">Casa del Sol</div><div class="gl" data-es="Nobles que sueñan con reunir la isla bajo una corona." data-en="Nobles dreaming of one crown over the isle.">Nobles que sueñan con reunir la isla bajo una corona.</div></div></div>
       </div>
       <div class="credit" data-es="Arte: Tiny Swords · Pixel Frog (uso libre; no redistribuir el pack suelto). Sonido: Kenney (CC0)." data-en="Art: Tiny Swords · Pixel Frog (free use; do not redistribute the pack). Sound: Kenney (CC0).">Arte: Tiny Swords · Pixel Frog (uso libre; no redistribuir el pack suelto). Sonido: Kenney (CC0).</div>
     </aside>
@@ -185,5 +211,9 @@
 </div>
 <script src="src/config.js"></script>
 <script src="src/game.js"></script>
+<script>
+// red de seguridad: si a los 16s la escena no ocultó la carga (CDN/asset lento), la sacamos igual.
+setTimeout(function(){ var sp=document.getElementById('liveSplash'); if(sp&&!sp.classList.contains('hide')){ sp.classList.add('hide'); setTimeout(function(){ sp.style.display='none'; },700); } }, 16000);
+</script>
 </body>
 </html>

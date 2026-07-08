@@ -2648,6 +2648,7 @@ function aplicarIdioma(){
   set('btnAudio',(ambOn?'🔊':'🔇')+' '+L('SONIDO','SOUND'));
   set('btnIdioma','🌐 '+(LANG==='es'?'ENGLISH':'ESPAÑOL'));
   set('btnRecords','🏆 '+L('RÉCORDS','RECORDS'));
+  set('btnLive','🔴 '+L('VER EL LIVE','WATCH LIVE'));
   set('btnRecordsCerrar',L('CERRAR','CLOSE'));
   set('recSave',L('GUARDAR','SAVE'));
   { const su=$('recUser'); if(su) su.placeholder=L('Nombre de usuario','Username');
@@ -2728,6 +2729,11 @@ async function mostrarRecords(){
   }catch(e){ renderRecordsLocal(); }                        // si el backend no responde, cae a local
 }
 $('btnRecords')&&($('btnRecords').onclick=()=>{ $('menu').classList.remove('open'); mostrarRecords(); });
+$('btnLive')&&($('btnLive').onclick=()=>{                              // ir al vivo: avisa que se cierra la partida sin puntos
+  $('menu').classList.remove('open');
+  const msg=L('Si vas al vivo se cierra la partida y NO sumás puntos al ranking. ¿Continuar?','If you go to the live, your game closes and you will NOT earn ranking points. Continue?');
+  if(window.confirm(msg)) location.href='/live';
+});
 $('btnRecordsCerrar')&&($('btnRecordsCerrar').onclick=()=>$('recordsOv').classList.remove('open'));
 $('recSave')&&($('recSave').onclick=()=>{
   const user=(($('recUser')||{}).value||'').trim().slice(0,18), wallet=(($('recWallet')||{}).value||'').trim().slice(0,64);

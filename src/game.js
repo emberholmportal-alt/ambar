@@ -2,7 +2,7 @@
 
 /* ===== chrome ===== */
 const $=id=>document.getElementById(id); const feedEl=$('feed'),reticleEl=$('reticle');
-const nf=n=>Math.round(n).toLocaleString('es-AR'); let clockStr='Día 1 · 06:00';
+const nf=n=>Math.round(n).toLocaleString(LANG==='en'?'en-US':'es-AR'); let clockStr='Día 1 · 06:00';
 function pushChronicle(tag,color,text,major,av){const e=document.createElement('div');e.className='entry'+(major?' major':'');
   const avImg=av?`<img class="av" src="assets/img/ts/av/${av}.png" alt="">`:'';
   e.innerHTML=`${avImg}<div class="meta"><span class="t">${clockStr}</span><span class="tag" style="color:${color}">[${tag}]</span></div><div class="body">${text}</div>`;
@@ -218,6 +218,16 @@ const SPDF=0.6;                              // factor global de velocidad: ante
 function sfx(key,vol){ if(soundOn&&scene) scene.sound.play('s_'+key,{volume:vol||0.5}); }
 let evAcc=0, evNext=2200, worldMin=6*60, clkAcc=0, viewers=1204, tViewers=1204, vAcc=0;
 const rint=(a,b)=>Math.floor(Math.random()*(b-a+1))+a, pick=a=>a[Math.floor(Math.random()*a.length)];
+
+/* ===== espectadores reales: presencia por heartbeat contra el backend ===== */
+let pAcc=0, viewersReal=null, _cid=null;
+function cid(){ if(_cid) return _cid; try{ _cid=sessionStorage.getItem('aoa_cid'); }catch(e){}
+  if(!_cid){ _cid='c'+Math.random().toString(36).slice(2)+Date.now().toString(36); try{ sessionStorage.setItem('aoa_cid',_cid); }catch(e){} } return _cid; }
+async function pingViewers(){                       // avisa "estoy mirando" y recibe el conteo real
+  const API=(window.AOA_API||'').replace(/\/$/,''); if(!API) return;
+  try{ const r=await fetch(API+'/api/live/ping',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({cid:cid()})});
+    if(r.ok){ const j=await r.json(); if(typeof j.viewers==='number') viewersReal=j.viewers; } }catch(e){}
+}
 
 /* ===== parámetros (tuneables) ===== */
 const NPC_START=95, NPC_MAX=140;             // pobladores: reino poblado pero sin ahogar el arranque en equipos modestos
@@ -719,6 +729,7 @@ function create(){
   this.game.canvas.addEventListener('dblclick',()=>{ manualView=false; cameraBusy=false; fitCamera(); });
   renderMarcador();                                  // el marcador ya se sembró; refresca por si la escena tardó
   this.time.addEvent({delay:rint(9000,16000),loop:true,callback:()=>{ if(!paused&&Math.random()<0.7) bandada(); }});   // bandadas cruzando el cielo
+  const sp=$('liveSplash'); if(sp){ sp.classList.add('hide'); setTimeout(()=>{ if(sp) sp.style.display='none'; },700); }   // mapa listo: oculta la pantalla de carga
 }
 
 /* ===== colocación ===== */
@@ -1225,9 +1236,11 @@ function update(time,delta){
     setClock(`${L('Día','Day')} ${d} · ${String(Math.floor(mm/60)).padStart(2,'0')}:${String(mm%60).padStart(2,'0')}`);
     const [col,al]=timeTint(worldMin); if(nightRect) nightRect.setFillStyle(col,al);
   }
+  pAcc+=delta; if(pAcc>=8000){ pAcc=0; pingViewers(); }                   // heartbeat de presencia
   vAcc+=delta;
-  if(vAcc>1500){ vAcc=0; tViewers+=rint(-40,55); tViewers+=(1180-tViewers)*0.04; tViewers=Math.max(600,tViewers); }
-  viewers+=(tViewers-viewers)*0.08; setViewers(viewers);
+  if(viewersReal!=null){ setViewers(viewersReal); }                       // espectadores reales del backend
+  else { if(vAcc>1500){ vAcc=0; tViewers+=rint(-40,55); tViewers+=(1180-tViewers)*0.04; tViewers=Math.max(600,tViewers); }
+    viewers+=(tViewers-viewers)*0.08; setViewers(viewers); }              // sin backend: simulado
 
   evAcc+=delta*m;
   if(evAcc>=evNext){ evAcc=0; evNext=rint(2400,4200); fireEvent(); }
@@ -1266,6 +1279,9 @@ bind('btnSound',()=>{
   if(soundOn&&scene){ const c=scene.sound.context; if(c&&c.state==='suspended') c.resume(); sfx('bell',0.3); }
 });
 bind('btnLang',()=>{ LANG=LANG==='en'?'es':'en'; localStorage.setItem('ambar_lang',LANG); aplicarIdioma(); });
+bind('btnMenu',e=>{ if(e) e.stopPropagation(); const m=$('liveMenu'); if(m) m.classList.toggle('on'); });
+document.addEventListener('click',e=>{ const m=$('liveMenu'), b=$('btnMenu'); if(m&&m.classList.contains('on')&&!m.contains(e.target)&&(!b||!b.contains(e.target))) m.classList.remove('on'); });
+pingViewers();   // primer heartbeat al entrar
 
 // re-aplica el idioma a todo el chrome estático + dinámico
 function aplicarIdioma(){
@@ -1274,6 +1290,8 @@ function aplicarIdioma(){
   const bl=$('btnLang'); if(bl) bl.textContent = LANG==='en'?'ESPAÑOL':'ENGLISH';
   const bs=$('btnSound'); if(bs) bs.textContent = soundOn?L('SONIDO ✓','SOUND ✓'):L('SONIDO','SOUND');
   const bp=$('btnPause'); if(bp) bp.textContent = paused?L('SEGUIR','RESUME'):L('PAUSA','PAUSE');
+  { const d=Math.floor(worldMin/1440)+1, mm=Math.floor(worldMin%1440);   // reloj en el idioma actual
+    setClock(`${L('Día','Day')} ${d} · ${String(Math.floor(mm/60)).padStart(2,'0')}:${String(mm%60).padStart(2,'0')}`); }
   renderMarcador();
   if(typeof feedEl!=='undefined'&&feedEl) feedEl.innerHTML='';                 // reinicia la crónica en el nuevo idioma
   seedFeed();

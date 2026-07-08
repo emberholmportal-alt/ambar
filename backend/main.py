@@ -4,6 +4,8 @@
 import hmac
 import hashlib
 import re
+import time
+import threading
 from typing import Optional
 
 from fastapi import FastAPI, Depends, HTTPException, Header
@@ -54,6 +56,14 @@ class ScoreIn(BaseModel):
     resources: int = 0
     kills: int = 0
 
+class PingIn(BaseModel):
+    cid: str
+
+# presencia del live (en memoria): cid -> último visto. Ventana de 25s = espectador "activo".
+_presence: dict = {}
+_plock = threading.Lock()
+VIEWER_WINDOW = 25.0
+
 
 # ---- endpoints ----
 @app.get('/api/health')
@@ -76,6 +86,25 @@ def admin_delete_user(username: str, x_admin_secret: str = Header(None), db: Ses
 def holder(pubkey: str):
     ok, amount, stub = sol.check_holder(pubkey)
     return {"holder": ok, "amount": amount, "stub": stub}
+
+@app.post('/api/live/ping')
+def live_ping(inp: PingIn):
+    """Heartbeat de un espectador del live. Devuelve los espectadores activos (reales)."""
+    now = time.time()
+    cutoff = now - VIEWER_WINDOW
+    with _plock:
+        _presence[inp.cid] = now
+        for k in [k for k, v in _presence.items() if v < cutoff]:
+            del _presence[k]
+        count = len(_presence)
+    return {"viewers": count}
+
+@app.get('/api/live/viewers')
+def live_viewers():
+    now = time.time(); cutoff = now - VIEWER_WINDOW
+    with _plock:
+        count = sum(1 for v in _presence.values() if v >= cutoff)
+    return {"viewers": count}
 
 @app.post('/api/register')
 def register(inp: RegisterIn, db: Session = Depends(get_db)):
