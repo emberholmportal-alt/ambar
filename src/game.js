@@ -11,7 +11,7 @@ function setWatching(t){$('watch').textContent=t} function setViewers(n){$('view
 function reticleLock(on){reticleEl.classList.toggle('lock',on)} function setClock(s){clockStr=s;$('clock').textContent=s}
 
 /* ===== i18n ===== */
-let LANG=(localStorage.getItem('ambar_lang')||'es');
+let LANG=(localStorage.getItem('ambar_lang')||'en');   // el live arranca en inglés por defecto
 const L=(es,en)=>LANG==='en'?en:es;
 const hex=c=>'#'+c.toString(16).padStart(6,'0');
 
