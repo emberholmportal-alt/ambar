@@ -26,7 +26,7 @@
   .dot{width:9px;height:9px;border-radius:50%;background:var(--ember);box-shadow:0 0 10px var(--ember);animation:pulse 1.6s ease-in-out infinite}
   @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.8)}}
   .brand{display:flex;align-items:center;gap:13px;line-height:1.15;margin-right:auto}
-  .brandlogo{height:40px;width:auto;image-rendering:pixelated;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6));flex:none}
+  .brandlogo{height:44px;width:auto;image-rendering:auto;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6));flex:none}
   .brand span{font-family:var(--flavor);font-style:italic;font-size:12px;color:var(--muted);max-width:330px}
   .stat{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
   .stat .k{font-size:9px;color:var(--muted);letter-spacing:.16em}
@@ -137,7 +137,7 @@
   .devbar-beta b{color:var(--ember);font-style:normal;font-weight:700}
   @media(max-width:900px){.devbar{padding-bottom:18px}.devbar-in{flex-wrap:wrap;justify-content:center;gap:8px;padding:12px 16px;text-align:center}.devbar-status{font-size:18px}.devbar-beta{font-size:14px}.devbar-sep{display:none}}
   /* ==== logo de canal (marca de agua broadcast en el viewport) ==== */
-  .vplogo{position:absolute;left:14px;bottom:64px;z-index:9;height:40px;width:auto;opacity:.5;image-rendering:pixelated;pointer-events:none;filter:drop-shadow(0 2px 5px rgba(0,0,0,.7));mix-blend-mode:screen}
+  .vplogo{position:absolute;left:14px;bottom:64px;z-index:9;height:52px;width:auto;opacity:.45;image-rendering:auto;pointer-events:none;filter:drop-shadow(0 2px 5px rgba(0,0,0,.7))}
   /* ==== diálogo GRANDE en primer plano durante el corte de cámara ==== */
   .dialog{position:absolute;left:50%;bottom:64px;transform:translateX(-50%) translateY(22px);z-index:12;
     display:flex;align-items:center;gap:15px;max-width:min(78%,560px);
@@ -160,7 +160,7 @@
   <div class="topbar">
     <div class="live"><span class="dot"></span><span data-es="EN VIVO" data-en="LIVE">EN VIVO</span></div>
     <div class="brand">
-      <img class="brandlogo" src="assets/img/aoa_logo.png" alt="Age of Ansem"/>
+      <img class="brandlogo" src="assets/img/LOGOFFFF.png" alt="Age of Ansem: Robinhood"/>
       <span data-es="Crónica perpetua de cuatro gremios · transmitida por el Ojo del Vigía" data-en="A perpetual chronicle of four guilds · streamed by the Watcher’s Eye">Crónica perpetua de cuatro gremios · transmitida por el Ojo del Vigía</span>
     </div>
     <div class="stat"><span class="k" data-es="ESPECTADORES" data-en="VIEWERS">ESPECTADORES</span><span class="v" id="viewers">1.204</span></div>
@@ -182,7 +182,7 @@
     </div>
   </div>
   <div id="liveSplash">
-    <img src="assets/img/aoa_logo.png" alt="Age of Ansem"/>
+    <img src="assets/img/LOGOFFFF.png" alt="Age of Ansem: Robinhood"/>
     <div class="lbl" data-es="Cargando la isla…" data-en="Loading the isle…">Cargando la isla…</div>
     <div id="liveBarZone"><div id="liveBarWrap"><div id="liveBar"></div></div><div id="liveRunner"></div></div>
   </div>
@@ -195,7 +195,7 @@
         <div class="rec"><span class="rd"></span><span data-es="OBSERVANDO" data-en="WATCHING">OBSERVANDO</span></div>
       </div>
       <div class="watching"><div class="lbl" data-es="AHORA OBSERVANDO" data-en="NOW WATCHING">AHORA OBSERVANDO</div><div class="txt" id="watch" data-es="El Ojo del Vigía sobrevuela la isla de Ámbar…" data-en="The Watcher’s Eye drifts over the isle of Amber…">El Ojo del Vigía sobrevuela la isla de Ámbar…</div></div>
-      <img class="vplogo" src="assets/img/aoa_logo.png" alt="Age of Ansem"/>
+      <img class="vplogo" src="assets/img/LOGOFFFF.png" alt="Age of Ansem: Robinhood"/>
       <div class="dialog" id="dialog">
         <div class="dlgPort"><img id="dlgImg" alt=""></div>
         <div class="dlgBody"><div class="dlgWho" id="dlgWho"></div><div class="dlgTxt" id="dlgTxt"></div></div>
