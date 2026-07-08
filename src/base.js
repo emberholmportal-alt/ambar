@@ -2762,11 +2762,19 @@ async function mostrarRecords(){
 $('btnRecords')&&($('btnRecords').onclick=()=>{ $('menu').classList.remove('open'); mostrarRecords(); });
 $('btnDeselect')&&($('btnDeselect').onclick=()=>deseleccionar());   // touch: soltar la unidad para poder tocar edificios/recursos
 let saliendo=false;                                                   // salida intencional: no volver a avisar en beforeunload
-$('btnLive')&&($('btnLive').onclick=()=>{                              // ir al vivo: avisa que se cierra la partida sin puntos
+$('btnLive')&&($('btnLive').onclick=()=>{                              // ir al vivo: avisa (modal propio) que se cierra la partida sin puntos
   $('menu').classList.remove('open');
-  const msg=L('Si vas al vivo se cierra la partida y NO sumás puntos al ranking. ¿Continuar?','If you go to the live, your game closes and you will NOT earn ranking points. Continue?');
-  if(window.confirm(msg)){ saliendo=true; location.href='/live'; }
+  const ov=$('liveConfirmOv');
+  if(!ov){ if(window.confirm(L('Si vas al vivo se cierra la partida y NO sumás puntos al ranking. ¿Continuar?','If you go to the live, your game closes and you will NOT earn ranking points. Continue?'))){ saliendo=true; location.href='/live'; } return; }
+  ov.classList.add('open');
 });
+(function(){                                                          // botones del modal de confirmación de salida al vivo
+  const ov=$('liveConfirmOv'); if(!ov) return;
+  const close=()=>ov.classList.remove('open');
+  $('liveConfirmNo')&&($('liveConfirmNo').onclick=close);
+  $('liveConfirmYes')&&($('liveConfirmYes').onclick=()=>{ saliendo=true; location.href='/live'; });
+  ov.addEventListener('click',e=>{ if(e.target===ov) close(); });
+})();
 $('btnRecordsCerrar')&&($('btnRecordsCerrar').onclick=()=>$('recordsOv').classList.remove('open'));
 $('recSave')&&($('recSave').onclick=()=>{
   const user=(($('recUser')||{}).value||'').trim().slice(0,18), wallet=(($('recWallet')||{}).value||'').trim().slice(0,64);

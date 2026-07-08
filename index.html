@@ -51,6 +51,21 @@
   .linkbtn:hover{border-color:var(--brass);color:var(--brass-hi)}
   .foot{font-family:var(--mono);font-size:10px;color:#6d6350;margin-top:22px;line-height:1.5}
   .foot a{color:var(--brass-dim)}
+  /* ==== rail de redes oficiales (izquierda) ==== */
+  .social{position:fixed;left:16px;top:50%;transform:translateY(-50%);z-index:6;display:flex;flex-direction:column;gap:10px;align-items:center}
+  .social .sh{font-family:var(--mono);font-size:8px;letter-spacing:.18em;color:var(--muted);writing-mode:vertical-rl;transform:rotate(180deg);margin-bottom:4px}
+  .social a{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:11px;font-size:20px;text-decoration:none;color:var(--brass);
+    border:2px solid #6b5226;background:linear-gradient(180deg,rgba(32,24,15,.97),rgba(17,12,8,.98));
+    box-shadow:inset 0 0 0 1px rgba(201,162,39,.18),0 4px 12px rgba(0,0,0,.5);transition:transform .12s ease,border-color .15s,color .15s}
+  .social a:hover{transform:translateY(-2px);border-color:var(--brass);color:var(--brass-hi)}
+  .social a.tok{color:#f0d564;border-color:#8a6a26}
+  @media(max-width:720px){ .social{left:0;right:0;top:auto;bottom:0;transform:none;flex-direction:row;justify-content:center;padding:10px;
+    background:linear-gradient(0deg,rgba(9,7,5,.85),transparent)} .social .sh{display:none} .social a{width:40px;height:40px;font-size:18px} }
+  /* ==== badge $AOA en el modal ==== */
+  .req-badge{display:flex;align-items:center;gap:9px;justify-content:center;font-family:var(--mono);font-size:12px;color:var(--brass-hi);
+    background:rgba(201,162,39,.08);border:1px solid var(--line2);border-radius:9px;padding:9px 12px;line-height:1.4}
+  .req-badge .coin{font-size:18px}
+  .req-badge b{color:#f0d564}
   /* ==== modal del flujo beta ==== */
   .ov{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;padding:20px;
     background:radial-gradient(ellipse at center,rgba(20,12,7,.78),rgba(6,4,3,.92))}
@@ -89,6 +104,13 @@
     <button class="lang" id="btnLang">ENGLISH</button>
   </div>
 
+  <nav class="social" aria-label="Redes oficiales">
+    <span class="sh" data-es="REDES OFICIALES" data-en="OFFICIAL CHANNELS">REDES OFICIALES</span>
+    <a href="https://t.me/+bJ74kcz-MRFhYTFh" target="_blank" rel="noopener" title="Telegram">✈</a>
+    <a href="https://x.com/AgeOfAnsem" target="_blank" rel="noopener" title="Twitter / X">𝕏</a>
+    <a class="tok" id="landTokenLink" href="https://pump.fun" target="_blank" rel="noopener" title="$AOA">🪙</a>
+  </nav>
+
   <main class="hero">
     <img class="logo" src="assets/img/aoa_logo.png" alt="Age of Ansem"/>
     <div class="sub">The Black Bull</div>
@@ -117,9 +139,11 @@
 
       <!-- paso 1: conectar -->
       <div class="step" id="step-connect">
-        <h2 data-es="Conectá tu billetera" data-en="Connect your wallet">Conectá tu billetera</h2>
-        <p data-es="Cualquier wallet de Solana (Phantom, Solflare, Backpack). Verificamos que tengas el token." data-en="Any Solana wallet (Phantom, Solflare, Backpack). We check you hold the token.">Cualquier wallet de Solana (Phantom, Solflare, Backpack). Verificamos que tengas el token.</p>
+        <h2 data-es="Probá la beta" data-en="Play the beta">Probá la beta</h2>
+        <div class="req-badge"><span class="coin">🪙</span><span data-es="Necesitás tener <b>$AOA</b> en tu billetera para jugar." data-en="You need <b>$AOA</b> in your wallet to play.">Necesitás tener <b>$AOA</b> en tu billetera para jugar.</span></div>
+        <p data-es="Conectá cualquier wallet de Solana (Phantom, Solflare, Backpack) y verificamos que seas holder." data-en="Connect any Solana wallet (Phantom, Solflare, Backpack) and we’ll check you’re a holder.">Conectá cualquier wallet de Solana (Phantom, Solflare, Backpack) y verificamos que seas holder.</p>
         <button class="btn primary wide" id="btnConnect"><span class="em">👛</span><span data-es="Conectar billetera" data-en="Connect wallet">Conectar billetera</span></button>
+        <a class="hint" id="landGetToken" href="https://pump.fun" target="_blank" rel="noopener" style="color:var(--brass);text-decoration:underline" data-es="¿No tenés $AOA? Conseguilo acá" data-en="No $AOA yet? Get it here">¿No tenés $AOA? Conseguilo acá</a>
         <div class="hint" id="connectHint"></div>
       </div>
 
@@ -153,7 +177,8 @@
     let LANG=(function(){try{return localStorage.getItem('aoa_lang')||'es';}catch(e){return 'es';}})();
     function applyLang(){
       document.documentElement.lang=LANG;
-      document.querySelectorAll('[data-es]').forEach(el=>{ el.textContent = LANG==='en'?(el.getAttribute('data-en')||el.textContent):el.getAttribute('data-es'); });
+      document.querySelectorAll('[data-es]').forEach(el=>{ const v = LANG==='en'?(el.getAttribute('data-en')||el.getAttribute('data-es')):el.getAttribute('data-es');
+        if(/[<&]/.test(v)) el.innerHTML=v; else el.textContent=v; });   // permite <b> en las etiquetas (ej: $AOA)
       $('btnLang').textContent = LANG==='en'?'ESPAÑOL':'ENGLISH';
     }
     $('btnLang').onclick=()=>{ LANG=LANG==='en'?'es':'en'; try{localStorage.setItem('aoa_lang',LANG);}catch(e){} applyLang(); };
@@ -170,6 +195,11 @@
     }
     refreshSessionBar();
     $('btnDisconnect').onclick=async ()=>{ if(A&&A.disconnect) await A.disconnect(); refreshSessionBar(); };
+
+    /* ---- link a $AOA (rail + modal): se arma solo con el token del backend (mint → pump.fun) ---- */
+    (A && A.pumpUrl ? A.pumpUrl() : Promise.resolve(A&&A.PUMP_URL||'https://pump.fun')).then(u=>{
+      u=u||'https://pump.fun'; ['landTokenLink','landGetToken'].forEach(id=>{ const a=$(id); if(a) a.href=u; });
+    }).catch(()=>{});
 
     /* ---- modal de pasos ---- */
     const ov=$('ov');

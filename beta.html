@@ -79,6 +79,11 @@
   .menu{position:absolute;top:50px;right:0;width:210px;display:none;flex-direction:column;gap:6px;padding:10px;border-radius:8px;z-index:41}
   .menu.open{display:flex}
   .menu button{width:100%}
+  .menu .msep{height:1px;background:var(--line);margin:2px 0}
+  .menu .mh{font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:var(--muted);text-align:center}
+  .menu .msocial{display:flex;gap:8px;justify-content:center}
+  .menu .msocial a{flex:1;text-align:center;text-decoration:none;font-size:16px;color:var(--brass);border:1px solid var(--brass-dim);border-radius:7px;padding:7px 0;transition:.15s}
+  .menu .msocial a:hover{color:var(--brass-hi);border-color:var(--brass);background:rgba(201,162,39,.12)}
   /* overlay de récords */
   .recordsOv{position:absolute;inset:0;background:rgba(6,10,13,.72);display:none;align-items:center;justify-content:center;z-index:60}
   .recordsOv.open{display:flex}
@@ -105,6 +110,18 @@
     min-width:60px;image-rendering:pixelated;text-shadow:0 1px 2px rgba(10,20,40,.9)}
   button.ghost:hover{filter:brightness(1.14)} button.ghost:active{filter:brightness(.85)}
   button.ghost:disabled{filter:grayscale(1) brightness(.62);cursor:not-allowed}
+  button.ghost.alt{background-image:url('assets/img/ui/ribbon_red.png');color:#fff;text-shadow:0 1px 2px rgba(60,10,10,.9)}
+  /* ---- modal de confirmación (mismo estilo del sitio) ---- */
+  .confirmOv{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(20,12,7,.78),rgba(6,4,3,.92));display:none;align-items:center;justify-content:center;z-index:80;padding:20px}
+  .confirmOv.open{display:flex}
+  .confirmBox{width:min(90vw,400px);padding:24px 22px 20px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;
+    animation:cfin .3s cubic-bezier(.2,.9,.25,1) both}
+  @keyframes cfin{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
+  .confirmIcon{font-size:30px;filter:drop-shadow(0 0 10px rgba(229,83,58,.5))}
+  .confirmH{font-family:var(--display);font-weight:800;font-size:20px;color:var(--brass-hi)}
+  .confirmMsg{font-family:var(--flavor);font-style:italic;font-size:14px;color:var(--muted);line-height:1.5}
+  .confirmBtns{display:flex;gap:12px;margin-top:6px}
+  .confirmBtns button{min-width:110px}
 
   /* ---- viewport ---- */
   .stage{flex:1;position:relative;min-height:0;background:#0a0f12}
@@ -245,6 +262,13 @@
         <button class="ghost" id="btnIdioma" title="Español / English">🌐 ENGLISH</button>
         <button class="ghost" id="btnRecords" title="Listado de récords">🏆 RÉCORDS</button>
         <button class="ghost" id="btnLive" title="Ir al vivo">🔴 VER EL LIVE</button>
+        <div class="msep"></div>
+        <div class="mh" data-es="Redes oficiales" data-en="Official channels">REDES OFICIALES</div>
+        <div class="msocial">
+          <a href="https://t.me/+bJ74kcz-MRFhYTFh" target="_blank" rel="noopener" title="Telegram">✈</a>
+          <a href="https://x.com/AgeOfAnsem" target="_blank" rel="noopener" title="Twitter / X">𝕏</a>
+          <a id="betaTokenLink" href="https://pump.fun" target="_blank" rel="noopener" title="$AOA">🪙</a>
+        </div>
       </div>
     </div>
     <div class="recordsOv" id="recordsOv">
@@ -260,6 +284,17 @@
         <div style="display:flex;gap:8px;justify-content:center">
           <button class="ghost" id="btnDisconnect" title="Desconectar billetera">🔌 DESCONECTAR</button>
           <button class="ghost" id="btnRecordsCerrar">CERRAR</button>
+        </div>
+      </div>
+    </div>
+    <div class="confirmOv" id="liveConfirmOv">
+      <div class="confirmBox frame">
+        <div class="confirmIcon">🔴</div>
+        <div class="confirmH" id="liveConfirmH" data-es="Ir al vivo" data-en="Go to the live">Ir al vivo</div>
+        <div class="confirmMsg" id="liveConfirmMsg" data-es="Si vas al vivo se cierra la partida y NO sumás puntos al ranking." data-en="If you go to the live, your game closes and you will NOT earn ranking points.">Si vas al vivo se cierra la partida y NO sumás puntos al ranking.</div>
+        <div class="confirmBtns">
+          <button class="ghost" id="liveConfirmNo" data-es="CANCELAR" data-en="CANCEL">CANCELAR</button>
+          <button class="ghost alt" id="liveConfirmYes" data-es="CONTINUAR" data-en="CONTINUE">CONTINUAR</button>
         </div>
       </div>
     </div>
@@ -318,6 +353,10 @@
     d.innerHTML='La carga está tardando más de lo normal.<br><button style="margin-top:8px;font-family:inherit;font-size:12px;color:#120d09;background:#e7c766;border:none;border-radius:6px;padding:8px 16px;cursor:pointer" onclick="location.reload(true)">↻ Reintentar</button>';
     sp.appendChild(d);
   }},14000); })();
+// link a $AOA en el menú: se arma solo con el token del backend (mint → pump.fun).
+(function(){ var API=(window.AOA_API||'').replace(/\/$/,''); if(!API) return;
+  fetch(API+'/api/config').then(function(r){ return r.ok?r.json():null; }).then(function(c){
+    var a=document.getElementById('betaTokenLink'); if(a&&c&&c.pump_url) a.href=c.pump_url; }).catch(function(){}); })();
 </script>
 </body>
 </html>

@@ -38,14 +38,26 @@
   .menu.on{display:flex}
   .menu a{font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:none;padding:9px 11px;border-radius:6px;letter-spacing:.02em}
   .menu a:hover{background:rgba(201,162,39,.14);color:var(--brass-hi)}
+  .menu .msep{height:1px;background:var(--line);margin:5px 6px}
+  .menu .mh{font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:var(--muted);padding:2px 11px 4px;text-transform:uppercase}
   /* ==== pantalla de carga ==== */
   #liveSplash{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
     background:radial-gradient(120% 120% at 50% 40%,#123041,#0a1b25 60%,#060d12);transition:opacity .6s ease}
   #liveSplash.hide{opacity:0;pointer-events:none}
   #liveSplash img{width:min(58vw,360px);height:auto;filter:drop-shadow(0 8px 24px rgba(0,0,0,.6))}
-  #liveSplash .spin{width:34px;height:34px;border:3px solid rgba(201,162,39,.22);border-top-color:var(--brass);border-radius:50%;animation:lspin .8s linear infinite}
-  @keyframes lspin{to{transform:rotate(360deg)}}
   #liveSplash .lbl{font-family:var(--flavor);font-style:italic;color:var(--muted);font-size:14px;letter-spacing:.02em}
+  /* barra de carga + personaje corriendo (mismo patrón que la beta, pero con un guerrero en vez del goblin) */
+  #liveBarZone{position:relative;width:min(52vw,300px);margin-top:34px}   /* deja aire para el guerrero que corre sobre la barra */
+  #liveBarWrap{width:100%;height:18px;background:#101f28;border:2px solid #2c5a70;border-radius:10px;
+    box-shadow:inset 0 2px 6px rgba(0,0,0,.65),0 0 0 3px #08131a;overflow:hidden}
+  #liveBar{height:100%;width:0%;border-radius:8px;transition:width .25s ease;
+    background:linear-gradient(180deg,#7fd4ff 0%,#4a90c2 55%,#2c5a70 100%);box-shadow:0 0 8px rgba(120,200,255,.45)}
+  #liveRunner{position:absolute;left:0%;bottom:6px;width:66px;height:60px;margin-left:-33px;pointer-events:none;
+    background:url('assets/img/warrior_blue.png') 0 -118px/396px auto no-repeat;image-rendering:pixelated;
+    filter:drop-shadow(0 4px 5px rgba(0,0,0,.55));transition:left .25s ease;
+    animation:warRun .6s steps(6) infinite,warBob .6s ease-in-out infinite}
+  @keyframes warRun{to{background-position-x:-396px}}
+  @keyframes warBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
   .evsel{font-family:var(--mono);font-size:11px;color:var(--ink);background:var(--bg3);border:1px solid var(--brass-dim);border-radius:3px;padding:7px 8px;max-width:150px}
   button.ghost{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.08em;color:#f4ecda;background:url('assets/img/ui/ribbon_blue.png') center/100% 100% no-repeat;border:none;padding:10px 16px 12px;cursor:pointer;transition:.15s;min-width:88px;image-rendering:pixelated;text-shadow:0 1px 2px rgba(10,20,40,.8)}
   button.ghost:hover{filter:brightness(1.15)}
@@ -160,14 +172,19 @@
         <div class="menu" id="liveMenu">
           <a href="/beta" data-es="⚔ Jugar la beta" data-en="⚔ Play the beta">⚔ Jugar la beta</a>
           <a href="/" data-es="🏠 Inicio" data-en="🏠 Home">🏠 Inicio</a>
+          <div class="msep"></div>
+          <div class="mh" data-es="Redes oficiales" data-en="Official channels">Redes oficiales</div>
+          <a href="https://t.me/+bJ74kcz-MRFhYTFh" target="_blank" rel="noopener">✈ Telegram</a>
+          <a href="https://x.com/AgeOfAnsem" target="_blank" rel="noopener">𝕏 Twitter / X</a>
+          <a id="liveTokenLink" href="https://pump.fun" target="_blank" rel="noopener">🪙 $AOA</a>
         </div>
       </div>
     </div>
   </div>
   <div id="liveSplash">
     <img src="assets/img/aoa_logo.png" alt="Age of Ansem"/>
-    <div class="spin"></div>
     <div class="lbl" data-es="Cargando la isla…" data-en="Loading the isle…">Cargando la isla…</div>
+    <div id="liveBarZone"><div id="liveBarWrap"><div id="liveBar"></div></div><div id="liveRunner"></div></div>
   </div>
   <div class="stage">
     <div class="viewport">
@@ -215,6 +232,10 @@
 <script>
 // red de seguridad: si a los 16s la escena no ocultó la carga (CDN/asset lento), la sacamos igual.
 setTimeout(function(){ var sp=document.getElementById('liveSplash'); if(sp&&!sp.classList.contains('hide')){ sp.classList.add('hide'); setTimeout(function(){ sp.style.display='none'; },700); } }, 16000);
+// link a $AOA: se arma solo con el token cuando esté cargado en el backend (mint → pump.fun).
+(function(){ var API=(window.AOA_API||'').replace(/\/$/,''); if(!API) return;
+  fetch(API+'/api/config').then(function(r){ return r.ok?r.json():null; }).then(function(c){
+    var a=document.getElementById('liveTokenLink'); if(a&&c&&c.pump_url) a.href=c.pump_url; }).catch(function(){}); })();
 </script>
 </body>
 </html>
