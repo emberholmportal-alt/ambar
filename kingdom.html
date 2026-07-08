@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+<title>AoA · Kingdom</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.80.1/phaser.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@500;700;800&family=MedievalSharp&family=IM+Fell+English:ital@0;1&display=swap');
+  :root{
+    --bg:#16110c;--bg2:#221a11;--bg3:#120d09;--ink:#ece3d0;--muted:#9a8b6f;
+    --brass:#c9a227;--brass-hi:#f0d564;--brass-dim:#7a6420;--ember:#e5533a;
+    --line:rgba(201,162,39,.22);--line2:rgba(201,162,39,.4);--ok:#5fa55a;--bad:#c94f45;
+    --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Courier New",monospace;
+    --display:"Grenze Gotisch","Iowan Old Style",Georgia,serif;
+    --title:"MedievalSharp","Grenze Gotisch",Georgia,serif;
+    --flavor:"IM Fell English","Iowan Old Style",Georgia,serif;
+  }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--mono);overflow:hidden;-webkit-font-smoothing:antialiased}
+  .app{height:100dvh;display:flex;flex-direction:column;position:relative}
+  /* ==== topbar ==== */
+  .topbar{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:12px;padding:8px 14px;z-index:20;
+    background:linear-gradient(180deg,rgba(34,26,17,.92),rgba(18,13,9,0));pointer-events:none}
+  .topbar>*{pointer-events:auto}
+  .brand{display:flex;align-items:center;gap:11px;margin-right:auto}
+  .brandlogo{height:42px;width:auto;image-rendering:auto;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))}
+  .ktag{font-family:var(--title);font-size:13px;letter-spacing:.14em;color:var(--brass-hi);text-shadow:0 2px 0 #000}
+  .ctrls{display:flex;gap:8px;align-items:center}
+  .gbtn{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.06em;color:#f4ecda;cursor:pointer;
+    background:linear-gradient(180deg,var(--bg2),var(--bg3));border:1px solid var(--line2);border-radius:7px;padding:8px 11px}
+  .gbtn:hover{border-color:var(--brass);color:var(--brass-hi)}
+  .menuwrap{position:relative}
+  .menu{position:absolute;right:0;top:calc(100% + 6px);min-width:170px;background:linear-gradient(180deg,var(--bg2),var(--bg3));border:1px solid var(--line2);border-radius:9px;padding:6px;display:none;flex-direction:column;gap:2px;z-index:60;box-shadow:0 12px 32px rgba(0,0,0,.6)}
+  .menu.on{display:flex}
+  .menu a{font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:none;padding:9px 11px;border-radius:6px}
+  .menu a:hover{background:rgba(201,162,39,.14);color:var(--brass-hi)}
+  /* ==== viewport ==== */
+  .viewport{flex:1;position:relative;min-height:0;background:#123041;overflow:hidden}
+  #game{position:absolute;inset:0} #game canvas{display:block}
+  .grain{position:absolute;inset:0;pointer-events:none;z-index:8;background:radial-gradient(120% 120% at 50% 45%,transparent 62%,rgba(0,0,0,.42) 100%);mix-blend-mode:multiply;opacity:.5}
+  /* ==== pantalla de carga (logo + barra + guerrero, igual que el resto) ==== */
+  #liveSplash{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
+    background:radial-gradient(120% 120% at 50% 40%,#123041,#0a1b25 60%,#060d12);transition:opacity .6s ease}
+  #liveSplash.hide{opacity:0;pointer-events:none}
+  #liveSplash img{width:min(58vw,360px);height:auto;filter:drop-shadow(0 8px 24px rgba(0,0,0,.6))}
+  #liveSplash .lbl{font-family:var(--flavor);font-style:italic;color:var(--muted);font-size:14px}
+  #liveBarZone{position:relative;width:min(52vw,300px);margin-top:34px}
+  #liveBarWrap{width:100%;height:18px;background:#101f28;border:2px solid #2c5a70;border-radius:10px;box-shadow:inset 0 2px 6px rgba(0,0,0,.65),0 0 0 3px #08131a;overflow:hidden}
+  #liveBar{height:100%;width:0%;border-radius:8px;transition:width .25s ease;background:linear-gradient(180deg,#7fd4ff 0%,#4a90c2 55%,#2c5a70 100%);box-shadow:0 0 8px rgba(120,200,255,.45)}
+  #liveRunner{position:absolute;left:0%;bottom:6px;width:66px;height:60px;margin-left:-33px;pointer-events:none;
+    background:url('assets/img/warrior_blue.png') 0 -118px/396px auto no-repeat;image-rendering:pixelated;filter:drop-shadow(0 4px 5px rgba(0,0,0,.55));transition:left .25s ease;
+    animation:warRun .6s steps(6) infinite,warBob .6s ease-in-out infinite}
+  @keyframes warRun{to{background-position-x:-396px}}
+  @keyframes warBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+  /* ==== login + selector de unidad (hoja inferior; deja ver la unidad arriba) ==== */
+  #kLogin{position:absolute;inset:0;z-index:120;display:flex;flex-direction:column;justify-content:flex-end;
+    background:linear-gradient(0deg,rgba(6,4,3,.92) 0%,rgba(6,4,3,.5) 42%,rgba(6,4,3,0) 68%);transition:opacity .4s ease}
+  #kLogin.hide{opacity:0;pointer-events:none}
+  .kbox{width:100%;max-width:720px;margin:0 auto;padding:16px 18px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:11px}
+  .khead{text-align:center}
+  .khead h1{font-family:var(--display);font-weight:800;font-size:clamp(22px,4vw,30px);color:var(--brass-hi);margin:0;text-shadow:0 2px 0 #000}
+  .khead p{font-family:var(--flavor);font-style:italic;color:var(--muted);font-size:13px;margin:4px 0 0}
+  .krow{display:flex;gap:9px;align-items:center;flex-wrap:wrap;justify-content:center}
+  #kName{flex:1;min-width:200px;max-width:340px;background:#120d09;border:1px solid var(--line2);border-radius:9px;color:var(--ink);
+    font-family:var(--display);font-size:17px;padding:12px 14px;text-align:center}
+  #kName:focus{outline:none;border-color:var(--brass)}
+  #kEnter{font-family:var(--display);font-weight:700;font-size:16px;letter-spacing:.02em;cursor:pointer;color:#ffe7cf;
+    border:2px solid #8a3320;background:linear-gradient(180deg,#7a2c1c,#4a1a10);border-radius:11px;padding:12px 22px;white-space:nowrap;
+    box-shadow:inset 0 0 0 1px rgba(255,150,90,.25),0 6px 18px rgba(229,83,58,.28)}
+  #kEnter:hover{border-color:var(--ember)}
+  .khint{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;min-height:14px}
+  .khint.bad{color:var(--bad)}
+  .kunits{display:flex;gap:6px;overflow-x:auto;padding:8px 2px 4px;scrollbar-width:thin;scrollbar-color:var(--brass-dim) transparent;
+    background:rgba(18,13,9,.6);border:1px solid var(--line);border-radius:10px;align-items:center}
+  .kunits::-webkit-scrollbar{height:8px}.kunits::-webkit-scrollbar-thumb{background:var(--brass-dim);border-radius:4px}
+  .kcat{flex:none;font-family:var(--mono);font-size:8px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;
+    writing-mode:vertical-rl;transform:rotate(180deg);padding:0 2px;opacity:.8}
+  .kunit{flex:none;font-family:var(--mono);font-size:11px;color:var(--ink);cursor:pointer;white-space:nowrap;
+    background:linear-gradient(180deg,var(--bg2),var(--bg3));border:1px solid var(--line2);border-radius:8px;padding:9px 11px}
+  .kunit:hover{border-color:var(--brass);color:var(--brass-hi)}
+  .kunit.sel{border-color:var(--brass);color:#120d09;background:linear-gradient(180deg,var(--brass-hi),var(--brass));font-weight:700}
+  /* ==== aviso de controles ==== */
+  #kControls{position:absolute;left:50%;bottom:24px;transform:translateX(-50%) translateY(16px);z-index:15;opacity:0;transition:.4s;pointer-events:none;
+    font-family:var(--mono);font-size:12px;color:var(--ink);background:rgba(18,13,9,.85);border:1px solid var(--line2);border-radius:9px;padding:9px 15px;text-align:center}
+  #kControls.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  @media(max-width:600px){ .brand span.ktag{display:none} .kunits{padding:6px 2px} }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand">
+      <img class="brandlogo" src="assets/img/aoa_logo.png" alt="Age of Ansem: The Black Bull"/>
+      <span class="ktag" data-es="EL REINO" data-en="THE KINGDOM">EL REINO</span>
+    </div>
+    <div class="ctrls">
+      <button class="gbtn" id="btnSound">SOUND</button>
+      <button class="gbtn" id="btnLang">ENGLISH</button>
+      <div class="menuwrap">
+        <button class="gbtn" id="btnMenu">☰ <span data-es="MENÚ" data-en="MENU">MENÚ</span></button>
+        <div class="menu" id="liveMenu">
+          <a href="/live" data-es="👁️ Ver el live" data-en="👁️ Watch live">👁️ Ver el live</a>
+          <a href="/beta" data-es="⚔ Jugar la beta" data-en="⚔ Play the beta">⚔ Jugar la beta</a>
+          <a href="/" data-es="🏠 Inicio" data-en="🏠 Home">🏠 Inicio</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="liveSplash">
+    <img src="assets/img/aoa_logo.png" alt="Age of Ansem: The Black Bull"/>
+    <div class="lbl" data-es="Cargando el reino…" data-en="Loading the kingdom…">Cargando el reino…</div>
+    <div id="liveBarZone"><div id="liveBarWrap"><div id="liveBar"></div></div><div id="liveRunner"></div></div>
+  </div>
+
+  <div class="viewport">
+    <div id="game"></div><div class="grain"></div>
+    <div id="kControls" data-es="Movete con WASD / flechas · o tocá el mapa para caminar" data-en="Move with WASD / arrows · or tap the map to walk">Movete con WASD / flechas · o tocá el mapa para caminar</div>
+  </div>
+
+  <!-- login + selector de unidad -->
+  <div id="kLogin">
+    <div class="kbox">
+      <div class="khead">
+        <h1 data-es="Visitá el reino" data-en="Visit the Kingdom">Visitá el reino</h1>
+        <p data-es="Elegí tu nombre y tu unidad, y caminá libre por la isla." data-en="Choose your name and unit, and roam the island freely.">Elegí tu nombre y tu unidad, y caminá libre por la isla.</p>
+      </div>
+      <div class="kunits" id="kUnits"></div>
+      <div class="krow">
+        <input id="kName" maxlength="16" autocomplete="off" spellcheck="false" placeholder="Kael de Ámbar"/>
+        <button id="kEnter" data-es="Entrar al reino" data-en="Enter the kingdom">Entrar al reino</button>
+      </div>
+      <div class="khint" id="kHint"></div>
+    </div>
+  </div>
+</div>
+
+<script src="src/config.js"></script>
+<script>window.AOA_MODE='kingdom';</script>
+<script src="src/game.js"></script>
+<script>
+// red de seguridad: si a los 16s la escena no ocultó la carga, la sacamos igual.
+setTimeout(function(){ var sp=document.getElementById('liveSplash'); if(sp&&!sp.classList.contains('hide')){ sp.classList.add('hide'); setTimeout(function(){ sp.style.display='none'; },700); } }, 16000);
+</script>
+</body>
+</html>

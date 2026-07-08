@@ -2,13 +2,14 @@
 
 /* ===== chrome ===== */
 const $=id=>document.getElementById(id); const feedEl=$('feed'),reticleEl=$('reticle');
+const KINGDOM=(typeof window!=='undefined'&&window.AOA_MODE==='kingdom');   // modo "visitar el reino": el usuario controla una unidad
 const nf=n=>Math.round(n).toLocaleString(LANG==='en'?'en-US':'es-AR'); let clockStr='Día 1 · 06:00';
-function pushChronicle(tag,color,text,major,av){const e=document.createElement('div');e.className='entry'+(major?' major':'');
+function pushChronicle(tag,color,text,major,av){if(!feedEl)return;const e=document.createElement('div');e.className='entry'+(major?' major':'');
   const avImg=av?`<img class="av" src="assets/img/ts/av/${av}.png" alt="">`:'';
   e.innerHTML=`${avImg}<div class="meta"><span class="t">${clockStr}</span><span class="tag" style="color:${color}">[${tag}]</span></div><div class="body">${text}</div>`;
   feedEl.prepend(e); while(feedEl.children.length>70) feedEl.removeChild(feedEl.lastChild);}
-function setWatching(t){$('watch').textContent=t} function setViewers(n){$('viewers').textContent=nf(n)}
-function reticleLock(on){reticleEl.classList.toggle('lock',on)} function setClock(s){clockStr=s;$('clock').textContent=s}
+function setWatching(t){const e=$('watch');if(e)e.textContent=t} function setViewers(n){const e=$('viewers');if(e)e.textContent=nf(n)}
+function reticleLock(on){if(reticleEl)reticleEl.classList.toggle('lock',on)} function setClock(s){clockStr=s;const e=$('clock');if(e)e.textContent=s}
 
 /* ===== i18n ===== */
 let LANG=(localStorage.getItem('ambar_lang')||'en');   // el live arranca en inglés por defecto
@@ -148,7 +149,7 @@ function aguaCercaPx(px,py){ const t=tileOf(px,py);
 function splashFx(x,y){ const f=scene.add.sprite(x,y,'pfx_splash').setDepth(y+2).setScale(0.75).play('pfxsplash');   // salpicadura real (pfx_splash)
   f.once('animationcomplete',()=>f.destroy()); burst(x,y-6,0x9fd3e0,8,8); sfx('door',0.2); }
 function encarar(a,b){ a.spr.setFlipX(b.spr.x<a.spr.x); b.spr.setFlipX(a.spr.x<b.spr.x); }
-function verEscena(x,y,txt){ if(cameraBusy||manualView) return false; setWatching(txt); tViewers+=rint(60,220); cutToPos(x,y); return true; }   // corte de cámara con zoom a la escena (true si cortó)
+function verEscena(x,y,txt){ if(KINGDOM||cameraBusy||manualView) return false; setWatching(txt); tViewers+=rint(60,220); cutToPos(x,y); return true; }   // corte de cámara con zoom a la escena (true si cortó)
 function escenaAbsurda(){
   const living=livingNpcs().filter(n=>!n.busy&&!n._bub); if(living.length<2) return;
   const r=Math.random();
@@ -714,8 +715,9 @@ function create(){
   this.cameras.main.setBounds(-MAR,-MAR,WORLD_W+MAR*2,WORLD_H+MAR*2);   // deja ver el mar de relleno en pantallas anchas
   fitCamera(); this.scale.on('resize',fitCamera);
 
-  // ---- lupa: rueda / pinch = zoom · arrastrar = mover · doble click = vista general ----
+  // ---- lupa: rueda / pinch = zoom · arrastrar = mover · doble click = vista general (solo live) ----
   this.input.addPointer(1);   // 2º puntero para el pinch (mobile)
+  if(!KINGDOM){
   this.input.on('wheel',(p,objs,dx,dy)=>{
     const cam=this.cameras.main;
     manualView=true; reticleLock(false);
@@ -744,8 +746,10 @@ function create(){
     cam.scrollY-=(p.y-p.prevPosition.y)/cam.zoom;
   });
   this.game.canvas.addEventListener('dblclick',()=>{ manualView=false; cameraBusy=false; fitCamera(); });
+  }
   renderMarcador();                                  // el marcador ya se sembró; refresca por si la escena tardó
   this.time.addEvent({delay:rint(9000,16000),loop:true,callback:()=>{ if(!paused&&Math.random()<0.7) bandada(); }});   // bandadas cruzando el cielo
+  if(KINGDOM) startKingdom(this);                    // modo reino: crea el jugador, cámara que sigue, controles y selector
   { const b=$('liveBar'); if(b) b.style.width='100%'; const r=$('liveRunner'); if(r) r.style.left='100%'; }   // mapa listo: completa la barra
   const sp=$('liveSplash'); if(sp){ sp.classList.add('hide'); setTimeout(()=>{ if(sp) sp.style.display='none'; },700); }   // y oculta la pantalla de carga
 }
@@ -946,9 +950,10 @@ function retarget(n){
 function fitCamera(){if(!scene)return;const cam=scene.cameras.main,vw=scene.scale.width,vh=scene.scale.height;
   baseZoom=Math.min(vw/WORLD_W,vh/WORLD_H)*0.98;
   if(nightRect) nightRect.setSize(vw,vh);
+  if(KINGDOM){ cam.setZoom(Phaser.Math.Clamp(Math.min(vw/1000,vh/560),0.85,1.5)); return; }   // reino: zoom fijo de paseo, la cámara sigue al jugador
   if(manualView) return;                                    // lupa activa: no recentrar
   if(!cameraBusy){cam.setZoom(baseZoom);cam.centerOn(baseCX,baseCY);}}
-function cutToPos(x,y,hold){if(cameraBusy||manualView)return;cameraBusy=true;const cam=scene.cameras.main,z=Math.min(Math.max(baseZoom*4.2,baseZoom+1.1),2.9);   // zoom más dramático
+function cutToPos(x,y,hold){if(KINGDOM||cameraBusy||manualView)return;cameraBusy=true;const cam=scene.cameras.main,z=Math.min(Math.max(baseZoom*4.2,baseZoom+1.1),2.9);   // zoom más dramático
   cam.pan(x,y,600,'Sine.easeInOut'); cam.zoomTo(z,600,'Cubic.easeInOut'); reticleLock(true);
   scene.time.delayedCall(hold||3400,()=>{cam.pan(baseCX,baseCY,850,'Sine.easeInOut');cam.zoomTo(baseZoom,850,'Sine.easeInOut');reticleLock(false);hideLabels();ocultarDialogoGrande();
     scene.time.delayedCall(880,()=>{cameraBusy=false;});});}
@@ -1246,6 +1251,7 @@ function update(time,delta){
       const vis=wv.contains(n.spr.x,n.spr.y); n._plate.setVisible(vis);
       if(vis){ n._plate.x=n.spr.x; n._plate.y=n.spr.y-44; n._plate.setScale(1/cam.zoom); n._plate.setDepth(n.spr.y+40); } }
   }
+  if(KINGDOM) movePlayer(delta);                          // reino: mueve la unidad del usuario
   if(paused) return;
 
   clkAcc+=delta*m;
@@ -1254,13 +1260,8 @@ function update(time,delta){
     setClock(`${L('Día','Day')} ${d} · ${String(Math.floor(mm/60)).padStart(2,'0')}:${String(mm%60).padStart(2,'0')}`);
     const [col,al]=timeTint(worldMin); if(nightRect) nightRect.setFillStyle(col,al);
   }
-  pAcc+=delta; if(pAcc>=8000){ pAcc=0; pingViewers(); }                   // heartbeat de presencia
-  vAcc+=delta;
-  if(viewersReal!=null){ setViewers(viewersReal); }                       // espectadores reales del backend
-  else { if(vAcc>1500){ vAcc=0; tViewers+=rint(-40,55); tViewers+=(1180-tViewers)*0.04; tViewers=Math.max(600,tViewers); }
-    viewers+=(tViewers-viewers)*0.08; setViewers(viewers); }              // sin backend: simulado
 
-  evAcc+=delta*m;
+  evAcc+=delta*m;                                         // eventos: la isla sigue viva (en el reino, sin crónica ni corte de cámara)
   if(evAcc>=evNext){ evAcc=0; evNext=rint(2400,4200); fireEvent(); }
 
   dlgAcc+=delta*m;                                        // burbujas de diálogo (más seguido y con humor)
@@ -1268,6 +1269,14 @@ function update(time,delta){
 
   escAcc+=delta*m;                                        // escenas absurdas: discusiones, peleas, chapuzones
   if(escAcc>=escNext){ escAcc=0; escNext=rint(5000,10000); escenaAbsurda(); }
+
+  if(KINGDOM) return;                                     // el reino no tiene espectadores, director de cámara, carreras ni roster
+
+  pAcc+=delta; if(pAcc>=8000){ pAcc=0; pingViewers(); }                   // heartbeat de presencia
+  vAcc+=delta;
+  if(viewersReal!=null){ setViewers(viewersReal); }                       // espectadores reales del backend
+  else { if(vAcc>1500){ vAcc=0; tViewers+=rint(-40,55); tViewers+=(1180-tViewers)*0.04; tViewers=Math.max(600,tViewers); }
+    viewers+=(tViewers-viewers)*0.08; setViewers(viewers); }              // sin backend: simulado
 
   camAcc+=delta*m;                                        // director de cámara: cortes con zoom aunque no haya evento
   if(camAcc>=camNext){ camAcc=0; camNext=rint(7000,12000); directorCamara(); }
@@ -1299,7 +1308,7 @@ bind('btnSound',()=>{
 bind('btnLang',()=>{ LANG=LANG==='en'?'es':'en'; localStorage.setItem('ambar_lang',LANG); aplicarIdioma(); });
 bind('btnMenu',e=>{ if(e) e.stopPropagation(); const m=$('liveMenu'); if(m) m.classList.toggle('on'); });
 document.addEventListener('click',e=>{ const m=$('liveMenu'), b=$('btnMenu'); if(m&&m.classList.contains('on')&&!m.contains(e.target)&&(!b||!b.contains(e.target))) m.classList.remove('on'); });
-pingViewers();   // primer heartbeat al entrar
+if(!KINGDOM) pingViewers();   // primer heartbeat al entrar (el reino no cuenta como espectador)
 
 // re-aplica el idioma a todo el chrome estático + dinámico
 function aplicarIdioma(){
@@ -1379,4 +1388,104 @@ if(ADMIN){
     bSp.addEventListener('click',()=>{ speed=speed===1?2:speed===2?4:1; bSp.textContent=speed+'×'; });
   }
 }
+
+/* ===== MODO REINO: el usuario elige nombre + unidad y camina por la isla ===== */
+let player=null, kReady=false, kUnitList=null, kSel=null, kCursors=null, kKeys=null;
+const KSPEED=115;                                        // velocidad de paseo del jugador (px/s)
+const KCOLLAB={blue:'Blue',red:'Red',purple:'Purple',yellow:'Yellow'};
+function kingdomUnits(){                                 // todas las unidades con animación de caminar
+  const U=[];
+  for(const c of COLORES) U.push({key:'pawn_'+c,cat:L('Aldeanos','Villagers'),label:L('Aldeano','Villager')+' '+KCOLLAB[c],tex:'pawn_'+c,idle:'pawn_'+c+'-idle',run:'pawn_'+c+'-run',scale:PSCALE,oy:0.72,body:{w:30,h:20,ox:81,oy:118}});
+  for(const c of COLORES) U.push({key:'warrior_'+c,cat:L('Guerreros','Warriors'),label:L('Guerrero','Warrior')+' '+KCOLLAB[c],tex:'warrior_'+c,idle:'warrior_'+c+'-idleF',run:'warrior_'+c+'-runF',runB:'warrior_'+c+'-runB',idleB:'warrior_'+c+'-idleB',scale:WSCALE,oy:0.95,body:{w:26,h:20,ox:42,oy:68}});
+  for(const c of COLORES) U.push({key:'archer_'+c,cat:L('Arqueros','Archers'),label:L('Arquero','Archer')+' '+KCOLLAB[c],tex:'archer_'+c+'_i',idle:'archer_'+c+'-i',run:'archer_'+c+'-r',scale:PSCALE,oy:0.72,body:{w:30,h:20,ox:81,oy:118}});
+  for(const c of COLORES) U.push({key:'monk_'+c,cat:L('Monjes','Monks'),label:L('Monje','Monk')+' '+KCOLLAB[c],tex:'monk_'+c+'_i',idle:'monk_'+c+'-i',run:'monk_'+c+'-r',scale:PSCALE,oy:0.72,body:{w:30,h:20,ox:81,oy:118}});
+  const creES={bear:'Oso',gnoll:'Gnoll',thief:'Ladrón',snake:'Víbora',spider:'Araña',skull:'No-muerto',gnome:'Gnomo',torch:'Goblin',spear:'Lancero',shaman:'Chamán',tnt:'Goblin TNT',pigrider:'Jinete Cerdo'};
+  const creEN={bear:'Bear',gnoll:'Gnoll',thief:'Thief',snake:'Snake',spider:'Spider',skull:'Undead',gnome:'Gnome',torch:'Goblin',spear:'Spearman',shaman:'Shaman',tnt:'TNT Goblin',pigrider:'Pig Rider'};
+  for(const k in creEN){ const d=MONDEF[k]; if(!d) continue; const bw=d.fw===256?36:30;
+    U.push({key:k,cat:L('Criaturas','Creatures'),label:L(creES[k],creEN[k]),tex:d.ti,idle:d.ai,run:d.ar,scale:d.sc,oy:0.72,body:{w:bw,h:22,ox:(d.fw-bw)/2,oy:d.fw*0.72-24}}); }
+  U.push({key:'mino',cat:L('Criaturas','Creatures'),label:L('Minotauro','Minotaur'),tex:'minotaur_walk',idle:'mino-walk',run:'mino-walk',scale:0.5,oy:0.72,body:{w:40,h:24,ox:140,oy:320*0.72-28}});
+  U.push({key:'pig',cat:L('Criaturas','Creatures'),label:L('Cerdo','Pig'),tex:'pig_idle',idle:'cerdo-idle',run:'cerdo-run',scale:0.55,oy:0.72,body:{w:30,h:20,ox:81,oy:118}});
+  return U;
+}
+function makePlayerSprite(u){
+  let px,py,plate=null,nm='';
+  if(player&&player.spr){ px=player.spr.x; py=player.spr.y; plate=player._plate; nm=player.name||''; player.spr.destroy(); }
+  else { const sp0=nearWalkable(Math.floor(COLS/2),Math.floor(ROWS/2)); px=sp0.x*T+T/2; py=sp0.y*T+T/2; }
+  const s=scene.physics.add.sprite(px,py,u.tex,0).setOrigin(0.5,u.oy).setScale(u.scale);
+  s.body.setSize(u.body.w,u.body.h).setOffset(u.body.ox,u.body.oy);
+  s.setCollideWorldBounds(true); npcGroup.add(s); s.setDepth(s.y); s.play(u.idle);
+  player={spr:s,animI:u.idle,animR:u.run,animRB:u.runB||null,animIB:u.idleB||null,faceUp:false,faceLeft:false,path:null,spd:KSPEED,_plate:plate,guild:null,name:nm};
+  scene.cameras.main.startFollow(s,true,0.12,0.12);
+  scene.cameras.main.setFollowOffset(0, kReady?0:130);   // mientras elige, corre la vista para que la unidad se vea arriba del panel
+}
+function syncPlate(){ if(player&&player._plate&&scene){ player._plate.x=player.spr.x; player._plate.y=player.spr.y-46; player._plate.setScale(1/scene.cameras.main.zoom); player._plate.setDepth(player.spr.y+60); } }
+function movePlayer(delta){
+  if(!player||!player.spr||!player.spr.body) return;
+  const b=player.spr.body, spd=player.spd;
+  if(!kReady||paused){ b.setVelocity(0); syncPlate(); return; }
+  let ix=0,iy=0;
+  if(kCursors){ if(kCursors.left.isDown)ix--; if(kCursors.right.isDown)ix++; if(kCursors.up.isDown)iy--; if(kCursors.down.isDown)iy++; }
+  if(kKeys){ if(kKeys.A.isDown)ix--; if(kKeys.D.isDown)ix++; if(kKeys.W.isDown)iy--; if(kKeys.S.isDown)iy++; }
+  let vx=0,vy=0;
+  if(ix||iy){                                            // teclado / WASD: control directo
+    player.path=null; const mag=Math.hypot(ix,iy)||1; vx=ix/mag*spd; vy=iy/mag*spd;
+    if(vx&&!walkableAtPx(player.spr.x+Math.sign(vx)*18, player.spr.y+10)) vx=0;   // no pisar agua
+    if(vy&&!walkableAtPx(player.spr.x, player.spr.y+10+Math.sign(vy)*18)) vy=0;
+  } else if(player.path&&player.path.length){             // tap / click: seguir la ruta (BFS)
+    const p=player.path[0], dx=p.x-player.spr.x, dy=p.y-player.spr.y, d=Math.hypot(dx,dy);
+    if(d<8){ player.path.shift(); } else { vx=dx/d*spd; vy=dy/d*spd; }
+  }
+  b.setVelocity(vx,vy);
+  const moving=Math.abs(vx)>2||Math.abs(vy)>2;
+  if(moving){
+    player.faceUp=(Math.abs(vy)>Math.abs(vx))&&vy<0;
+    player.spr.play((player.faceUp&&player.animRB)?player.animRB:player.animR,true);
+    if(Math.abs(vx)>2){ player.faceLeft=vx<0; player.spr.setFlipX(player.faceLeft); }
+  } else {
+    player.spr.play((player.faceUp&&player.animIB)?player.animIB:player.animI,true);
+    player.spr.setFlipX(!!player.faceLeft);
+  }
+  player.spr.setDepth(player.spr.y); syncPlate();
+}
+function kBuildPicker(){
+  const box=$('kUnits'); if(!box) return; box.innerHTML=''; let cat=null;
+  kUnitList.forEach(u=>{
+    if(u.cat!==cat){ cat=u.cat; const h=document.createElement('div'); h.className='kcat'; h.textContent=u.cat; box.appendChild(h); }
+    const b=document.createElement('button'); b.type='button'; b.className='kunit'+(u===kSel?' sel':''); b.textContent=u.label;
+    b.onclick=()=>{ kSel=u; makePlayerSprite(u); box.querySelectorAll('.kunit').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); };
+    box.appendChild(b);
+  });
+}
+function startKingdom(sc){
+  kUnitList=kingdomUnits();
+  let saved=null; try{ saved=JSON.parse(localStorage.getItem('aoa_kingdom')||'null'); }catch(e){}
+  kSel=(saved&&kUnitList.find(u=>u.key===saved.unit))||kUnitList[0];
+  makePlayerSprite(kSel);
+  kCursors=sc.input.keyboard.createCursorKeys();
+  kKeys=sc.input.keyboard.addKeys({W:Phaser.Input.Keyboard.KeyCodes.W,A:Phaser.Input.Keyboard.KeyCodes.A,S:Phaser.Input.Keyboard.KeyCodes.S,D:Phaser.Input.Keyboard.KeyCodes.D});
+  sc.input.on('pointerdown',p=>{                          // tap/click en el mundo: camina hasta ahí (con pathfinding)
+    if(!kReady||!player) return;
+    const cam=sc.cameras.main, wp=cam.getWorldPoint(p.x,p.y), t0=tileOf(player.spr.x,player.spr.y), t1=tileOf(wp.x,wp.y);
+    const dest=nearWalkable(t1.x,t1.y), path=findPath(t0.x,t0.y,dest.x,dest.y);
+    if(path&&path.length) player.path=path;
+  });
+  kBuildPicker();
+  const nameEl=$('kName'); if(nameEl&&saved&&saved.name) nameEl.value=saved.name;
+  const btn=$('kEnter'); if(btn) btn.onclick=kingdomEnter;
+  if(nameEl) nameEl.addEventListener('keydown',e=>{ if(e.key==='Enter') kingdomEnter(); });
+}
+function kingdomEnter(){
+  const nameEl=$('kName'), hint=$('kHint'); let nm=((nameEl&&nameEl.value)||'').trim().slice(0,16);
+  if(!/^[\w .\-]{2,16}$/.test(nm)){ if(hint){ hint.textContent=L('Elegí un nombre válido (2 a 16 caracteres).','Choose a valid name (2 to 16 chars).'); hint.className='khint bad'; } return; }
+  player.name=nm;
+  try{ localStorage.setItem('aoa_kingdom',JSON.stringify({name:nm,unit:kSel.key})); }catch(e){}
+  if(player._plate){ player._plate.destroy(); player._plate=null; }
+  nameplate(player,{name:nm,me:true,rank:0});
+  kReady=true;
+  if(scene) scene.cameras.main.setFollowOffset(0,0);      // centra la cámara en la unidad al entrar
+  const lg=$('kLogin'); if(lg){ lg.classList.add('hide'); setTimeout(()=>{ if(lg) lg.style.display='none'; },400); }
+  const hc=$('kControls'); if(hc){ hc.classList.add('on'); setTimeout(()=>hc.classList.remove('on'),6500); }
+}
+window.kingdomEnter=kingdomEnter;
+
 aplicarIdioma();
