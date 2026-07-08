@@ -56,4 +56,19 @@ ro = c.get('/api/roster?limit=10').json()
 names = [e['name'] for e in ro]
 ok('RockyII' in names and 'BlackDuval' in names, "roster con nombres")
 
+# moderación: nombres prohibidos/reservados -> 400
+for bad in ['admin', 'AgeOfAnsem', 'p u t o', 'FuckThis']:
+    rr = c.post('/api/register', json={"pubkey": "WalletMOD", "username": bad})
+    ok(rr.status_code == 400, f"nombre bloqueado: {bad!r} -> 400")
+
+# admin: borrar usuario (con y sin secreto)
+import main as _m
+ok(c.request('DELETE', '/api/admin/user/BlackDuval', headers={'X-Admin-Secret': 'malo'}).status_code == 401, "admin sin secreto -> 401")
+dd = c.request('DELETE', '/api/admin/user/BlackDuval', headers={'X-Admin-Secret': 'test-secret'})
+ok(dd.status_code == 200, "admin borra usuario -> 200")
+ok('BlackDuval' not in [e['name'] for e in c.get('/api/roster').json()], "usuario borrado ya no aparece")
+
+# health expone 'open'
+ok('open' in c.get('/api/health').json(), "health expone flag open")
+
 print("\nTODO OK")

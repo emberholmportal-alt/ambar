@@ -15,6 +15,9 @@ SOLANA_RPC_URL = os.getenv('SOLANA_RPC_URL', 'https://api.mainnet-beta.solana.co
 TOKEN_MINT     = os.getenv('TOKEN_MINT', '').strip()
 MIN_HOLD       = float(os.getenv('MIN_HOLD', '1') or 1)
 
+# Acceso abierto: deja entrar a cualquiera aunque TOKEN_MINT esté seteado (útil pre-lanzamiento).
+BETA_OPEN = _bool(os.getenv('BETA_OPEN', 'false'))
+
 # Firma del nonce (prueba de titularidad de la billetera). Sin token conviene dejarlo en false.
 REQUIRE_SIGNATURE = _bool(os.getenv('REQUIRE_SIGNATURE', 'false'))
 # Secreto para firmar el session_token (CAMBIAR en producción, setear AOA_SECRET en Render).

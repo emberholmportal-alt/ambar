@@ -245,6 +245,7 @@
       }catch(err){
         $('nameHint').className='hint bad';
         $('nameHint').textContent = (err && err.code==='NAME_TAKEN') ? L('Ese nombre ya está en uso. Probá otro.','That name is taken. Try another.')
+          : (err && err.code==='NAME_BAD') ? L('Ese nombre no está permitido. Probá otro.','That name isn’t allowed. Try another.')
           : (err && err.code==='NOT_HOLDER') ? L('La billetera no holdea el token.','Wallet doesn’t hold the token.')
           : L('No se pudo registrar. Reintentá.','Could not register. Retry.');
       }

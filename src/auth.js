@@ -58,6 +58,7 @@ const AOA_AUTH = (function(){
       const r = await fetch(API()+'/api/register', { method:'POST', headers:{'content-type':'application/json'},
         body: JSON.stringify({ pubkey, username, proof }) });
       if(r.status === 409) throw { code:'NAME_TAKEN', msg:'Ese nombre ya está en uso.' };
+      if(r.status === 400) throw { code:'NAME_BAD', msg:'Ese nombre no está permitido.' };
       if(r.status === 403) throw { code:'NOT_HOLDER', msg:'La billetera no holdea el token.' };
       if(!r.ok) throw { code:'ERR', msg:'No se pudo registrar.' };
       return await r.json();                          // { ok, username, session_token, stub }

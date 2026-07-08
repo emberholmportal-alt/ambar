@@ -6,7 +6,7 @@ import hashlib
 import re
 from typing import Optional
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -15,6 +15,7 @@ import config
 from db import Base, engine, get_db
 from models import User, Score
 import sol
+import moderation
 
 Base.metadata.create_all(bind=engine)
 
@@ -57,7 +58,19 @@ class ScoreIn(BaseModel):
 # ---- endpoints ----
 @app.get('/api/health')
 def health():
-    return {"ok": True, "mode": config.MODE}
+    return {"ok": True, "mode": config.MODE, "open": config.BETA_OPEN}
+
+@app.delete('/api/admin/user/{username}')
+def admin_delete_user(username: str, x_admin_secret: str = Header(None), db: Session = Depends(get_db)):
+    """Borra un usuario y sus scores. Requiere el header X-Admin-Secret == AOA_SECRET."""
+    if not hmac.compare_digest(x_admin_secret or '', config.SECRET):
+        raise HTTPException(401, "no autorizado")
+    u = db.query(User).filter(User.uname_key == username.strip().lower()).first()
+    if not u:
+        raise HTTPException(404, "usuario no existe")
+    db.query(Score).filter(Score.user_id == u.id).delete()
+    db.delete(u); db.commit()
+    return {"ok": True, "deleted": username}
 
 @app.get('/api/holder/{pubkey}')
 def holder(pubkey: str):
@@ -69,6 +82,8 @@ def register(inp: RegisterIn, db: Session = Depends(get_db)):
     name = (inp.username or '').strip()
     if not NAME_RE.match(name):
         raise HTTPException(400, "nombre inválido")
+    if not moderation.name_ok(name):
+        raise HTTPException(400, "nombre no permitido")
     ok, amount, stub = sol.check_holder(inp.pubkey)
     if not ok:
         raise HTTPException(403, "la billetera no holdea el token")
