@@ -6,7 +6,7 @@
 
 const $=id=>document.getElementById(id);
 /* ===== idioma (ES por defecto, se puede cambiar a EN en el menú) ===== */
-let LANG = (function(){ try{ return localStorage.getItem('aoa_lang')||'es'; }catch(e){ return 'es'; } })();
+let LANG = (function(){ try{ return localStorage.getItem('aoa_lang')||'en'; }catch(e){ return 'en'; } })();   // por defecto inglés
 const L=(es,en)=>LANG==='en'?en:es;                 // devuelve el texto en el idioma activo
 const T=64, GW=30, GH=22, BX=4, BY=4;
 const WT=GW+BX*2, HT=GH+BY*2, WORLD_W=WT*T, WORLD_H=HT*T;
@@ -2673,6 +2673,8 @@ function aplicarIdioma(){
   const setHTML=(id,html)=>{ const e=$(id); if(e) e.innerHTML=html; };
   const setTitle=(id,txt)=>{ const e=$(id); if(e) e.title=txt; };
   document.documentElement.lang=LANG;
+  // etiquetas genéricas con data-es/data-en (modal de salida, redes oficiales, etc.)
+  document.querySelectorAll('[data-es]').forEach(el=>{ el.textContent = LANG==='en'?(el.getAttribute('data-en')||el.getAttribute('data-es')):el.getAttribute('data-es'); });
   // menú
   set('btnMenu','☰'); setTitle('btnMenu',L('Menú','Menu'));
   set('btnDialog',(S.dialogOn?'💬':'🚫')+' '+L('DIÁLOGOS','DIALOGUES'));
@@ -2781,11 +2783,13 @@ $('recSave')&&($('recSave').onclick=()=>{
   guardarPerfil({user,wallet}); toast(L('Perfil guardado.','Profile saved.')); mostrarRecords();
 });
 $('recordsOv')&&($('recordsOv').onclick=e=>{ if(e.target===$('recordsOv')) $('recordsOv').classList.remove('open'); });
-$('btnDisconnect')&&($('btnDisconnect').onclick=()=>{                 // desconectar wallet: cierra sesión y vuelve al inicio
+function desconectarWallet(){                                         // desconectar wallet: cierra sesión y vuelve al inicio
   try{ const p=window.solana||window.solflare||window.backpack; if(p&&p.disconnect) p.disconnect(); }catch(e){}
   try{ localStorage.removeItem('aoa_session'); localStorage.removeItem('aoa_profile'); }catch(e){}
   location.href='/';
-});
+}
+$('btnDisconnect')&&($('btnDisconnect').onclick=desconectarWallet);           // desde el panel de récords
+$('btnDisconnectMenu')&&($('btnDisconnectMenu').onclick=desconectarWallet);   // desde el menú del juego
 
 /* ===== minimapa ===== */
 let mmW=220, mmH=132;
