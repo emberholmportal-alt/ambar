@@ -55,9 +55,22 @@ function unlockedKeys(){
   return CARDS.filter(c=>c.own||set.has(c.key)).map(c=>c.key);
 }
 
+/* ==== progresión (local): trofeos, oro, niveles de carta, arenas ==== */
+const MAX_LVL=5;
+const ARENAS=[['Claro','Meadow'],['Muralla','Rampart'],['Necrópolis','Necropolis'],['Forja','Forge'],['Corona','Crown']];
+function loadProg(){ try{ const p=JSON.parse(localStorage.getItem('aoa_pvp')||'{}');
+  return {trophies:p.trophies|0, gold:(p.gold==null?60:p.gold|0), levels:p.levels||{}}; }catch(e){ return {trophies:0,gold:60,levels:{}}; } }
+const PROG=loadProg();
+function saveProg(){ try{ localStorage.setItem('aoa_pvp',JSON.stringify(PROG)); }catch(e){} }
+function cardLevel(k){ return PROG.levels[k]||1; }
+function lvlMult(lvl){ return 1+(lvl-1)*0.12; }              // +12% de vida/daño por nivel
+function upgradeCost(lvl){ return 40+(lvl-1)*60; }           // 40, 100, 160, 220
+function arenaTier(){ return Math.min(ARENAS.length-1, Math.floor(PROG.trophies/200)); }
+function arenaName(){ return L(ARENAS[arenaTier()][0],ARENAS[arenaTier()][1]); }
+
 let scene;
-const S={ units:[], towers:[], shots:[], enYou:6, enFoe:6, regYou:0, regFoe:0, aiT:0, aiNext:2600,
-          deck:[], hand:[], sel:-1, crownsYou:0, crownsFoe:0, over:false, time:MATCH_TIME, timeAcc:0, zoneHi:null };
+const S={ units:[], towers:[], shots:[], enYou:6, enFoe:6, regYou:0, regFoe:0, foeRegen:ENERGY_REGEN, foeLvl:1, aiT:0, aiNext:2600,
+          deck:[], hand:[], sel:-1, crownsYou:0, crownsFoe:0, over:false, started:false, time:MATCH_TIME, timeAcc:0, zoneHi:null };
 
 const config={ type:Phaser.AUTO, parent:'game', backgroundColor:'#0d2417',
   scale:{mode:Phaser.Scale.RESIZE, autoCenter:Phaser.Scale.CENTER_BOTH, width:'100%', height:'100%'},
@@ -97,16 +110,7 @@ function create(){
   // puentes sobre el río
   for(const bx of [ARENA_W*0.28, ARENA_W*0.72]){ this.add.rectangle(bx,MID,120,52,0x7a5a34).setDepth(-98); this.add.rectangle(bx,MID,120,52).setStrokeStyle(3,0x5a3f22).setDepth(-98); }
 
-  // ---- torres ----
-  const T=(side,x,y,king)=>{
-    const img=this.add.image(x,y,king?'castle_black':(side==='you'?'tower_blue':'tower_red')).setOrigin(0.5,0.9).setScale(king?0.62:0.5).setDepth(y);
-    if(side==='foe'&&!king) img.setTint(0xffb0b0);
-    const hp=king?1000:560;
-    const t={side,king,spr:img,x,y:y-30,hp,maxhp:hp,range:king?230:210,rate:king?1100:950,dmg:king?20:16,cd:rint(0,600),dead:false,hpbar:this.add.graphics().setDepth(99000)};
-    S.towers.push(t); return t;
-  };
-  T('foe',ARENA_W*0.5,150,true); T('foe',ARENA_W*0.2,320); T('foe',ARENA_W*0.8,320);
-  T('you',ARENA_W*0.5,ARENA_H-150,true); T('you',ARENA_W*0.2,ARENA_H-320); T('you',ARENA_W*0.8,ARENA_H-320);
+  buildTowers();
 
   // zona de despliegue (tu mitad), se resalta al elegir carta
   S.zoneHi=this.add.graphics().setDepth(-90).setVisible(false);
@@ -120,7 +124,7 @@ function create(){
 
   // ---- desplegar tocando tu mitad ----
   this.input.on('pointerdown',p=>{
-    if(S.over) return; const wp=cam.getWorldPoint(p.x,p.y);
+    if(!S.started||S.over) return; const wp=cam.getWorldPoint(p.x,p.y);
     if(wp.y<MID+40) return;                                // sólo tu mitad
     if(S.sel<0) { toast(L('Elegí una carta primero.','Pick a card first.')); return; }
     const key=S.hand[S.sel]; const c=CARD_BY_KEY[key]; if(!c) return;
@@ -131,7 +135,32 @@ function create(){
 
   buildDeck(); renderHand(); renderLocked(); refreshHUD();
   const sp=$('pvSplash'); if(sp){ sp.classList.add('hide'); setTimeout(()=>{ if(sp) sp.style.display='none'; },600); }
+  if(_autostart()) startMatch(); else showHome();      // arranca en la colección salvo revancha
 }
+function buildTowers(){
+  if(!scene) return;
+  S.towers.forEach(t=>{ if(t.spr)t.spr.destroy(); if(t.hpbar)t.hpbar.destroy(); }); S.towers=[];
+  const T=(side,x,y,king)=>{
+    const img=scene.add.image(x,y,king?'castle_black':(side==='you'?'tower_blue':'tower_red')).setOrigin(0.5,0.9).setScale(king?0.62:0.5).setDepth(y);
+    if(side==='foe'&&!king) img.setTint(0xffb0b0);
+    const hp=king?1000:560;
+    S.towers.push({side,king,spr:img,x,y:y-30,hp,maxhp:hp,range:king?230:210,rate:king?1100:950,dmg:king?20:16,cd:rint(0,600),dead:false,hpbar:scene.add.graphics().setDepth(99000)});
+  };
+  T('foe',ARENA_W*0.5,150,true); T('foe',ARENA_W*0.2,320); T('foe',ARENA_W*0.8,320);
+  T('you',ARENA_W*0.5,ARENA_H-150,true); T('you',ARENA_W*0.2,ARENA_H-320); T('you',ARENA_W*0.8,ARENA_H-320);
+}
+function clearBattle(){ S.units.forEach(u=>{ if(u.spr)u.spr.destroy(); if(u.hpbar)u.hpbar.destroy(); }); S.units=[];
+  S.shots.forEach(s=>{ if(s.spr)s.spr.destroy(); }); S.shots=[]; }
+function startMatch(){
+  clearBattle(); buildTowers();
+  S.enYou=6; S.enFoe=6; S.regYou=0; S.regFoe=0; S.aiT=0; S.aiNext=2600; S.crownsYou=0; S.crownsFoe=0;
+  S.time=MATCH_TIME; S.timeAcc=0; S.over=false; S.sel=-1;
+  S.foeLvl=Math.min(MAX_LVL, 1+arenaTier());                        // la IA sube de nivel con la arena
+  S.foeRegen=clamp(ENERGY_REGEN - arenaTier()*160, 1700, ENERGY_REGEN);
+  buildDeck(); renderHand(); refreshHUD();
+  hide('pvHome'); hide('pvEnd'); S.started=true;
+}
+function _autostart(){ try{ if(sessionStorage.getItem('pvp_rematch')){ sessionStorage.removeItem('pvp_rematch'); return true; } }catch(e){} return false; }
 
 /* ===== mazo / mano ===== */
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=rint(0,i); [a[i],a[j]]=[a[j],a[i]]; } return a; }
@@ -167,11 +196,13 @@ function renderLocked(){
 /* ===== unidades ===== */
 function deploy(key,side,x,y){
   const c=CARD_BY_KEY[key]; if(!c||!scene) return;
+  const lvl=side==='you'?cardLevel(key):S.foeLvl, m=lvlMult(lvl);       // el nivel escala vida y daño
+  const hp=Math.round(c.hp*m), dmg=Math.round(c.dmg*m);
   const s=scene.add.sprite(x,y,c.si,0).setOrigin(0.5,0.72).setScale(c.sc).setDepth(y);
   if(side==='foe') s.setTint(0xff9a9a);
   s.play(c.key+'-i');
   puff(x,y,side==='you'?0x8ec8ff:0xff9a9a);
-  S.units.push({key,card:c,side,spr:s,hp:c.hp,maxhp:c.hp,dmg:c.dmg,sp:c.sp,range:c.range,rate:c.rate,cd:0,ranged:c.range>60,target:null,dead:false,flip:false,hpbar:scene.add.graphics().setDepth(99001)});
+  S.units.push({key,card:c,side,spr:s,hp,maxhp:hp,dmg,sp:c.sp,range:c.range,rate:c.rate,cd:0,ranged:c.range>60,target:null,dead:false,flip:false,hpbar:scene.add.graphics().setDepth(99001)});
   sfx(side==='you'?'bell':'clash',0.25);
 }
 function nearestEnemyUnit(e,maxD){ let best=null,bd=maxD; for(const u of S.units){ if(u.dead||u.side===e.side) continue;
@@ -200,10 +231,10 @@ function shoot(from,target,dmg,col){
 
 /* ===== bucle ===== */
 function update(time,delta){
-  if(!scene) return; const dt=delta/1000;
+  if(!scene||!S.started) return; const dt=delta/1000;
   if(!S.over){
     S.regYou+=delta; if(S.regYou>=ENERGY_REGEN){ S.regYou=0; S.enYou=Math.min(ENERGY_MAX,S.enYou+1); renderHand(); refreshHUD(); }
-    S.regFoe+=delta; if(S.regFoe>=ENERGY_REGEN){ S.regFoe=0; S.enFoe=Math.min(ENERGY_MAX,S.enFoe+1); }
+    S.regFoe+=delta; if(S.regFoe>=S.foeRegen){ S.regFoe=0; S.enFoe=Math.min(ENERGY_MAX,S.enFoe+1); }
     S.aiT+=delta; if(S.aiT>=S.aiNext){ S.aiT=0; S.aiNext=rint(2000,4200); aiPlay(); }
     S.timeAcc+=delta; if(S.timeAcc>=1000){ S.timeAcc-=1000; S.time--; refreshHUD();
       if(S.time<=0) endGame(S.crownsYou>S.crownsFoe?'win':S.crownsYou<S.crownsFoe?'lose':'draw'); }
@@ -269,21 +300,55 @@ function sfx(k,v){ if(soundOn&&scene) try{ scene.sound.play('s_'+k,{volume:v||0.
 function refreshHUD(){ const ef=$('energyFill'); if(ef) ef.style.width=Math.round(S.enYou/ENERGY_MAX*100)+'%';
   const en=$('energyNum'); if(en) en.textContent=Math.floor(S.enYou);
   const cy=$('crownsYou'); if(cy) cy.textContent=S.crownsYou; const cf=$('crownsFoe'); if(cf) cf.textContent=S.crownsFoe;
-  const tm=$('pvTimer'); if(tm){ const s=Math.max(0,S.time); tm.textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); tm.classList.toggle('low',s<=20); } }
+  const tm=$('pvTimer'); if(tm){ const s=Math.max(0,S.time); tm.textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); tm.classList.toggle('low',s<=20); }
+  const tr=$('hudTrophies'); if(tr) tr.textContent=PROG.trophies; const gd=$('hudGold'); if(gd) gd.textContent=PROG.gold; }
 let toastT=null;
 function toast(t){ const el=$('pvToast'); if(!el) return; el.textContent=t; el.classList.add('on'); if(toastT) clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('on'),1600); }
-function endGame(result){ if(S.over) return; S.over=true; if(S.zoneHi) S.zoneHi.setVisible(false);
+function endGame(result){ if(S.over) return; S.over=true; S.started=false; if(S.zoneHi) S.zoneHi.setVisible(false);
   sfx(result==='win'?'coins':'bong',0.6);
-  const ov=$('pvEnd'), t=$('pvEndT'); if(!ov||!t) return;
-  if(result==='win'){ t.textContent=L('¡VICTORIA!','VICTORY!'); t.style.color='#8fe08a'; }
-  else if(result==='lose'){ t.textContent=L('DERROTA','DEFEAT'); t.style.color='#e5533a'; }
-  else { t.textContent=L('EMPATE','DRAW'); t.style.color='#e9b04a'; }
-  const sub=$('pvEndSub'); if(sub) sub.textContent='👑 '+S.crownsYou+' – '+S.crownsFoe+' 👑';
-  ov.classList.add('on'); }
+  // recompensas
+  const cr=S.crownsYou; let dt=0, gold=0;
+  if(result==='win'){ dt=28+arenaTier()*4; gold=40+cr*18; }
+  else if(result==='draw'){ dt=6; gold=15+cr*12; }
+  else { dt=-16; gold=10+cr*10; }
+  PROG.trophies=Math.max(0,PROG.trophies+dt); PROG.gold+=gold; saveProg(); refreshHUD();
+  const t=$('pvEndT');
+  if(t){ if(result==='win'){ t.textContent=L('¡VICTORIA!','VICTORY!'); t.style.color='#8fe08a'; }
+    else if(result==='lose'){ t.textContent=L('DERROTA','DEFEAT'); t.style.color='#e5533a'; }
+    else { t.textContent=L('EMPATE','DRAW'); t.style.color='#e9b04a'; } }
+  const sub=$('pvEndSub'); if(sub) sub.innerHTML='👑 '+S.crownsYou+' – '+S.crownsFoe+' 👑<br>'
+    +'<span style="color:'+(dt>=0?'#8fe08a':'#e5533a')+'">'+(dt>=0?'+':'')+dt+' 🏆</span> &nbsp; <span style="color:#f0d564">+'+gold+' 🪙</span>';
+  show('pvEnd');
+}
+
+/* ===== pantalla de inicio / colección ===== */
+function hide(id){ const e=$(id); if(e) e.classList.remove('on'); }
+function show(id){ const e=$(id); if(e) e.classList.add('on'); }
+function showHome(){ renderHome(); show('pvHome'); refreshHUD(); }
+function renderHome(){
+  const ar=$('homeArena'); if(ar) ar.textContent=L('Arena: ','Arena: ')+arenaName();
+  const box=$('collection'); if(!box) return; box.innerHTML='';
+  const un=new Set(unlockedKeys());
+  CARDS.forEach(c=>{
+    const locked=!un.has(c.key), lvl=cardLevel(c.key), cost=upgradeCost(lvl), maxed=lvl>=MAX_LVL;
+    const el=document.createElement('div'); el.className='ccard'+(locked?' locked':'');
+    let bottom;
+    if(locked) bottom='<span class="clock">🔒 '+L('beta','beta')+'</span>';
+    else if(maxed) bottom='<span class="cmax">MAX</span>';
+    else bottom='<button class="cup"'+(PROG.gold<cost?' disabled':'')+' data-k="'+c.key+'">⬆ '+cost+' 🪙</button>';
+    el.innerHTML='<span class="cthumb" style="background-image:url('+thumb(c)+')"></span>'
+      +'<span class="cname">'+L(c.es,c.en)+'</span>'
+      +'<span class="clvl">'+(locked?'—':(L('Nv ','Lv ')+lvl))+' · ⚡'+c.cost+'</span>'+bottom;
+    box.appendChild(el);
+  });
+  box.querySelectorAll('.cup').forEach(b=>{ b.onclick=()=>{ const k=b.dataset.k, lvl=cardLevel(k), cost=upgradeCost(lvl);
+    if(lvl>=MAX_LVL||PROG.gold<cost) return; PROG.gold-=cost; PROG.levels[k]=lvl+1; saveProg(); sfx('coins',0.4); renderHome(); }; });
+}
 
 /* ===== controles del chrome ===== */
-window.pvpStart=function(){ if(scene){ S.units.forEach(u=>{u.spr.destroy(); if(u.hpbar)u.hpbar.destroy();}); }
-  location.reload(); };
+window.pvpBattle=function(){ startMatch(); };
+window.pvpRematch=function(){ startMatch(); };
+window.pvpHome=function(){ clearBattle(); buildTowers(); S.started=false; S.over=false; hide('pvEnd'); showHome(); };
 window.addEventListener('DOMContentLoaded',()=>{
   const bs=$('btnSound'); if(bs) bs.onclick=()=>{ soundOn=!soundOn; bs.textContent=soundOn?L('SONIDO ✓','SOUND ✓'):L('SONIDO','SOUND');
     if(soundOn&&scene){ const c=scene.sound.context; if(c&&c.state==='suspended') c.resume(); } };
