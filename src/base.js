@@ -2109,9 +2109,9 @@ function spawnEnemy(kind,tx,ty){
   const s=scene.add.sprite(gx,gy,e.tex).setOrigin(0.5,0.72).setScale(e.esc).setDepth(gy);
   if(e.tint) s.setTint(e.tint);
   s.play(e.ar); revelar(gx,gy,3);
-  const waveScale=1+(S.wave-1)*0.15;                                           // +15% de vida por oleada: cada oleada más dura
-  const boostHp=Math.max(1,Math.round(e.hp*waveScale)) + (e.boss?Math.floor(S.wave/5)*20:0);
-  const boostDmg=Math.round(e.dmg*(1+S.wave*0.06));                            // más daño con el tiempo
+  const waveScale=1+(S.wave-1)*0.22;                                           // ⚙️ +22% de VIDA por oleada (perilla de resistencia); la 1ª queda igual a la base
+  const boostHp=Math.max(1,Math.round(e.hp*waveScale)) + (e.boss?Math.floor(S.wave/5)*24:0);
+  const boostDmg=Math.round(e.dmg*(1+S.wave*0.09));                            // ⚙️ +9% de DAÑO por oleada (perilla de daño)
   const g={spr:s,kind,ai:e.ai,ar:e.ar,hp:boostHp,maxhp:boostHp,dmg:boostDmg,sp:e.sp||46,ranged:!!e.ranged,bomba:!!e.bomba,ladron:!!e.ladron,boss:!!e.boss,target:null,atkT:0,dead:false};
   if(e.boss){ g.glow=scene.add.image(gx,gy-6,'dot').setTint(0xff3a2a).setScale(6).setAlpha(0.28).setDepth(gy-1);
     scene.tweens.add({targets:g.glow,scale:8,alpha:0.14,duration:700,yoyo:true,repeat:-1}); }
@@ -2161,7 +2161,7 @@ function cañonazo(fx,fy){                            // el barco pirata dispara
 // arquetipos de oleada: cada una se siente distinta (mezcla de enemigos variable)
 const FLAVORS=['goblins','horda','bestias','piratas','mixta','reino'];
 function componerOleada(w){                          // devuelve {flavor, spawns:[kind...], naval, bossCount, msg}
-  const costaN=2+Math.ceil(w*1.4);
+  const costaN=Math.min(44, 1 + w*3 + Math.floor(w*w*0.12));   // ⚙️ CANTIDAD de enemigos por oleada (sube fuerte y se acelera): w1≈4, w2≈7, w3≈10, w5≈18, w10≈43
   let flavor;
   if(w%5===0) flavor='jefe';
   else if(w%3===0) flavor='piratas';
