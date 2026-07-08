@@ -71,15 +71,22 @@
   #kEnter:hover{border-color:var(--ember)}
   .khint{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;min-height:14px}
   .khint.bad{color:var(--bad)}
-  .kunits{display:flex;gap:6px;overflow-x:auto;padding:8px 2px 4px;scrollbar-width:thin;scrollbar-color:var(--brass-dim) transparent;
-    background:rgba(18,13,9,.6);border:1px solid var(--line);border-radius:10px;align-items:center}
-  .kunits::-webkit-scrollbar{height:8px}.kunits::-webkit-scrollbar-thumb{background:var(--brass-dim);border-radius:4px}
-  .kcat{flex:none;font-family:var(--mono);font-size:8px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;
-    writing-mode:vertical-rl;transform:rotate(180deg);padding:0 2px;opacity:.8}
-  .kunit{flex:none;font-family:var(--mono);font-size:11px;color:var(--ink);cursor:pointer;white-space:nowrap;
-    background:linear-gradient(180deg,var(--bg2),var(--bg3));border:1px solid var(--line2);border-radius:8px;padding:9px 11px}
-  .kunit:hover{border-color:var(--brass);color:var(--brass-hi)}
-  .kunit.sel{border-color:var(--brass);color:#120d09;background:linear-gradient(180deg,var(--brass-hi),var(--brass));font-weight:700}
+  /* carrusel de cartas de unidad */
+  .kpicker{display:flex;align-items:center;gap:6px}
+  .karr{flex:none;width:38px;height:96px;font-size:26px;color:var(--brass-hi);cursor:pointer;
+    background:linear-gradient(180deg,var(--bg2),var(--bg3));border:1px solid var(--line2);border-radius:10px}
+  .karr:hover{border-color:var(--brass)}
+  .kunits{flex:1;display:flex;gap:8px;overflow-x:auto;padding:8px 4px;scroll-snap-type:x mandatory;
+    scrollbar-width:thin;scrollbar-color:var(--brass-dim) transparent}
+  .kunits::-webkit-scrollbar{height:6px}.kunits::-webkit-scrollbar-thumb{background:var(--brass-dim);border-radius:4px}
+  .kunit{flex:none;scroll-snap-align:center;width:78px;position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;
+    background:linear-gradient(180deg,#2a2013,#160f08);border:2px solid #6b5226;border-radius:11px;padding:7px 4px 5px;transition:transform .12s,border-color .12s}
+  .kunit:hover{border-color:var(--brass)}
+  .kunit.sel{border-color:var(--brass-hi);box-shadow:inset 0 0 0 1px rgba(240,213,100,.5),0 0 14px rgba(240,213,100,.35);transform:translateY(-3px) scale(1.04)}
+  .kunit.locked{opacity:.5;filter:grayscale(.75);cursor:not-allowed}
+  .kunit .kthumb{width:56px;height:52px;background-size:60px 60px;background-position:center;background-repeat:no-repeat;image-rendering:pixelated}
+  .kunit .kuname{font-family:var(--display);font-weight:700;font-size:10.5px;line-height:1;color:#f0e6cf;text-align:center;white-space:nowrap;overflow:hidden;max-width:72px;text-overflow:ellipsis}
+  .kunit .klock{position:absolute;top:4px;right:5px;font-size:13px}
   /* ==== aviso de controles ==== */
   #kControls{position:absolute;left:50%;bottom:74px;transform:translateX(-50%) translateY(16px);z-index:15;opacity:0;transition:.4s;pointer-events:none;
     font-family:var(--mono);font-size:12px;color:var(--ink);background:rgba(18,13,9,.85);border:1px solid var(--line2);border-radius:9px;padding:9px 15px;text-align:center}
@@ -190,7 +197,7 @@
         <h1 data-es="Visitá el reino" data-en="Visit the Kingdom">Visitá el reino</h1>
         <p data-es="Elegí tu nombre y tu unidad, y caminá libre por la isla." data-en="Choose your name and unit, and roam the island freely.">Elegí tu nombre y tu unidad, y caminá libre por la isla.</p>
       </div>
-      <div class="kunits" id="kUnits"></div>
+      <div class="kpicker"><button class="karr" id="kPrev" aria-label="prev">‹</button><div class="kunits" id="kUnits"></div><button class="karr" id="kNext" aria-label="next">›</button></div>
       <div class="krow">
         <input id="kName" maxlength="16" autocomplete="off" spellcheck="false" placeholder="Kael de Ámbar"/>
         <button id="kEnter" data-es="Entrar al reino" data-en="Enter the kingdom">Entrar al reino</button>

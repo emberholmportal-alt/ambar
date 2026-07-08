@@ -1520,19 +1520,49 @@ function movePlayer(delta){
   wsPosAcc+=delta;                                        // avisa la posición a los demás ~8/s
   if(ws&&ws.readyState===1&&wsPosAcc>120){ wsPosAcc=0; try{ ws.send(JSON.stringify({t:'pos',x:Math.round(player.spr.x),y:Math.round(player.spr.y),f:player.faceLeft,m:moving})); }catch(e){} }
 }
+/* desbloqueo de unidades del reino: básicos siempre; criaturas al verlas en la beta (aoa_cards) */
+const KBETA={torch:'torch',spear:'spear',gnoll:'gnoll',tnt:'tnt',pigrider:'pigrider',shaman:'shaman',skull:'skull',gnome:'gnome',snake:'snake',spider:'spider',thief:'thief',mino:'toro'};
+function kUnlocked(u){
+  if(/^(pawn|warrior|archer|monk)_/.test(u.key)) return true;   // básicos: siempre
+  if(u.key==='pig'||u.key==='bear') return true;                // animales/bestia: libres
+  const bk=KBETA[u.key]; if(!bk) return true;
+  try{ return new Set(JSON.parse(localStorage.getItem('aoa_cards')||'[]')).has(bk); }catch(e){ return false; }
+}
+const _kthumb={};
+function kThumb(u){                                    // dibuja el frame 0 del sprite → dataURL para la carta
+  if(_kthumb[u.key]) return _kthumb[u.key];
+  try{ const fr=scene.textures.getFrame(u.tex,0), src=scene.textures.get(u.tex).getSourceImage();
+    const cv=document.createElement('canvas'); cv.width=64; cv.height=64; const cx=cv.getContext('2d'); cx.imageSmoothingEnabled=false;
+    cx.drawImage(src, fr.cutX,fr.cutY, fr.cutWidth,fr.cutHeight, 2,2,60,60); const d=cv.toDataURL(); _kthumb[u.key]=d; return d;
+  }catch(e){ return ''; }
+}
+function kSelectIdx(i){                                // selecciona una carta del carrusel (si está desbloqueada)
+  if(i<0||i>=kUnitList.length) return; const u=kUnitList[i]; if(!kUnlocked(u)) return;
+  kSel=u; makePlayerSprite(u);
+  const box=$('kUnits'); if(box){ box.querySelectorAll('.kunit').forEach((el,j)=>el.classList.toggle('sel', j===i));
+    const cur=box.children[i]; if(cur&&cur.scrollIntoView) cur.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'}); }
+}
+function kStep(dir){                                    // flechas ‹ ›: salta a la próxima carta DESBLOQUEADA
+  let i=kUnitList.indexOf(kSel); if(i<0)i=0;
+  for(let n=0;n<kUnitList.length;n++){ i=(i+dir+kUnitList.length)%kUnitList.length; if(kUnlocked(kUnitList[i])){ kSelectIdx(i); return; } }
+}
 function kBuildPicker(){
-  const box=$('kUnits'); if(!box) return; box.innerHTML=''; let cat=null;
-  kUnitList.forEach(u=>{
-    if(u.cat!==cat){ cat=u.cat; const h=document.createElement('div'); h.className='kcat'; h.textContent=u.cat; box.appendChild(h); }
-    const b=document.createElement('button'); b.type='button'; b.className='kunit'+(u===kSel?' sel':''); b.textContent=u.label;
-    b.onclick=()=>{ kSel=u; makePlayerSprite(u); box.querySelectorAll('.kunit').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); };
+  const box=$('kUnits'); if(!box) return; box.innerHTML='';
+  kUnitList.forEach((u,i)=>{
+    const on=kUnlocked(u); const b=document.createElement('button'); b.type='button';
+    b.className='kunit'+(u===kSel?' sel':'')+(on?'':' locked');
+    b.innerHTML='<span class="kthumb" style="background-image:url('+kThumb(u)+')"></span><span class="kuname">'+u.label+'</span>'+(on?'':'<span class="klock">🔒</span>');
+    if(on) b.onclick=()=>kSelectIdx(i); else b.title=L('Jugá la beta para desbloquearla','Play the beta to unlock');
     box.appendChild(b);
   });
+  const pv=$('kPrev'), nx=$('kNext'); if(pv) pv.onclick=()=>kStep(-1); if(nx) nx.onclick=()=>kStep(1);
+  const cur=kUnitList.indexOf(kSel); if(cur>=0){ const el=box.children[cur]; if(el&&el.scrollIntoView) el.scrollIntoView({inline:'center',block:'nearest'}); }
 }
 function startKingdom(sc){
   kUnitList=kingdomUnits();
   let saved=null; try{ saved=JSON.parse(localStorage.getItem('aoa_kingdom')||'null'); }catch(e){}
-  kSel=(saved&&kUnitList.find(u=>u.key===saved.unit))||kUnitList[0];
+  const savedU=saved&&kUnitList.find(u=>u.key===saved.unit&&kUnlocked(u));
+  kSel=savedU || kUnitList.find(kUnlocked) || kUnitList[0];   // por defecto, la primera desbloqueada
   makePlayerSprite(kSel);
   kCursors=sc.input.keyboard.createCursorKeys();
   kKeys=sc.input.keyboard.addKeys({W:Phaser.Input.Keyboard.KeyCodes.W,A:Phaser.Input.Keyboard.KeyCodes.A,S:Phaser.Input.Keyboard.KeyCodes.S,D:Phaser.Input.Keyboard.KeyCodes.D});
