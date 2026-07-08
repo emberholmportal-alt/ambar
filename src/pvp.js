@@ -53,7 +53,7 @@ const FOE_POOL=['torch','spear','gnoll','skull','snake','gnome','tnt','pigrider'
 /* ==== duelo en vivo 1v1 (host-authoritative): ?duel=room&role=host|guest&foe=nombre ==== */
 const QS=new URLSearchParams(location.search);
 const DUEL=QS.get('duel') ? {room:QS.get('duel'), role:(QS.get('role')||'guest'), foe:QS.get('foe')||'?'} : null;
-let dws=null, _uid=0, snapAcc=0; const gUnits={};
+let dws=null, _uid=0, snapAcc=0; const gUnits={}, gTowers={}; let gShots=[];
 
 function unlockedKeys(){
   let seen=[]; try{ seen=JSON.parse(localStorage.getItem('aoa_cards')||'[]'); }catch(e){}
@@ -135,8 +135,8 @@ function create(){
     if(S.sel<0){ toast(L('Elegí una carta primero.','Pick a card first.')); return; }
     const key=S.hand[S.sel]; const c=CARD_BY_KEY[key]; if(!c) return;
     if(S.enYou<c.cost){ toast(L('Sin energía suficiente.','Not enough energy.')); return; }
-    if(S.guest){                                           // invitado: despliega arriba (su lado) y avisa al host
-      if(wp.y>MID-40) return;                               // el invitado juega desde arriba
+    if(S.guest){                                           // invitado: ve el tablero espejado, despliega desde ABAJO (su lado)
+      if(wp.y<MID+40) return;
       if(dws&&dws.readyState===1){ try{ dws.send(JSON.stringify({t:'dep',key,x:Math.round(clamp(wp.x,50,ARENA_W-50)),lvl:cardLevel(key)})); }catch(e){} }
       cycleHand(S.sel); S.sel=-1; renderHand(); return;
     }
@@ -238,7 +238,7 @@ function drawBar(gr,x,y,w,ratio,col){ gr.clear(); if(ratio<=0) return; gr.fillSt
 /* ===== disparos (a distancia) ===== */
 function shoot(from,target,dmg,col){
   const s=scene.add.image(from.spr.x,from.spr.y-24,'pdot').setTint(col||0xffe08a).setScale(0.9).setDepth(99500);
-  S.shots.push({spr:s,target,dmg,sp:520,dead:false});
+  S.shots.push({spr:s,target,dmg,sp:520,dead:false,side:from.side});
 }
 
 /* ===== bucle ===== */
@@ -334,33 +334,50 @@ function onDuelMsg(d){
 function duelBroadcast(){                                  // host → invitado: estado del combate ~10/s
   if(!dws||dws.readyState!==1) return;
   const u=S.units.map(x=>[x._id, CARD_IDX[x.key], x.side==='you'?0:1, Math.round(x.spr.x), Math.round(x.spr.y), Math.round(x.hp), Math.round(x.maxhp), x.flip?1:0, x.st?1:0]);
-  const tw=S.towers.map((t,i)=>[i, Math.round(t.hp)]);
-  try{ dws.send(JSON.stringify({t:'snap',u,tw,e:Math.floor(S.enFoe),cy:S.crownsYou,cf:S.crownsFoe,tm:S.time})); }catch(e){}
+  const tw=[]; S.towers.forEach((t,i)=>{ if(!t.dead) tw.push([i, t.side==='you'?0:1, Math.round(t.spr.x), Math.round(t.spr.y), Math.round(t.hp), Math.round(t.maxhp), t.king?1:0]); });
+  const sh=S.shots.map(s=>[Math.round(s.spr.x), Math.round(s.spr.y), s.side==='you'?0:1]);
+  try{ dws.send(JSON.stringify({t:'snap',u,tw,sh,e:Math.floor(S.enFoe),cy:S.crownsYou,cf:S.crownsFoe,tm:S.time})); }catch(e){}
 }
+// el invitado ve el tablero ESPEJADO: sus unidades (lado 'foe' del host) abajo y en azul.
+const GY=y=>ARENA_H-y;                                    // espejo vertical para la vista del invitado
+const gMine=side=>side===1;                               // el invitado es el lado 1 (foe del host)
 function guestSetup(){
-  clearBattle(); buildTowers(); S.guest=true; S.started=true; S.over=false; S.enYou=6; S.time=MATCH_TIME;
-  if(S.zoneHi){ S.zoneHi.clear(); S.zoneHi.fillStyle(0xff9a9a,0.10); S.zoneHi.fillRect(4,150,ARENA_W-8,MID-40-150);
-    S.zoneHi.lineStyle(2,0xff9a9a,0.35); S.zoneHi.strokeRect(4,150,ARENA_W-8,MID-40-150); S.zoneHi.setVisible(false); }
+  clearBattle(); S.towers.forEach(t=>{ if(t.spr)t.spr.destroy(); if(t.hpbar)t.hpbar.destroy(); }); S.towers=[];
+  S.guest=true; S.started=true; S.over=false; S.enYou=6; S.time=MATCH_TIME;
+  if(S.zoneHi){ S.zoneHi.clear(); S.zoneHi.fillStyle(0x5fa5ff,0.10); S.zoneHi.fillRect(4,MID+40,ARENA_W-8,MID-40-150);
+    S.zoneHi.lineStyle(2,0x5fa5ff,0.35); S.zoneHi.strokeRect(4,MID+40,ARENA_W-8,MID-40-150); S.zoneHi.setVisible(false); }
   buildDeck(); renderHand(); refreshHUD();
 }
 function applySnap(d){
-  if(d.tw) d.tw.forEach(a=>{ const t=S.towers[a[0]]; if(!t) return; t.hp=a[1];
-    if(t.hp<=0&&!t.dead){ t.dead=true; if(t.spr){ boom(t.spr.x,t.spr.y-20); t.spr.setVisible(false); } if(t.hpbar)t.hpbar.clear(); } });
+  // torres (espejadas + recoloreadas según dueño del invitado)
+  const twSeen=new Set();
+  (d.tw||[]).forEach(a=>{ const i=a[0], side=a[1], x=a[2], y=a[3], hp=a[4], mx=a[5], king=a[6]; twSeen.add(i);
+    let t=gTowers[i];
+    if(!t){ const mine=gMine(side); const spr=scene.add.image(x, GY(y), king?'castle_black':(mine?'tower_blue':'tower_red')).setOrigin(0.5,0.9).setScale(king?0.62:0.5).setDepth(GY(y));
+      if(!mine&&!king) spr.setTint(0xffb0b0); t={spr,hpbar:scene.add.graphics().setDepth(99000),king,mine}; gTowers[i]=t; }
+    t.hp=hp; t.mx=mx;
+  });
+  for(const i in gTowers){ if(twSeen.has(+i)) continue; const t=gTowers[i]; if(t.spr){ boom(t.spr.x,t.spr.y-20); t.spr.destroy(); } if(t.hpbar)t.hpbar.destroy(); delete gTowers[i]; }
+  // unidades (espejadas; propias en azul, enemigas en rojo)
   const seen=new Set();
-  (d.u||[]).forEach(a=>{ const id=a[0], c=CARDS[a[1]], side=a[2], x=a[3], y=a[4], hp=a[5], mx=a[6], flip=a[7], st=a[8]; seen.add(id);
+  (d.u||[]).forEach(a=>{ const id=a[0], c=CARDS[a[1]], side=a[2], x=a[3], y=GY(a[4]), hp=a[5], mx=a[6], flip=a[7], st=a[8]; seen.add(id);
     let g=gUnits[id];
-    if(!g){ const s=scene.add.sprite(x,y,c.si,0).setOrigin(0.5,0.72).setScale(c.sc).setDepth(y); if(side===1)s.setTint(0xff9a9a); s.play(c.key+'-i');
+    if(!g){ const s=scene.add.sprite(x,y,c.si,0).setOrigin(0.5,0.72).setScale(c.sc).setDepth(y); if(!gMine(side))s.setTint(0xff9a9a); s.play(c.key+'-i');
       g={spr:s,key:c.key,side,tx:x,ty:y,hp,mx,hpbar:scene.add.graphics().setDepth(99001)}; gUnits[id]=g; }
     g.tx=x; g.ty=y; g.hp=hp; g.mx=mx; g.side=side; g.spr.play(c.key+'-'+(st?'r':'i'),true); g.spr.setFlipX(!!flip);
   });
-  for(const id in gUnits){ if(seen.has(+id)) continue; const g=gUnits[id]; deathPoof(g.spr, g.side===1?'foe':'you'); if(g.hpbar)g.hpbar.destroy(); delete gUnits[id]; }
+  for(const id in gUnits){ if(seen.has(+id)) continue; const g=gUnits[id]; deathPoof(g.spr, gMine(g.side)?'you':'foe'); if(g.hpbar)g.hpbar.destroy(); delete gUnits[id]; }
+  // disparos (espejados)
+  gShots.forEach(s=>s.destroy()); gShots=[];
+  (d.sh||[]).forEach(a=>{ gShots.push(scene.add.image(a[0], GY(a[1]),'pdot').setTint(gMine(a[2])?0x8ec8ff:0xff9a9a).setScale(0.9).setDepth(99500)); });
   S.enYou=d.e; S.crownsYou=d.cf; S.crownsFoe=d.cy; S.time=d.tm; renderHand(); refreshHUD();
 }
 function guestInterp(dt){
   for(const id in gUnits){ const g=gUnits[id]; if(!g.spr||!g.spr.active) continue;
     g.spr.x+=(g.tx-g.spr.x)*0.3; g.spr.y+=(g.ty-g.spr.y)*0.3; g.spr.setDepth(g.spr.y);
-    drawBar(g.hpbar,g.spr.x,g.spr.y-46,34,g.hp/(g.mx||1), g.side===1?0xe5533a:0x5fa5ff); }
-  for(const t of S.towers){ if(t.dead) continue; drawBar(t.hpbar,t.spr.x,t.y-52,t.king?60:44,t.hp/t.maxhp, t.side==='you'?0x5fa5ff:0xe5533a); }
+    drawBar(g.hpbar,g.spr.x,g.spr.y-46,34,g.hp/(g.mx||1), gMine(g.side)?0x5fa5ff:0xe5533a); }   // propias azul, enemigas rojo
+  for(const i in gTowers){ const t=gTowers[i]; if(!t.spr) continue;
+    drawBar(t.hpbar,t.spr.x,t.spr.y-52,t.king?60:44,t.hp/(t.mx||1), t.mine?0x5fa5ff:0xe5533a); }
 }
 
 /* ===== fx / hud ===== */
