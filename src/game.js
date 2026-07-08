@@ -1555,7 +1555,9 @@ function kWireChat(){                                     // botón de mensaje (
   if(open) open.onclick=()=>show(true);
   if(send) send.onclick=fire;
   if(cancel) cancel.onclick=()=>show(false);
-  const pv=$('kPvpBtn'); if(pv){ pv.disabled=true; pv.title=L('PvP — próximamente','PvP — coming soon'); }
+  const pv=$('kPvpBtn'); if(pv){ pv.disabled=false; pv.title=L('Batalla en la Arena PvP','PvP Arena battle');
+    const soon=pv.querySelector('.soon'); if(soon) soon.style.display='none';
+    pv.onclick=()=>{ location.href='/pvp'; }; }
 }
 function kingdomEnter(){
   const nameEl=$('kName'), hint=$('kHint'); let nm=((nameEl&&nameEl.value)||'').trim().slice(0,16);
