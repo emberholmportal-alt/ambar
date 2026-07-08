@@ -2103,8 +2103,13 @@ function costaTiles(){                             // tiles de tierra pegados al
   }
   return out;
 }
+function desbloquearCarta(kind){                   // al ver un enemigo en las oleadas, se desbloquea como carta del PvP
+  try{ const K='aoa_cards', s=new Set(JSON.parse(localStorage.getItem(K)||'[]'));
+    if(!s.has(kind)){ s.add(kind); localStorage.setItem(K, JSON.stringify([...s])); } }catch(e){}
+}
 function spawnEnemy(kind,tx,ty){
   const e=ENEMY[kind];
+  desbloquearCarta(kind);                          // registrar el personaje visto (para el PvP)
   const gx=(BX+tx)*T+T/2, gy=(BY+ty+1)*T-(e.boss?18:12);   // pies dentro del tile, no sobre el agua
   const s=scene.add.sprite(gx,gy,e.tex).setOrigin(0.5,0.72).setScale(e.esc).setDepth(gy);
   if(e.tint) s.setTint(e.tint);
