@@ -2693,6 +2693,7 @@ function aplicarIdioma(){
   set('cronTitle','⚜ '+L('CRÓNICA','CHRONICLE'));
   setHTML('raidbanner','⚔️ '+L('¡ASALTO GOBLIN EN CURSO!','GOBLIN ASSAULT UNDERWAY!'));
   set('agePop1',L('NUEVA EDAD','NEW AGE'));
+  setHTML('splashSub','The Black Bull');
   const mm=$('btnIdleMM'); if(mm){ const n=$('idleN')?$('idleN').textContent:'0'; mm.innerHTML='💤 '+L('Ociosos','Idle')+' (<span id="idleN">'+n+'</span>)'; setTitle('btnIdleMM',L('Ir marcando aldeanos ociosos','Cycle idle villagers')); }
   setHTML('selVacio',L('Clic izquierdo: seleccionar aldeano, edificio, árbol, veta o animal.<br>Clic derecho con aldeano: ir / talar / minar / cazar.','Left-click: select villager, building, tree, vein or animal.<br>Right-click with a villager: move / chop / mine / hunt.'));
   // tooltips de recursos
