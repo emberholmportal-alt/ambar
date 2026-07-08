@@ -24,7 +24,7 @@ const CAT={   // reqWave: oleadas que hay que sobrevivir para desbloquear (progr
   castle:    {get nom(){return L('Ayuntamiento','Town Hall');}, fw:5,fh:2, costo:{oro:300,madera:300}, dur:120, unico:true, skins:true, esTC:true, hp:300},
   muralla:   {get nom(){return L('Muralla','Wall');},      fw:1,fh:1, costo:{madera:30},         dur:12,   reqWave:0, muro:true, hp:260, get desc(){return L('Empalizada de madera (260 de resistencia). Barata y rápida: frená la horda desde la primera oleada. Colocá una línea arrastrando.','Wooden palisade (260 HP). Cheap and fast: stop the horde from the first wave. Drag to place a line.');}},
   house:     {get nom(){return L('Casa','House');},         fw:2,fh:2, costo:{madera:100},        dur:120,  reqWave:0, skins:true, up:[{costo:{madera:200},dur:120}]},
-  granja:    {get nom(){return L('Granja','Farm');},       fw:3,fh:2, costo:{madera:120},        dur:90,   reqWave:0, prod:'comida', reserva:400, hp:160, up:[{costo:{oro:250},dur:120}]},
+  granja:    {get nom(){return L('Granja','Farm');},       fw:3,fh:2, costo:{madera:120},        dur:180,  reqWave:0, prod:'comida', reserva:200, hp:160, up:[{costo:{oro:250},dur:200}]},
   torre:     {get nom(){return L('Torre','Tower');},        fw:2,fh:2, costo:{oro:150,madera:150},dur:240, reqWave:1, skins:true, hp:90, up:[{costo:{oro:500},dur:300}]},
   cuartel:   {get nom(){return L('Cuartel','Barracks');},        fw:3,fh:2, costo:{madera:300},        dur:300, reqWave:1, skins:true, up:[{costo:{oro:600},dur:360}]},
   murallon:  {get nom(){return L('Murallón','Stone Wall');},     fw:1,fh:1, costo:{madera:60,oro:20},  dur:16,   reqWave:2, muro:true, hp:520, get desc(){return L('Muro de piedra reforzado (520 de resistencia: el doble que la Muralla). Cuesta madera + oro y se desbloquea en la oleada 2, para el frente donde más pegan.','Reinforced stone wall (520 HP: double the Wall). Costs wood + gold and unlocks on wave 2, for the front line where they hit hardest.');}},
@@ -43,6 +43,7 @@ const popTotal=()=>S.ald.length+S.units.length;
 const CARD_IMG={castle:'castle_blue',house:'house1_blue',granja:'sheep',muralla:'wall',murallon:'wall',
   torre:'tower_blue',cuartel:'barracks_blue',arqueria:'archery_blue',monasterio:'monastery_blue'};
 const RES_IMG={oro:'res_gold',madera:'res_wood',comida:'res_meat'};
+const RES_ITEM={oro:'gold',madera:'wood',comida:'meat'};   // ítem animado que el aldeano lleva sobre la cabeza
 const SKINS=['blue','red','purple','yellow'];                 // 4 paletas del pack para tus edificios
 const SKINNOM={get blue(){return L('azul','blue');},get red(){return L('roja','red');},get purple(){return L('púrpura','purple');},get yellow(){return L('dorada','gold');}};
 const resNom=k=>({oro:L('oro','gold'),madera:L('madera','wood'),comida:L('comida','food'),ambar:'◆'}[k]||k);
@@ -242,6 +243,7 @@ function preload(){
   this.load.image('goldmine_inactive',TSB+'goldmine_inactive.png');
   this.load.image('goldmine_destroyed',TSB+'goldmine_destroyed.png');
   ['res_gold','res_meat','res_wood'].forEach(k=>this.load.image(k,TSB+k+'.png'));
+  ['gold','wood','meat'].forEach(k=>this.load.spritesheet(k+'_item',TSB+k+'_item.png',{frameWidth:68,frameHeight:74}));   // ítem de recurso animado (idle + spawn)
   for(const j of ['waxe','wpick']) for(const s of ['i','r'])
     this.load.spritesheet(j+'_blue_'+s,TSB+j+'_blue_'+s+'.png',{frameWidth:192,frameHeight:192});
   for(let i=1;i<=4;i++){ this.load.image('cloud'+i,TSB+'cloud'+i+'.png');
@@ -466,6 +468,8 @@ function create(){
   // aldeano cargando oro
   an.create({key:'wgold-i',frames:an.generateFrameNumbers('wgold_blue_i',{start:0,end:-1}),frameRate:7,repeat:-1});
   an.create({key:'wgold-r',frames:an.generateFrameNumbers('wgold_blue_r',{start:0,end:-1}),frameRate:10,repeat:-1});
+  // ítems de recurso: "pop" de aparición (spawn) que termina en reposo
+  ['gold','wood','meat'].forEach(k=>an.create({key:k+'-pop',frames:an.generateFrameNumbers(k+'_item',{start:1,end:7}),frameRate:16,repeat:0}));
   // ataques de gnomo y esqueleto
   an.create({key:'gnome-a',frames:an.generateFrameNumbers('gnome_a',{start:0,end:-1}),frameRate:12,repeat:0});
   an.create({key:'skull-a',frames:an.generateFrameNumbers('skull_a',{start:0,end:-1}),frameRate:12,repeat:0});
@@ -939,10 +943,15 @@ function setTool(a,tool){ a.tool=tool;
 }
 /* ===== economía: el aldeano CARGA poco y el recurso suma recién al depositarlo en el Ayuntamiento ===== */
 const CARRYCAP=12;                                    // cuánto puede cargar antes de tener que ir a dejar
-function setCarga(a){                                 // sprite del aldeano cargando el recurso (Pawn & Resources)
+function quitarCargaItem(a){ if(a&&a.cargaItem){ a.cargaItem.destroy(); a.cargaItem=null; } }
+function setCarga(a){                                 // traslado: el aldeano camina normal y lleva el ítem del recurso (animado) sobre la cabeza
+  quitarCargaItem(a);
   if(!a.carga){ setTool(a,null); return; }
-  if(a.carga.res==='oro'){ a.spr.setTexture('wgold_blue_r',0).setScale(0.7); a.spr.play('wgold-r',true); }        // oro: sprite dedicado (carga la pepita/saco)
-  else { a.spr.setTexture('waxe_blue_r',0).setScale(0.7); a.spr.play('waxe-r',true); }                            // madera/carne: leñador/faenador (Pawn & Resources) — ya NO el cajón que parecía piedra
+  a.spr.setTexture('pawn_blue',0).setScale(0.7); a.spr.play('pawn_blue-r',true);                                  // camina normal
+  const it=RES_ITEM[a.carga.res]||'gold';                                                                          // oro=saco, madera=tronco, carne=filete
+  a.cargaItem=scene.add.sprite(a.spr.x, a.spr.y-52, it+'_item', 0).setScale(0.55).setDepth(a.spr.y+2);
+  a.cargaItem.play(it+'-pop');                                                                                     // "pop" de aparición al recogerlo, luego queda en reposo
+  a.cargaItem.once('animationcomplete',()=>{ if(a.cargaItem) a.cargaItem.setFrame(0); });
   a.tool='carga';
 }
 function depositar(a){                                // deja la carga en el Ayuntamiento: recién ahí suma
@@ -1038,7 +1047,7 @@ function dañarAldeano(a,dmg){
   a.spr.setTint(0xff6a5a); scene.time.delayedCall(120,()=>a.spr&&a.spr.clearTint&&a.spr.clearTint());
   if(a.hp<=0){
     if(a.dustEv)a.dustEv.remove(); if(a.tween)a.tween.remove();
-    killMark(a); killBar(a);
+    killMark(a); killBar(a); quitarCargaItem(a);
     S.ald=S.ald.filter(x=>x!==a);
     const d=scene.add.sprite(a.spr.x,a.spr.y,'dead').play('dead-a').setOrigin(0.5,0.72).setScale(0.5).setDepth(a.spr.y);
     d.once('animationcomplete',()=>scene.tweens.add({targets:d,alpha:0,duration:1500,onComplete:()=>d.destroy()}));
@@ -2781,6 +2790,10 @@ function update(time,delta){
         if(S.comida>=50){ S.carne.activo=false; toast(L('🍖 Ya hay carne para un aldeano.','🍖 Enough meat for a villager now.')); refreshHUD(); } } } }
 
   for(const a of S.ald){
+    if(a.cargaItem){                                     // ítem de recurso flotando (con leve bob) sobre la cabeza durante el traslado
+      if(a.carga){ a.cargaItem.x=a.spr.x; a.cargaItem.y=a.spr.y-52+Math.sin(scene.time.now*0.006+a.spr.x*0.05)*2.5; a.cargaItem.setDepth(a.spr.y+2); a.cargaItem.setVisible(a.spr.visible); }
+      else quitarCargaItem(a);
+    }
     if(a.estado==='refugiado') continue;                 // a resguardo dentro del Ayuntamiento
     nieblaAlMover(a,4);                                   // caminar despeja niebla, en cualquier tarea
     if(escaparSiAtascado(a,64*dtReal)){ moveMark(a); continue; }   // aldeano atrapado sobre un edificio: sale
