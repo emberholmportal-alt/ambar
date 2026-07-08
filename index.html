@@ -45,7 +45,11 @@
   .btn.primary{border-color:#8a3320;color:#ffe7cf;
     background:linear-gradient(180deg,#7a2c1c,#4a1a10);box-shadow:inset 0 0 0 1px rgba(255,150,90,.25),0 6px 18px rgba(229,83,58,.28)}
   .btn.primary:hover{border-color:var(--ember);box-shadow:inset 0 0 0 1px rgba(255,150,90,.4),0 8px 22px rgba(229,83,58,.4)}
-  .foot{font-family:var(--mono);font-size:10px;color:#6d6350;margin-top:26px;line-height:1.5}
+  .sessionbar{margin-top:16px;font-family:var(--mono);font-size:12px;color:var(--muted);display:flex;gap:10px;justify-content:center;align-items:center}
+  .sessionbar b{color:var(--brass-hi)}
+  .linkbtn{background:none;border:1px solid var(--line2);color:var(--brass);font-family:var(--mono);font-size:11px;padding:5px 11px;border-radius:6px;cursor:pointer}
+  .linkbtn:hover{border-color:var(--brass);color:var(--brass-hi)}
+  .foot{font-family:var(--mono);font-size:10px;color:#6d6350;margin-top:22px;line-height:1.5}
   .foot a{color:var(--brass-dim)}
   /* ==== modal del flujo beta ==== */
   .ov{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;padding:20px;
@@ -95,6 +99,10 @@
       <a class="btn" href="/live"><span class="em">👁️</span><span data-es="VER EL LIVE" data-en="WATCH LIVE">VER EL LIVE</span></a>
       <button class="btn primary" id="btnBeta"><span class="em">⚔️</span><span data-es="PROBAR LA BETA" data-en="PLAY THE BETA">PROBAR LA BETA</span></button>
     </div>
+    <div class="sessionbar" id="sessionBar" style="display:none">
+      <span id="sessionWho"></span>
+      <button class="linkbtn" id="btnDisconnect" data-es="Desconectar" data-en="Disconnect">Desconectar</button>
+    </div>
     <div class="foot">
       <span data-es="La beta es sólo para holders del token." data-en="The beta is for token holders only.">La beta es sólo para holders del token.</span><br>
       <span data-es="Arte: Tiny Swords · Pixel Frog · Sonido: Kenney (CC0)" data-en="Art: Tiny Swords · Pixel Frog · Sound: Kenney (CC0)">Arte: Tiny Swords · Pixel Frog · Sonido: Kenney (CC0)</span>
@@ -110,8 +118,8 @@
       <!-- paso 1: conectar -->
       <div class="step" id="step-connect">
         <h2 data-es="Conectá tu billetera" data-en="Connect your wallet">Conectá tu billetera</h2>
-        <p data-es="Verificamos que tengas el token para entrar a la beta." data-en="We check you hold the token to enter the beta.">Verificamos que tengas el token para entrar a la beta.</p>
-        <button class="btn primary wide" id="btnConnect"><span class="em">🦊</span><span data-es="Conectar Phantom" data-en="Connect Phantom">Conectar Phantom</span></button>
+        <p data-es="Cualquier wallet de Solana (Phantom, Solflare, Backpack). Verificamos que tengas el token." data-en="Any Solana wallet (Phantom, Solflare, Backpack). We check you hold the token.">Cualquier wallet de Solana (Phantom, Solflare, Backpack). Verificamos que tengas el token.</p>
+        <button class="btn primary wide" id="btnConnect"><span class="em">👛</span><span data-es="Conectar billetera" data-en="Connect wallet">Conectar billetera</span></button>
         <div class="hint" id="connectHint"></div>
       </div>
 
@@ -152,9 +160,16 @@
     const L=(es,en)=>LANG==='en'?en:es;
     applyLang();
 
-    /* ---- si ya hay sesión, el botón entra directo ---- */
+    /* ---- si ya hay sesión, el botón entra directo + barra de desconexión ---- */
     const A=window.AOA_AUTH;
     const existing = A && A.getSession && A.getSession();
+    function refreshSessionBar(){
+      const s = A && A.getSession && A.getSession(), bar=$('sessionBar');
+      if(s && s.username){ $('sessionWho').innerHTML=L('Conectado como ','Connected as ')+'<b>'+s.username+'</b>'; bar.style.display='flex'; }
+      else bar.style.display='none';
+    }
+    refreshSessionBar();
+    $('btnDisconnect').onclick=async ()=>{ if(A&&A.disconnect) await A.disconnect(); refreshSessionBar(); };
 
     /* ---- modal de pasos ---- */
     const ov=$('ov');
@@ -168,7 +183,7 @@
       if(existing && existing.username){ location.href='/beta'; return; }   // ya registrado en este navegador
       ov.classList.add('on'); showStep('connect'); $('connectHint').textContent='';
       if(A && !A.hasWallet()){ $('connectHint').className='hint warn';
-        $('connectHint').innerHTML=L('No detectamos Phantom. Instalá la extensión en ','No Phantom detected. Install it at ')+'<a href="https://phantom.app" target="_blank" rel="noopener" style="color:var(--brass-hi)">phantom.app</a>'; }
+        $('connectHint').innerHTML=L('No detectamos ninguna wallet de Solana. Instalá ','No Solana wallet detected. Install ')+'<a href="https://phantom.app" target="_blank" rel="noopener" style="color:var(--brass-hi)">Phantom</a>'+L(', ',', ')+'<a href="https://solflare.com" target="_blank" rel="noopener" style="color:var(--brass-hi)">Solflare</a>'+L(' o ',' or ')+'<a href="https://backpack.app" target="_blank" rel="noopener" style="color:var(--brass-hi)">Backpack</a>.'; }
     }
     function closeModal(){ ov.classList.remove('on'); }
     $('btnBeta').onclick=openModal;
@@ -177,13 +192,13 @@
 
     /* ---- paso 1: conectar ---- */
     $('btnConnect').onclick=async ()=>{
-      $('connectHint').className='hint'; $('connectHint').textContent=L('Abriendo Phantom…','Opening Phantom…');
+      $('connectHint').className='hint'; $('connectHint').textContent=L('Abriendo la wallet…','Opening wallet…');
       try{
         pubkey = await A.connect();
         showStep('check'); runCheck();
       }catch(err){
         if(err && err.code==='NO_WALLET'){ $('connectHint').className='hint warn';
-          $('connectHint').innerHTML=L('No encontramos Phantom. Instalá la extensión en ','No Phantom found. Install it at ')+'<a href="https://phantom.app" target="_blank" rel="noopener" style="color:var(--brass-hi)">phantom.app</a>'; }
+          $('connectHint').innerHTML=L('No encontramos ninguna wallet de Solana. Instalá ','No Solana wallet found. Install ')+'<a href="https://phantom.app" target="_blank" rel="noopener" style="color:var(--brass-hi)">Phantom</a>'+L(' o ',' or ')+'<a href="https://solflare.com" target="_blank" rel="noopener" style="color:var(--brass-hi)">Solflare</a>.'; }
         else { $('connectHint').className='hint bad'; $('connectHint').textContent=L('No se pudo conectar. Probá de nuevo.','Could not connect. Try again.'); }
       }
     };
