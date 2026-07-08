@@ -650,13 +650,26 @@ function create(){
     const wp=cam.getWorldPoint(p.x,p.y);
     cam.centerOn(Phaser.Math.Linear(cam.midPoint.x,wp.x,0.3), Phaser.Math.Linear(cam.midPoint.y,wp.y,0.3));
   });
-  let dragMoved=false;
+  this.input.addPointer(1);   // habilita un 2º puntero para el pinch en mobile
+  let dragMoved=false, pinchDist=0;
   this.input.on('pointermove',p=>{
     if(!S.colocando && !(p.isDown&&!p.rightButtonDown())) hoverCursor(p);   // cursor contextual (carne/espada/madera)
+    const cam=this.cameras.main, p1=this.input.pointer1, p2=this.input.pointer2;
+    if(p1&&p2&&p1.isDown&&p2.isDown){                         // pinch: dos dedos = zoom (no pan ni comando)
+      dragMoved=true;
+      const d=Phaser.Math.Distance.Between(p1.x,p1.y,p2.x,p2.y);
+      if(pinchDist>0 && d>0){
+        const mx=(p1.x+p2.x)/2, my=(p1.y+p2.y)/2, before=cam.getWorldPoint(mx,my);
+        cam.setZoom(Phaser.Math.Clamp(cam.zoom*(d/pinchDist), baseZoom*0.9, 3.6)); overview=false;
+        const after=cam.getWorldPoint(mx,my);
+        cam.scrollX+=before.x-after.x; cam.scrollY+=before.y-after.y;   // ancla el punto entre los dedos
+      }
+      pinchDist=d; return;
+    }
+    pinchDist=0;
     if(!p.isDown||S.colocando||p.rightButtonDown()) return;
     if(Math.abs(p.x-p.downX)+Math.abs(p.y-p.downY)>8) dragMoved=true;
-    if(dragMoved){ const cam=this.cameras.main;
-      cam.scrollX-=(p.x-p.prevPosition.x)/cam.zoom; cam.scrollY-=(p.y-p.prevPosition.y)/cam.zoom; }
+    if(dragMoved){ cam.scrollX-=(p.x-p.prevPosition.x)/cam.zoom; cam.scrollY-=(p.y-p.prevPosition.y)/cam.zoom; }
   });
   this.input.on('pointerup',p=>{
     if(TOUCH && !S.colocando && !dragMoved && !tapOnUnit && esComandable()) ordenar(p);   // tap (no arrastre) con unidad = comando
@@ -2096,9 +2109,9 @@ function spawnEnemy(kind,tx,ty){
   const s=scene.add.sprite(gx,gy,e.tex).setOrigin(0.5,0.72).setScale(e.esc).setDepth(gy);
   if(e.tint) s.setTint(e.tint);
   s.play(e.ar); revelar(gx,gy,3);
-  const waveScale=1+(S.wave-1)*0.15;                                           // +15% de vida por oleada: cada oleada más dura
-  const boostHp=Math.max(1,Math.round(e.hp*waveScale)) + (e.boss?Math.floor(S.wave/5)*20:0);
-  const boostDmg=Math.round(e.dmg*(1+S.wave*0.06));                            // más daño con el tiempo
+  const waveScale=1+(S.wave-1)*0.22;                                           // ⚙️ +22% de VIDA por oleada (perilla de resistencia); la 1ª queda igual a la base
+  const boostHp=Math.max(1,Math.round(e.hp*waveScale)) + (e.boss?Math.floor(S.wave/5)*24:0);
+  const boostDmg=Math.round(e.dmg*(1+S.wave*0.09));                            // ⚙️ +9% de DAÑO por oleada (perilla de daño)
   const g={spr:s,kind,ai:e.ai,ar:e.ar,hp:boostHp,maxhp:boostHp,dmg:boostDmg,sp:e.sp||46,ranged:!!e.ranged,bomba:!!e.bomba,ladron:!!e.ladron,boss:!!e.boss,target:null,atkT:0,dead:false};
   if(e.boss){ g.glow=scene.add.image(gx,gy-6,'dot').setTint(0xff3a2a).setScale(6).setAlpha(0.28).setDepth(gy-1);
     scene.tweens.add({targets:g.glow,scale:8,alpha:0.14,duration:700,yoyo:true,repeat:-1}); }
@@ -2148,7 +2161,7 @@ function cañonazo(fx,fy){                            // el barco pirata dispara
 // arquetipos de oleada: cada una se siente distinta (mezcla de enemigos variable)
 const FLAVORS=['goblins','horda','bestias','piratas','mixta','reino'];
 function componerOleada(w){                          // devuelve {flavor, spawns:[kind...], naval, bossCount, msg}
-  const costaN=2+Math.ceil(w*1.4);
+  const costaN=Math.min(44, 1 + w*3 + Math.floor(w*w*0.12));   // ⚙️ CANTIDAD de enemigos por oleada (sube fuerte y se acelera): w1≈4, w2≈7, w3≈10, w5≈18, w10≈43
   let flavor;
   if(w%5===0) flavor='jefe';
   else if(w%3===0) flavor='piratas';
