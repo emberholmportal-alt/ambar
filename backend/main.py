@@ -192,6 +192,14 @@ async def _kbroadcast(msg: str, exclude: str = None):
     for cid in dead:
         kingdom_conns.pop(cid, None)
 
+async def _ksend(cid: str, obj: dict):
+    c = kingdom_conns.get(cid)
+    if c:
+        try:
+            await c["ws"].send_text(json.dumps(obj))
+        except Exception:
+            pass
+
 @app.websocket('/ws/kingdom')
 async def ws_kingdom(ws: WebSocket):
     await ws.accept()
@@ -225,6 +233,16 @@ async def ws_kingdom(ws: WebSocket):
                 msg = (str(d.get("msg", "")) or "").strip()[:KMAX]
                 if msg:
                     await _kbroadcast(json.dumps({"t": "say", "id": cid, "msg": msg}), exclude=cid)
+            elif t == "chal" and c["joined"]:                 # desafío de duelo PvP a otro usuario
+                await _ksend(str(d.get("to", "")), {"t": "chal", "from": cid, "name": c["name"]})
+            elif t == "chalno" and c["joined"]:
+                await _ksend(str(d.get("to", "")), {"t": "chalno", "from": cid, "name": c["name"]})
+            elif t == "chalyes" and c["joined"]:              # acepta: crea sala y manda a ambos al duelo
+                other = str(d.get("to", "")); o = kingdom_conns.get(other)
+                if o:
+                    room = secrets.token_hex(4)
+                    await _ksend(other, {"t": "duel", "room": room, "role": "host", "foe": c["name"]})
+                    await _ksend(cid,   {"t": "duel", "room": room, "role": "guest", "foe": o["name"]})
     except WebSocketDisconnect:
         pass
     except Exception:
@@ -232,3 +250,35 @@ async def ws_kingdom(ws: WebSocket):
     finally:
         kingdom_conns.pop(cid, None)
         await _kbroadcast(json.dumps({"t": "leave", "id": cid}))
+
+# ---- Duelo PvP 1v1: sala de dos por WebSocket (relay puro host<->guest) ----
+duel_rooms: dict = {}   # room -> {cid: ws}
+
+@app.websocket('/ws/duel/{room}')
+async def ws_duel(ws: WebSocket, room: str):
+    await ws.accept()
+    r = duel_rooms.setdefault(room, {})
+    if len(r) >= 2:                                          # sala llena
+        try: await ws.send_text(json.dumps({"t": "full"}))
+        except Exception: pass
+        await ws.close(); return
+    cid = secrets.token_hex(3); r[cid] = ws
+    try:
+        while True:
+            raw = await ws.receive_text()
+            for k, w in list(r.items()):                     # relay al OTRO de la sala
+                if k == cid:
+                    continue
+                try: await w.send_text(raw)
+                except Exception: pass
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        r.pop(cid, None)
+        for k, w in list(r.items()):
+            try: await w.send_text(json.dumps({"t": "gone"}))
+            except Exception: pass
+        if not r:
+            duel_rooms.pop(room, None)

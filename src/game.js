@@ -1478,6 +1478,9 @@ function kOnMsg(d){
   else if(d.t==='pos'){ const o=kOthers[d.id]; if(o){ o.tx=d.x; o.ty=d.y; o.flip=!!d.f; o.moving=!!d.m; } }
   else if(d.t==='say'){ const o=kOthers[d.id]; if(o) showSay(o,d.msg); }
   else if(d.t==='leave'){ kRemoveOther(d.id); }
+  else if(d.t==='chal'){ kChalPrompt(d.from, d.name); }                          // te desafían a un duelo
+  else if(d.t==='chalno'){ toast((d.name||'?')+L(' rechazó el duelo.',' declined the duel.')); }
+  else if(d.t==='duel'){ location.href='/pvp?duel='+encodeURIComponent(d.room)+'&role='+d.role+'&foe='+encodeURIComponent(d.foe||''); }
 }
 function kConnect(){                                      // conecta al reino en vivo (si hay backend); sin backend, jugás solo
   const url=kWsUrl(); if(!url||!('WebSocket'in window)) return;
@@ -1555,9 +1558,22 @@ function kWireChat(){                                     // botón de mensaje (
   if(open) open.onclick=()=>show(true);
   if(send) send.onclick=fire;
   if(cancel) cancel.onclick=()=>show(false);
-  const pv=$('kPvpBtn'); if(pv){ pv.disabled=false; pv.title=L('Batalla en la Arena PvP','PvP Arena battle');
+  const pv=$('kPvpBtn'); if(pv){ pv.disabled=false; pv.title=L('Desafiar a un duelo PvP','Challenge to a PvP duel');
     const soon=pv.querySelector('.soon'); if(soon) soon.style.display='none';
-    pv.onclick=()=>{ location.href='/pvp'; }; }
+    pv.onclick=()=>{ kChallenge(); }; }
+}
+function kChallenge(){                                    // desafía al usuario cercano a un duelo en vivo
+  if(!kNear){ location.href='/pvp'; return; }             // sin nadie cerca: batalla vs IA
+  if(ws&&ws.readyState===1){ try{ ws.send(JSON.stringify({t:'chal', to:kNear.id})); }catch(e){} }
+  toast(L('Desafío enviado a ','Challenge sent to ')+(kNear.name||'?')+'…');
+}
+function toast(t){ const el=$('kToast'); if(!el){ console.log(t); return; } el.textContent=t; el.classList.add('on'); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove('on'),2200); }
+function kChalPrompt(fromId,name){                        // llega un desafío: aceptar / rechazar
+  const ov=$('kChal'); if(!ov){ if(ws) ws.send(JSON.stringify({t:'chalyes',to:fromId})); return; }
+  const who=$('kChalWho'); if(who) who.textContent=(name||'?');
+  ov.classList.add('on');
+  $('kChalYes').onclick=()=>{ ov.classList.remove('on'); if(ws&&ws.readyState===1) ws.send(JSON.stringify({t:'chalyes',to:fromId})); };
+  $('kChalNo').onclick=()=>{ ov.classList.remove('on'); if(ws&&ws.readyState===1) ws.send(JSON.stringify({t:'chalno',to:fromId})); };
 }
 function kingdomEnter(){
   const nameEl=$('kName'), hint=$('kHint'); let nm=((nameEl&&nameEl.value)||'').trim().slice(0,16);

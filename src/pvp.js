@@ -47,7 +47,13 @@ const CARDS=[
   {key:'pigrider',es:'Jinete Cerdo',en:'Pig Rider',cost:5, hp:210, dmg:24, sp:48, range:28, rate:1100, si:'pigrider_idle', sr:'pigrider_run', sc:0.44},
 ];
 const CARD_BY_KEY=Object.fromEntries(CARDS.map(c=>[c.key,c]));
+const CARD_IDX=Object.fromEntries(CARDS.map((c,i)=>[c.key,i]));
 const FOE_POOL=['torch','spear','gnoll','skull','snake','gnome','tnt','pigrider','shaman','warrior','archer'];   // la IA usa todo
+
+/* ==== duelo en vivo 1v1 (host-authoritative): ?duel=room&role=host|guest&foe=nombre ==== */
+const QS=new URLSearchParams(location.search);
+const DUEL=QS.get('duel') ? {room:QS.get('duel'), role:(QS.get('role')||'guest'), foe:QS.get('foe')||'?'} : null;
+let dws=null, _uid=0, snapAcc=0; const gUnits={};
 
 function unlockedKeys(){
   let seen=[]; try{ seen=JSON.parse(localStorage.getItem('aoa_cards')||'[]'); }catch(e){}
@@ -70,7 +76,8 @@ function arenaName(){ return L(ARENAS[arenaTier()][0],ARENAS[arenaTier()][1]); }
 
 let scene;
 const S={ units:[], towers:[], shots:[], enYou:6, enFoe:6, regYou:0, regFoe:0, foeRegen:ENERGY_REGEN, foeLvl:1, aiT:0, aiNext:2600,
-          deck:[], hand:[], sel:-1, crownsYou:0, crownsFoe:0, over:false, started:false, time:MATCH_TIME, timeAcc:0, zoneHi:null };
+          deck:[], hand:[], sel:-1, crownsYou:0, crownsFoe:0, over:false, started:false, time:MATCH_TIME, timeAcc:0, zoneHi:null,
+          duel:null, guest:false };
 
 const config={ type:Phaser.AUTO, parent:'game', backgroundColor:'#0d2417',
   scale:{mode:Phaser.Scale.RESIZE, autoCenter:Phaser.Scale.CENTER_BOTH, width:'100%', height:'100%'},
@@ -125,17 +132,22 @@ function create(){
   // ---- desplegar tocando tu mitad ----
   this.input.on('pointerdown',p=>{
     if(!S.started||S.over) return; const wp=cam.getWorldPoint(p.x,p.y);
-    if(wp.y<MID+40) return;                                // sólo tu mitad
-    if(S.sel<0) { toast(L('Elegí una carta primero.','Pick a card first.')); return; }
+    if(S.sel<0){ toast(L('Elegí una carta primero.','Pick a card first.')); return; }
     const key=S.hand[S.sel]; const c=CARD_BY_KEY[key]; if(!c) return;
     if(S.enYou<c.cost){ toast(L('Sin energía suficiente.','Not enough energy.')); return; }
+    if(S.guest){                                           // invitado: despliega arriba (su lado) y avisa al host
+      if(wp.y>MID-40) return;                               // el invitado juega desde arriba
+      if(dws&&dws.readyState===1){ try{ dws.send(JSON.stringify({t:'dep',key,x:Math.round(clamp(wp.x,50,ARENA_W-50)),lvl:cardLevel(key)})); }catch(e){} }
+      cycleHand(S.sel); S.sel=-1; renderHand(); return;
+    }
+    if(wp.y<MID+40) return;                                // sólo tu mitad (abajo)
     S.enYou-=c.cost; deploy(key,'you', clamp(wp.x,50,ARENA_W-50), clamp(wp.y,MID+70,ARENA_H-190));
     cycleHand(S.sel); S.sel=-1; renderHand();
   });
 
   buildDeck(); renderHand(); renderLocked(); refreshHUD();
   const sp=$('pvSplash'); if(sp){ sp.classList.add('hide'); setTimeout(()=>{ if(sp) sp.style.display='none'; },600); }
-  if(_autostart()) startMatch(); else showHome();      // arranca en la colección salvo revancha
+  if(DUEL) startDuel(); else if(_autostart()) startMatch(); else showHome();   // duelo en vivo, revancha, o colección
 }
 function buildTowers(){
   if(!scene) return;
@@ -194,15 +206,15 @@ function renderLocked(){
 }
 
 /* ===== unidades ===== */
-function deploy(key,side,x,y){
+function deploy(key,side,x,y,lvlOverride){
   const c=CARD_BY_KEY[key]; if(!c||!scene) return;
-  const lvl=side==='you'?cardLevel(key):S.foeLvl, m=lvlMult(lvl);       // el nivel escala vida y daño
+  const lvl=lvlOverride||(side==='you'?cardLevel(key):S.foeLvl), m=lvlMult(lvl);   // el nivel escala vida y daño
   const hp=Math.round(c.hp*m), dmg=Math.round(c.dmg*m);
   const s=scene.add.sprite(x,y,c.si,0).setOrigin(0.5,0.72).setScale(c.sc).setDepth(y);
   if(side==='foe') s.setTint(0xff9a9a);
   s.play(c.key+'-i');
   puff(x,y,side==='you'?0x8ec8ff:0xff9a9a);
-  S.units.push({key,card:c,side,spr:s,hp,maxhp:hp,dmg,sp:c.sp,range:c.range,rate:c.rate,cd:0,ranged:c.range>60,target:null,dead:false,flip:false,hpbar:scene.add.graphics().setDepth(99001)});
+  S.units.push({_id:++_uid,key,card:c,side,spr:s,hp,maxhp:hp,dmg,sp:c.sp,range:c.range,rate:c.rate,cd:0,ranged:c.range>60,target:null,dead:false,flip:false,st:0,hpbar:scene.add.graphics().setDepth(99001)});
   sfx(side==='you'?'bell':'clash',0.25);
 }
 function nearestEnemyUnit(e,maxD){ let best=null,bd=maxD; for(const u of S.units){ if(u.dead||u.side===e.side) continue;
@@ -232,12 +244,14 @@ function shoot(from,target,dmg,col){
 /* ===== bucle ===== */
 function update(time,delta){
   if(!scene||!S.started) return; const dt=delta/1000;
+  if(S.guest){ guestInterp(dt); return; }                 // invitado: sólo interpola lo que manda el host
   if(!S.over){
     S.regYou+=delta; if(S.regYou>=ENERGY_REGEN){ S.regYou=0; S.enYou=Math.min(ENERGY_MAX,S.enYou+1); renderHand(); refreshHUD(); }
     S.regFoe+=delta; if(S.regFoe>=S.foeRegen){ S.regFoe=0; S.enFoe=Math.min(ENERGY_MAX,S.enFoe+1); }
-    S.aiT+=delta; if(S.aiT>=S.aiNext){ S.aiT=0; S.aiNext=rint(2000,4200); aiPlay(); }
+    S.aiT+=delta; if(S.aiT>=S.aiNext){ S.aiT=0; S.aiNext=rint(2000,4200); if(!S.duel) aiPlay(); }   // en duelo no hay IA
     S.timeAcc+=delta; if(S.timeAcc>=1000){ S.timeAcc-=1000; S.time--; refreshHUD();
       if(S.time<=0) endGame(S.crownsYou>S.crownsFoe?'win':S.crownsYou<S.crownsFoe?'lose':'draw'); }
+    if(S.duel){ snapAcc+=delta; if(snapAcc>=100){ snapAcc=0; duelBroadcast(); } }   // host: envía el estado ~10/s
   }
   // unidades
   for(const u of S.units){ if(u.dead) continue;
@@ -246,13 +260,13 @@ function update(time,delta){
     if(!tgt){ u.spr.play(u.key+'-i',true); continue; }
     const tx=tgt.spr.x, ty=(tgt.card?tgt.spr.y:tgt.y), dx=tx-u.spr.x, dy=ty-u.spr.y, d=Math.hypot(dx,dy)||1;
     if(d<=u.range){                                       // atacar
-      u.spr.play(u.key+'-i',true);
+      u.st=0; u.spr.play(u.key+'-i',true);
       if(u.cd<=0){ u.cd=u.rate; const dmg=tgt.card?u.dmg:Math.round(u.dmg*VS_TOWER);   // más daño a torres
         if(u.ranged) shoot(u,tgt,dmg,u.side==='you'?0x8ec8ff:0xff9a9a);
         else { hurt(tgt,dmg); miniLunge(u,dx,dy); }
       }
     } else {                                              // avanzar
-      const sp=u.sp*dt; u.spr.x+=dx/d*sp; u.spr.y+=dy/d*sp;
+      const sp=u.sp*dt; u.spr.x+=dx/d*sp; u.spr.y+=dy/d*sp; u.st=1;
       u.spr.play(u.key+'-r',true); if(Math.abs(dx)>1){ u.flip=dx<0; u.spr.setFlipX(u.flip); }
     }
     u.spr.setDepth(u.spr.y);
@@ -292,6 +306,63 @@ function aiPlay(){                                         // IA: responde a tus
   S.enFoe-=c.cost; deploy(c.key,'foe', x, rint(210,MID-70));
 }
 
+/* ===== duelo en vivo 1v1 (host-authoritative) ===== */
+function startDuel(){
+  S.duel=DUEL; hide('pvHome'); duelConnect();
+  if(DUEL.role==='host') startMatch();                    // el host simula (startMatch no lanza IA porque S.duel está seteado)
+  else guestSetup();                                      // el invitado sólo renderiza lo que manda el host
+  toast(L('Duelo vs ','Duel vs ')+DUEL.foe);
+}
+function duelWsUrl(){ const api=(window.AOA_API||'').replace(/\/$/,'');
+  const base = api ? api.replace(/^http/,'ws') : ('ws'+location.origin.slice(4));
+  return base+'/ws/duel/'+encodeURIComponent(DUEL.room); }
+function duelConnect(){
+  let url; try{ url=duelWsUrl(); }catch(e){ return; }
+  try{ dws=new WebSocket(url); }catch(e){ dws=null; return; }
+  dws.onmessage=ev=>{ let d; try{ d=JSON.parse(ev.data); }catch(e){ return; } onDuelMsg(d); };
+  dws.onclose=()=>{ dws=null; };
+}
+function onDuelMsg(d){
+  if(!d||!d.t) return;
+  if(d.t==='dep'){ if(!S.guest&&!S.over){ const c=CARD_BY_KEY[d.key]; if(c&&S.enFoe>=c.cost){ S.enFoe-=c.cost;
+      deploy(d.key,'foe', clamp(d.x,50,ARENA_W-50), rint(210,MID-70), d.lvl); } } }
+  else if(d.t==='snap'){ if(S.guest) applySnap(d); }
+  else if(d.t==='over'){ if(S.guest){ const r=d.rs==='win'?'lose':d.rs==='lose'?'win':'draw'; S.crownsYou=d.cf; S.crownsFoe=d.cy; endGame(r); } }
+  else if(d.t==='gone'){ if(!S.over){ toast(L('El rival se fue.','Opponent left.')); endGame('win'); } }
+  else if(d.t==='full'){ toast(L('La sala está llena.','Room is full.')); }
+}
+function duelBroadcast(){                                  // host → invitado: estado del combate ~10/s
+  if(!dws||dws.readyState!==1) return;
+  const u=S.units.map(x=>[x._id, CARD_IDX[x.key], x.side==='you'?0:1, Math.round(x.spr.x), Math.round(x.spr.y), Math.round(x.hp), Math.round(x.maxhp), x.flip?1:0, x.st?1:0]);
+  const tw=S.towers.map((t,i)=>[i, Math.round(t.hp)]);
+  try{ dws.send(JSON.stringify({t:'snap',u,tw,e:Math.floor(S.enFoe),cy:S.crownsYou,cf:S.crownsFoe,tm:S.time})); }catch(e){}
+}
+function guestSetup(){
+  clearBattle(); buildTowers(); S.guest=true; S.started=true; S.over=false; S.enYou=6; S.time=MATCH_TIME;
+  if(S.zoneHi){ S.zoneHi.clear(); S.zoneHi.fillStyle(0xff9a9a,0.10); S.zoneHi.fillRect(4,150,ARENA_W-8,MID-40-150);
+    S.zoneHi.lineStyle(2,0xff9a9a,0.35); S.zoneHi.strokeRect(4,150,ARENA_W-8,MID-40-150); S.zoneHi.setVisible(false); }
+  buildDeck(); renderHand(); refreshHUD();
+}
+function applySnap(d){
+  if(d.tw) d.tw.forEach(a=>{ const t=S.towers[a[0]]; if(!t) return; t.hp=a[1];
+    if(t.hp<=0&&!t.dead){ t.dead=true; if(t.spr){ boom(t.spr.x,t.spr.y-20); t.spr.setVisible(false); } if(t.hpbar)t.hpbar.clear(); } });
+  const seen=new Set();
+  (d.u||[]).forEach(a=>{ const id=a[0], c=CARDS[a[1]], side=a[2], x=a[3], y=a[4], hp=a[5], mx=a[6], flip=a[7], st=a[8]; seen.add(id);
+    let g=gUnits[id];
+    if(!g){ const s=scene.add.sprite(x,y,c.si,0).setOrigin(0.5,0.72).setScale(c.sc).setDepth(y); if(side===1)s.setTint(0xff9a9a); s.play(c.key+'-i');
+      g={spr:s,key:c.key,side,tx:x,ty:y,hp,mx,hpbar:scene.add.graphics().setDepth(99001)}; gUnits[id]=g; }
+    g.tx=x; g.ty=y; g.hp=hp; g.mx=mx; g.side=side; g.spr.play(c.key+'-'+(st?'r':'i'),true); g.spr.setFlipX(!!flip);
+  });
+  for(const id in gUnits){ if(seen.has(+id)) continue; const g=gUnits[id]; deathPoof(g.spr, g.side===1?'foe':'you'); if(g.hpbar)g.hpbar.destroy(); delete gUnits[id]; }
+  S.enYou=d.e; S.crownsYou=d.cf; S.crownsFoe=d.cy; S.time=d.tm; renderHand(); refreshHUD();
+}
+function guestInterp(dt){
+  for(const id in gUnits){ const g=gUnits[id]; if(!g.spr||!g.spr.active) continue;
+    g.spr.x+=(g.tx-g.spr.x)*0.3; g.spr.y+=(g.ty-g.spr.y)*0.3; g.spr.setDepth(g.spr.y);
+    drawBar(g.hpbar,g.spr.x,g.spr.y-46,34,g.hp/(g.mx||1), g.side===1?0xe5533a:0x5fa5ff); }
+  for(const t of S.towers){ if(t.dead) continue; drawBar(t.hpbar,t.spr.x,t.y-52,t.king?60:44,t.hp/t.maxhp, t.side==='you'?0x5fa5ff:0xe5533a); }
+}
+
 /* ===== fx / hud ===== */
 function puff(x,y,col){ const c=scene.add.circle(x,y,8,col,0.5).setDepth(99400); scene.tweens.add({targets:c,radius:34,alpha:0,duration:400,onComplete:()=>c.destroy()}); }
 function boom(x,y){ sfx('fire',0.4); const c=scene.add.circle(x,y,10,0xffb060,0.8).setDepth(99600); scene.tweens.add({targets:c,radius:60,alpha:0,duration:500,onComplete:()=>c.destroy()}); if(scene.cameras&&scene.cameras.main) scene.cameras.main.shake(200,0.006); }
@@ -305,6 +376,7 @@ function refreshHUD(){ const ef=$('energyFill'); if(ef) ef.style.width=Math.roun
 let toastT=null;
 function toast(t){ const el=$('pvToast'); if(!el) return; el.textContent=t; el.classList.add('on'); if(toastT) clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('on'),1600); }
 function endGame(result){ if(S.over) return; S.over=true; S.started=false; if(S.zoneHi) S.zoneHi.setVisible(false);
+  if(S.duel&&!S.guest&&dws&&dws.readyState===1){ try{ dws.send(JSON.stringify({t:'over',rs:result,cy:S.crownsYou,cf:S.crownsFoe})); }catch(e){} }
   sfx(result==='win'?'coins':'bong',0.6);
   // recompensas
   const cr=S.crownsYou; let dt=0, gold=0;
@@ -318,6 +390,9 @@ function endGame(result){ if(S.over) return; S.over=true; S.started=false; if(S.
     else { t.textContent=L('EMPATE','DRAW'); t.style.color='#e9b04a'; } }
   const sub=$('pvEndSub'); if(sub) sub.innerHTML='👑 '+S.crownsYou+' – '+S.crownsFoe+' 👑<br>'
     +'<span style="color:'+(dt>=0?'#8fe08a':'#e5533a')+'">'+(dt>=0?'+':'')+dt+' 🏆</span> &nbsp; <span style="color:#f0d564">+'+gold+' 🪙</span>';
+  if(S.duel){ const a=$('pvEndA'), b=$('pvEndB');            // en duelo, ambos botones vuelven al reino
+    if(a){ a.textContent=L('Volver al reino','Back to kingdom'); a.onclick=()=>location.href='/kingdom'; }
+    if(b){ b.style.display='none'; } }
   show('pvEnd');
 }
 
