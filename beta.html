@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>Age of Ansem · The Black Bull</title>
+<title>AoA</title>
 <!-- Portón de la beta: sólo entra quien pasó el flujo (billetera + holder + usuario). ?dev=1 para desarrollo. -->
 <script>
 (function(){ try{
@@ -245,7 +245,10 @@
         </div>
         <div class="recWho" id="recWho"></div>
         <ol class="recordsList" id="recordsList"></ol>
-        <button class="ghost" id="btnRecordsCerrar">CERRAR</button>
+        <div style="display:flex;gap:8px;justify-content:center">
+          <button class="ghost" id="btnDisconnect" title="Desconectar billetera">🔌 DESCONECTAR</button>
+          <button class="ghost" id="btnRecordsCerrar">CERRAR</button>
+        </div>
       </div>
     </div>
     <div class="hint" id="hint"></div>

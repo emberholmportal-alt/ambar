@@ -24,7 +24,7 @@ const CAT={   // reqWave: oleadas que hay que sobrevivir para desbloquear (progr
   castle:    {get nom(){return L('Ayuntamiento','Town Hall');}, fw:5,fh:2, costo:{oro:300,madera:300}, dur:120, unico:true, skins:true, esTC:true, hp:300},
   muralla:   {get nom(){return L('Muralla','Wall');},      fw:1,fh:1, costo:{madera:30},         dur:12,   reqWave:0, muro:true, hp:260, get desc(){return L('Empalizada de madera (260 de resistencia). Barata y rápida: frená la horda desde la primera oleada. Colocá una línea arrastrando.','Wooden palisade (260 HP). Cheap and fast: stop the horde from the first wave. Drag to place a line.');}},
   house:     {get nom(){return L('Casa','House');},         fw:2,fh:2, costo:{madera:100},        dur:120,  reqWave:0, skins:true, up:[{costo:{madera:200},dur:120}]},
-  granja:    {get nom(){return L('Granja','Farm');},       fw:3,fh:2, costo:{madera:120},        dur:180,  reqWave:0, prod:'comida', reserva:400, hp:160, up:[{costo:{oro:250},dur:200}]},
+  granja:    {get nom(){return L('Granja','Farm');},       fw:3,fh:2, costo:{madera:120},        dur:90,   reqWave:0, prod:'comida', reserva:400, hp:160, up:[{costo:{oro:250},dur:120}]},
   torre:     {get nom(){return L('Torre','Tower');},        fw:2,fh:2, costo:{oro:150,madera:150},dur:240, reqWave:1, skins:true, hp:90, up:[{costo:{oro:500},dur:300}]},
   cuartel:   {get nom(){return L('Cuartel','Barracks');},        fw:3,fh:2, costo:{madera:300},        dur:300, reqWave:1, skins:true, up:[{costo:{oro:600},dur:360}]},
   murallon:  {get nom(){return L('Murallón','Stone Wall');},     fw:1,fh:1, costo:{madera:60,oro:20},  dur:16,   reqWave:2, muro:true, hp:520, get desc(){return L('Muro de piedra reforzado (520 de resistencia: el doble que la Muralla). Cuesta madera + oro y se desbloquea en la oleada 2, para el frente donde más pegan.','Reinforced stone wall (520 HP: double the Wall). Costs wood + gold and unlocks on wave 2, for the front line where they hit hardest.');}},
@@ -941,8 +941,8 @@ function setTool(a,tool){ a.tool=tool;
 const CARRYCAP=12;                                    // cuánto puede cargar antes de tener que ir a dejar
 function setCarga(a){                                 // sprite del aldeano cargando el recurso (Pawn & Resources)
   if(!a.carga){ setTool(a,null); return; }
-  if(a.carga.res==='oro'){ a.spr.setTexture('wgold_blue_r',0).setScale(0.7); a.spr.play('wgold-r',true); }        // pepita/saco de oro
-  else { a.spr.setTexture('pawn_blue',12).setScale(0.7); a.spr.play('pawn_blue-carry',true); }                    // cajón genérico al hombro (madera/carne) — ya NO el oro
+  if(a.carga.res==='oro'){ a.spr.setTexture('wgold_blue_r',0).setScale(0.7); a.spr.play('wgold-r',true); }        // oro: sprite dedicado (carga la pepita/saco)
+  else { a.spr.setTexture('waxe_blue_r',0).setScale(0.7); a.spr.play('waxe-r',true); }                            // madera/carne: leñador/faenador (Pawn & Resources) — ya NO el cajón que parecía piedra
   a.tool='carga';
 }
 function depositar(a){                                // deja la carga en el Ayuntamiento: recién ahí suma
@@ -1332,7 +1332,7 @@ function scatterEyeCandy(n){
     if(!isLand(tx,ty)||S.cliff[ty][tx]||S.grid[ty][tx]!==null) continue;
     const x=(BX+tx)*T+T/2+rint(-14,14), y=(BY+ty+1)*T-6;
     const r=Math.random();
-    if(r<0.1){  // pepita de oro: NODO recolectable (además de la veta), el aldeano la mina con el pico
+    if(r<0.22){  // pepita de oro: NODO recolectable (además de la veta), el aldeano la mina con el pico
       scene.add.ellipse(x,y,26,10,0x000000,0.18).setDepth(y-1);
       const id='n'+S.nextId++;
       const spr=scene.add.image(x,y,'goldstone'+rint(1,6)).setOrigin(0.5,1).setScale(Phaser.Math.FloatBetween(0.5,0.62)).setDepth(y);
@@ -1340,7 +1340,7 @@ function scatterEyeCandy(n){
       const nd={id,kind:'pepita',tipo:'pepita',tx,ty,spr,reserva:NODO.pepita.reserva,tool:NODO.pepita.tool,res:NODO.pepita.res};
       spr.on('pointerdown',pp=>{ if(!S.colocando&&!pp.rightButtonDown()) seleccionar({t:'nodo',ref:nd}); });
       S.grid[ty][tx]=id; S.nodes.push(nd);
-    } else if(r<0.24){ // roca (estática) con sombra — bloquea el paso
+    } else if(r<0.34){ // roca (estática) con sombra — bloquea el paso
       scene.add.ellipse(x,y,26,10,0x000000,0.18).setDepth(y-1);
       scene.add.image(x,y,'rock'+rint(1,4)).setOrigin(0.5,1).setScale(Phaser.Math.FloatBetween(0.7,1.05)).setDepth(y);
       S.grid[ty][tx]='s'+S.nextId++;
@@ -2690,19 +2690,33 @@ function enviarScoreBackend(){
         score:S.score, wave:S.wave, survived:Math.floor(S.tSurv), resources:Math.floor(S.recursos), kills:S.kills }) }).catch(()=>{});
   }catch(e){}
 }
-function mostrarRecords(){
-  const ov=$('recordsOv'), ul=$('recordsList'); if(!ov||!ul) return;
-  const p=cargarPerfil();
-  const iu=$('recUser'), iw=$('recWallet'), who=$('recWho');
-  if(iu) iu.value=p.user||''; if(iw) iw.value=p.wallet||'';
-  if(who) who.innerHTML = p.wallet ? L('Billetera: ','Wallet: ')+'<b>'+abrevBilletera(p.wallet)+'</b>' : L('<span style="opacity:.7">Sin billetera vinculada</span>','<span style="opacity:.7">No wallet linked</span>');
-  const recs=cargarRecords();
+function renderRecordsLocal(){                          // fallback: récords propios (localStorage) si no hay backend
+  const ul=$('recordsList'); if(!ul) return; const recs=cargarRecords();
   ul.innerHTML = recs.length ? recs.map(r=>{
     const m=Math.floor(r.tSurv/60), s=r.tSurv%60;
     const quien = (r.user||r.wallet) ? '<span style="color:#8ec8ff">'+(r.user||'')+(r.wallet?(r.user?' · ':'')+abrevBilletera(r.wallet):'')+'</span> · ' : '';
     return '<li>'+quien+'<b>'+r.score+' pts</b> · '+L('Oleada ','Wave ')+r.wave+' · '+m+'m '+s+'s · '+r.recursos+L(' rec. · ',' res. · ')+r.kills+L(' bajas ',' kills ')+'<span style="color:#9a8f79">('+r.fecha+')</span></li>';
   }).join('') : '<li class="vacio">'+L('Todavía no hay récords. ¡Jugá una partida!','No records yet. Play a game!')+'</li>';
+}
+async function mostrarRecords(){
+  const ov=$('recordsOv'), ul=$('recordsList'); if(!ov||!ul) return;
+  const p=cargarPerfil();
+  const iu=$('recUser'), iw=$('recWallet'), who=$('recWho');
+  if(iu) iu.value=p.user||''; if(iw) iw.value=p.wallet||'';
+  if(who) who.innerHTML = p.user ? L('Jugando como ','Playing as ')+'<b>'+p.user+'</b>' : (p.wallet ? L('Billetera: ','Wallet: ')+'<b>'+abrevBilletera(p.wallet)+'</b>' : L('<span style="opacity:.7">Sin usuario</span>','<span style="opacity:.7">No user</span>'));
   ov.classList.add('open');
+  const API=(window.AOA_API||'').replace(/\/$/,'');
+  if(!API){ renderRecordsLocal(); return; }                // sin backend: récords propios
+  ul.innerHTML='<li class="vacio">'+L('Cargando ranking global…','Loading global ranking…')+'</li>';
+  try{
+    const r=await fetch(API+'/api/leaderboard?limit=25');
+    if(!r.ok) throw 0;
+    const rows=await r.json();
+    ul.innerHTML = rows.length ? rows.map(e=>{
+      const mine = p.user && e.username && e.username.toLowerCase()===p.user.toLowerCase();
+      return '<li'+(mine?' style="color:#ffe36b;font-weight:700"':'')+'><span style="color:#8ec8ff">'+e.username+'</span>'+(e.wallet?' <span style="color:#9a8f79">('+e.wallet+')</span>':'')+' · <b>'+e.score+' pts</b></li>';
+    }).join('') : '<li class="vacio">'+L('Todavía no hay récords. ¡Sé el primero!','No records yet. Be the first!')+'</li>';
+  }catch(e){ renderRecordsLocal(); }                        // si el backend no responde, cae a local
 }
 $('btnRecords')&&($('btnRecords').onclick=()=>{ $('menu').classList.remove('open'); mostrarRecords(); });
 $('btnRecordsCerrar')&&($('btnRecordsCerrar').onclick=()=>$('recordsOv').classList.remove('open'));
@@ -2711,6 +2725,11 @@ $('recSave')&&($('recSave').onclick=()=>{
   guardarPerfil({user,wallet}); toast(L('Perfil guardado.','Profile saved.')); mostrarRecords();
 });
 $('recordsOv')&&($('recordsOv').onclick=e=>{ if(e.target===$('recordsOv')) $('recordsOv').classList.remove('open'); });
+$('btnDisconnect')&&($('btnDisconnect').onclick=()=>{                 // desconectar wallet: cierra sesión y vuelve al inicio
+  try{ const p=window.solana||window.solflare||window.backpack; if(p&&p.disconnect) p.disconnect(); }catch(e){}
+  try{ localStorage.removeItem('aoa_session'); localStorage.removeItem('aoa_profile'); }catch(e){}
+  location.href='/';
+});
 
 /* ===== minimapa ===== */
 let mmW=220, mmH=132;
