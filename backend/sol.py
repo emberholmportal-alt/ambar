@@ -10,8 +10,8 @@ import config
 
 def check_holder(pubkey: str):
     """Devuelve (holder: bool, amount: float|None, stub: bool)."""
-    if not config.TOKEN_MINT:
-        return True, None, True                       # todavía no hay token: acceso abierto para probar el flujo
+    if config.BETA_OPEN or not config.TOKEN_MINT:
+        return True, None, True                       # acceso abierto (BETA_OPEN) o todavía no hay token
     body = {
         "jsonrpc": "2.0", "id": 1, "method": "getParsedTokenAccountsByOwner",
         "params": [pubkey, {"mint": config.TOKEN_MINT}, {"encoding": "jsonParsed"}],
