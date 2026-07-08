@@ -210,6 +210,8 @@
   .card .req{font-size:8px;color:var(--ember)}
   .gridmsg{align-self:center;color:var(--muted);font-size:11px;line-height:1.6;padding:6px 12px;max-width:380px}
   @media(max-width:900px){ .selbox{flex-basis:190px} .bottom{height:190px} .agebanner{min-width:240px} .agebanner .game{font-size:17px} }
+  .deselbtn{position:absolute;top:6px;right:6px;width:28px;height:28px;border-radius:7px;border:1px solid var(--brass-dim);background:rgba(0,0,0,.45);color:var(--brass);font-size:15px;line-height:1;cursor:pointer;display:none;z-index:6}
+  @media(pointer:coarse){ .selbox .deselbtn.show{display:block} }   /* deseleccionar: sólo en touch y con algo seleccionado */
   /* teléfono en vertical: la barra inferior se hace deslizable (swipe) para que entren los 3 paneles */
   @media(max-width:600px){
     .bottom{height:auto;max-height:46vh;overflow-x:auto;overflow-y:hidden;gap:8px;padding:8px;align-items:stretch;-webkit-overflow-scrolling:touch}
@@ -291,6 +293,7 @@
       </div>
     </div>
     <div class="selbox frame">
+      <button class="deselbtn" id="btnDeselect" title="Deseleccionar">✕</button>
       <img id="selAv" class="selav" alt="">
       <h3 id="selNom">—</h3>
       <div class="lvl" id="selLvl"></div>

@@ -99,6 +99,11 @@ const S={ oro:220, madera:260, comida:130, ambar:60,
 const PREP0=120, PREPW=40;                          // preparación: 2 min la primera, 40s entre oleadas
 const DUR_OLEADA=w=>Math.min(90,45+w*4);            // el asedio dura un tiempo fijo (como en otros juegos), no hasta que barran todo
 function calcScore(){ return Math.floor(S.tSurv) + Math.floor(S.recursos) + S.kills*15; }  // récord por tiempo, recursos y bajas
+// ==== táctil: en pantallas touch, con una unidad seleccionada, tocar un objetivo la COMANDA (equivale al clic derecho) ====
+const TOUCH = (typeof window!=='undefined') && (('ontouchstart' in window) || (window.matchMedia && window.matchMedia('(pointer:coarse)').matches));
+let tapOnUnit=false;   // el tap cayó sobre una unidad propia → seleccionar, no comandar
+function esComandable(){ return !!(S.sel && (S.sel.t==='aldeano'||S.sel.t==='militar'||S.sel.t==='allie'||S.sel.t==='techo')); }
+function cmdTouch(){ return TOUCH && esComandable(); }   // true = el tap debe comandar, no seleccionar el objetivo tocado
 let scene, ghostG, ghostSpr=null, fogRT=null, homePos={x:0,y:0}, overview=false;
 // cursores REALES del pack (Cursor_01/02 + Icon_05 espada)
 const CUR={
@@ -631,7 +636,8 @@ function create(){
   this.input.on('pointerdown',(p,over)=>{
     if(S.colocando){ if(p.rightButtonDown()){ cancelPlace(); return; } const t=tileAt(p); if(t) tryPlace(t.x,t.y); return; }
     if(p.rightButtonDown()){ ordenar(p); return; }
-    if(!over||over.length===0) deseleccionar();
+    tapOnUnit = TOUCH && !!over && over.some(o=>o.getData&&o.getData('unit'));   // ¿tocó una unidad propia?
+    if(!over||over.length===0){ if(!cmdTouch()) deseleccionar(); }               // en touch con unidad, el tap vacío es MOVER (se comanda al soltar)
   });
   this.game.canvas.addEventListener('contextmenu',e=>e.preventDefault());
   this.input.keyboard&&this.input.keyboard.on('keydown-ESC',()=>{ if(S.colocando)cancelPlace(); else deseleccionar(); });
@@ -652,7 +658,11 @@ function create(){
     if(dragMoved){ const cam=this.cameras.main;
       cam.scrollX-=(p.x-p.prevPosition.x)/cam.zoom; cam.scrollY-=(p.y-p.prevPosition.y)/cam.zoom; }
   });
-  this.input.on('pointerup',()=>{ setTimeout(()=>{dragMoved=false;},0); });
+  this.input.on('pointerup',p=>{
+    if(TOUCH && !S.colocando && !dragMoved && !tapOnUnit && esComandable()) ordenar(p);   // tap (no arrastre) con unidad = comando
+    tapOnUnit=false;
+    setTimeout(()=>{dragMoved=false;},0);
+  });
   this.game.canvas.addEventListener('dblclick',()=>{ overview=!overview; applyCam(); });
 
   this.cameras.main.setBounds(-MAR,-MAR,WORLD_W+MAR*2,WORLD_H+MAR*2);
@@ -920,7 +930,7 @@ function adjWalkable(tx,ty){
 /* ===== áreas de click precisas: cada entidad sólo se clickea sobre su CUERPO visible,
    nunca sobre el marco transparente. Así unidades y edificios no cruzan sus radios de click. ===== */
 function hitCuerpo(spr,cx,cy,r){ spr.setInteractive({hitArea:new Phaser.Geom.Circle(cx,cy,r), hitAreaCallback:Phaser.Geom.Circle.Contains, useHandCursor:true}); return spr; }
-function hitPersonaje(spr){ return hitCuerpo(spr, spr.width/2, spr.height*0.56, Math.min(spr.width,spr.height)*0.24); }
+function hitPersonaje(spr){ spr.setData('unit',1); return hitCuerpo(spr, spr.width/2, spr.height*0.56, Math.min(spr.width,spr.height)*0.24); }
 function hitBicho(spr){ return hitCuerpo(spr, spr.width/2, spr.height*0.6, Math.min(spr.width,spr.height)*0.3); }
 function hitEdificio(spr){ const W=spr.width,H=spr.height;   // sólo el cuerpo bajo del edificio (no el marco ni el techo alto)
   spr.setInteractive({hitArea:new Phaser.Geom.Rectangle(W*0.14,H*0.42,W*0.72,H*0.56), hitAreaCallback:Phaser.Geom.Rectangle.Contains, useHandCursor:true}); return spr; }
@@ -1125,7 +1135,7 @@ function faenarGanado(ally){                           // convierte al ganado le
   const psp=hitBicho(scene.add.image(px,py,'res_meat').setScale(0.55).setDepth(py));
   scene.tweens.add({targets:psp,y:py-6,duration:600,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
   const pile={id:'p'+S.nextId++, x:px, y:py, carne:ally.carne||80, spr:psp};
-  psp.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'pila',ref:pile}); });
+  psp.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()&&!cmdTouch()) seleccionar({t:'pila',ref:pile}); });
   S.piles.push(pile);
   if(S.sel&&S.sel.ref===ally) deseleccionar();
   refreshHUD();
@@ -1172,7 +1182,7 @@ function scatterNodos(kind,n){
     else spr=scene.add.image(x,y,'goldmine_inactive').setOrigin(0.5,0.9).setScale(0.9);
     spr.setDepth(y); hitBicho(spr);
     const nd={id,kind,tipo:kind,tx,ty,spr,reserva:cfg.reserva,tool:cfg.tool,res:cfg.res};
-    spr.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'nodo',ref:nd}); });
+    spr.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()&&!cmdTouch()) seleccionar({t:'nodo',ref:nd}); });
     for(let oy=0;oy<cfg.fh;oy++)for(let ox=0;ox<cfg.fw;ox++) S.grid[ty+oy][tx+ox]=id;
     S.nodes.push(nd); puestos++;
   }
@@ -1225,6 +1235,7 @@ function convertirBestia(m,costo){
               dead:false, atkCd:0, target:null, forced:null, moveT:null, wT:rint(3,7), run:cfg.run, idle:cfg.anim,
               ganado:esGanado, carne:cfg.carne};
   m.spr.removeAllListeners('pointerdown'); hitBicho(m.spr);   // ahora es una unidad tuya: seleccionable
+  m.spr.setData('unit',1);
   m.spr.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'allie',ref:ally}); });
   addMark(ally,0x8ad0ff, m.spr.displayHeight*m.spr.originY+10);   // marcador celeste = tuyo
   S.allies.push(ally);
@@ -1282,7 +1293,7 @@ function scatterFauna(tipo,n){
     const m={id:'m'+S.nextId++, tipo, spr:s, hp:cfg.hp, maxhp:cfg.hp, carne:cfg.carne, dmg:cfg.dmg, aoa:cfg.aoa||0,
       dead:false, homeT:{x:tx,y:ty}, wT:rint(2,7), atkT:0, hunter:null};
     hitBicho(s);
-    s.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'animal',ref:m}); });
+    s.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()&&!cmdTouch()) seleccionar({t:'animal',ref:m}); });
     S.animals.push(m);
   }
 }
@@ -1322,7 +1333,7 @@ function matarAnimal(m){
   const psp=hitBicho(scene.add.image(px,py,'res_meat').setScale(0.55).setDepth(py));
   scene.tweens.add({targets:psp,y:py-6,duration:600,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
   const pile={id:'p'+S.nextId++, x:px, y:py, carne:m.carne, spr:psp};
-  psp.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) seleccionar({t:'pila',ref:pile}); });
+  psp.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()&&!cmdTouch()) seleccionar({t:'pila',ref:pile}); });
   S.piles.push(pile);
   const h=m.hunter&&S.ald.includes(m.hunter)?m.hunter:aldLibreCerca(px,py);
   if(h) mandarRecolectar(h,pile);
@@ -1352,7 +1363,7 @@ function scatterEyeCandy(n){
       const spr=scene.add.image(x,y,'goldstone'+rint(1,6)).setOrigin(0.5,1).setScale(Phaser.Math.FloatBetween(0.5,0.62)).setDepth(y);
       hitBicho(spr);
       const nd={id,kind:'pepita',tipo:'pepita',tx,ty,spr,reserva:NODO.pepita.reserva,tool:NODO.pepita.tool,res:NODO.pepita.res};
-      spr.on('pointerdown',pp=>{ if(!S.colocando&&!pp.rightButtonDown()) seleccionar({t:'nodo',ref:nd}); });
+      spr.on('pointerdown',pp=>{ if(!S.colocando&&!pp.rightButtonDown()&&!cmdTouch()) seleccionar({t:'nodo',ref:nd}); });
       S.grid[ty][tx]=id; S.nodes.push(nd);
     } else if(r<0.34){ // roca (estática) con sombra — bloquea el paso
       scene.add.ellipse(x,y,26,10,0x000000,0.18).setDepth(y-1);
@@ -1434,7 +1445,7 @@ function setBuildingZone(b){                           // zona de click que cubr
   const zw=Math.max(c.fw*T, (b.tipo!=='granja'&&s0)?s0.displayWidth:0);
   const zh=Math.max(c.fh*T, (b.tipo!=='granja'&&s0)?s0.displayHeight:0);
   const z=scene.add.zone(cx, base - zh/2, zw, zh).setInteractive({useHandCursor:true});
-  z.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()) clickBuilding(b); });
+  z.on('pointerdown',p=>{ if(!S.colocando&&!p.rightButtonDown()&&!cmdTouch()) clickBuilding(b); });
   b.zone=z;
 }
 // que ninguna unidad propia quede tapada por un edificio: si pisa su cuerpo visible, la subimos por encima (no la perdemos)
@@ -1687,6 +1698,7 @@ function setAv(av){ const e=$('selAv'); if(!e) return; if(av){ e.src='assets/img
 function renderSel(){
   const act=$('selActions'); act.innerHTML='';
   const sel=S.sel;
+  { const db=$('btnDeselect'); if(db) db.classList.toggle('show',!!sel); }   // botón deseleccionar (touch)
   if(!sel){ $('selNom').textContent='—'; $('selLvl').textContent=''; setHp(null); setAv(null); $('selVacio').style.display='block'; return; }
   $('selVacio').style.display='none'; setAv(null);
 
@@ -1697,7 +1709,8 @@ function renderSel(){
     accion(L('DETENER','STOP'),()=>parar(a),!ocupado);
     accion(L('DESPEDIR','DISMISS'),()=>despedir(a),false);
     const t=$('selVacio'); t.style.display='block';
-    t.innerHTML=L('Clic der.: ir · talar · minar · cazar.<br>Elegí un edificio → lo construye este aldeano.','Right-click: move · chop · mine · hunt.<br>Pick a building → this villager builds it.');
+    t.innerHTML = TOUCH ? L('Tocá un árbol, veta, animal o el suelo para ordenar.<br>Elegí un edificio → lo construye este aldeano.','Tap a tree, vein, animal or the ground to command.<br>Pick a building → this villager builds it.')
+      : L('Clic der.: ir · talar · minar · cazar.<br>Elegí un edificio → lo construye este aldeano.','Right-click: move · chop · mine · hunt.<br>Pick a building → this villager builds it.');
   } else if(sel.t==='militar'){
     const u=sel.ref;
     $('selNom').textContent=UNIDADES[u.tipo].nom; $('selLvl').textContent=UNIDADES[u.tipo].sana?L('Sanador · en la retaguardia','Healer · in the rear'):L('En guardia','On guard'); setHp(u.hp,u.maxhp); setAv(u.av);
@@ -2734,6 +2747,7 @@ async function mostrarRecords(){
   }catch(e){ renderRecordsLocal(); }                        // si el backend no responde, cae a local
 }
 $('btnRecords')&&($('btnRecords').onclick=()=>{ $('menu').classList.remove('open'); mostrarRecords(); });
+$('btnDeselect')&&($('btnDeselect').onclick=()=>deseleccionar());   // touch: soltar la unidad para poder tocar edificios/recursos
 let saliendo=false;                                                   // salida intencional: no volver a avisar en beforeunload
 $('btnLive')&&($('btnLive').onclick=()=>{                              // ir al vivo: avisa que se cierra la partida sin puntos
   $('menu').classList.remove('open');
