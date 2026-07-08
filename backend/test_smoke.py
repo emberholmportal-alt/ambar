@@ -71,4 +71,10 @@ ok('BlackDuval' not in [e['name'] for e in c.get('/api/roster').json()], "usuari
 # health expone 'open'
 ok('open' in c.get('/api/health').json(), "health expone flag open")
 
+# presencia del live: 2 cids distintos -> 2 viewers
+ok(c.post('/api/live/ping', json={"cid": "a1"}).json()['viewers'] == 1, "ping cid a1 -> 1 viewer")
+ok(c.post('/api/live/ping', json={"cid": "b2"}).json()['viewers'] == 2, "ping cid b2 -> 2 viewers")
+ok(c.post('/api/live/ping', json={"cid": "a1"}).json()['viewers'] == 2, "re-ping a1 no duplica -> 2")
+ok(c.get('/api/live/viewers').json()['viewers'] == 2, "GET viewers -> 2")
+
 print("\nTODO OK")
