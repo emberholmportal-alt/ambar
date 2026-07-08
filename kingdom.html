@@ -99,7 +99,14 @@
   /* ==== compositor de mensaje ==== */
   #kCompose{position:absolute;inset:0;z-index:130;display:none;align-items:center;justify-content:center;padding:20px;
     background:radial-gradient(ellipse at center,rgba(20,12,7,.6),rgba(6,4,3,.8))}
-  #kCompose.on{display:flex}
+  #kCompose.on,#kChal.on{display:flex}
+  #kChal{position:absolute;inset:0;z-index:135;display:none;align-items:center;justify-content:center;padding:20px;
+    background:radial-gradient(ellipse at center,rgba(20,12,7,.7),rgba(6,4,3,.85))}
+  #kChal h3{font-family:var(--display);font-weight:800;font-size:20px;color:var(--brass-hi);margin:0 0 8px;text-align:center}
+  #kChalYes.accept{border:2px solid #8a6a26;color:#120d09;background:linear-gradient(180deg,var(--brass-hi),var(--brass))}
+  #kToast{position:absolute;top:56px;left:50%;transform:translateX(-50%);z-index:40;font-family:var(--mono);font-size:12px;color:var(--ink);
+    background:rgba(18,13,9,.9);border:1px solid var(--line2);border-radius:8px;padding:8px 14px;opacity:0;transition:.25s;pointer-events:none;max-width:90%;text-align:center}
+  #kToast.on{opacity:1}
   .kcbox{width:min(94vw,440px);background:linear-gradient(180deg,rgba(32,24,15,.98),rgba(17,12,8,.99));border:2px solid #6b5226;border-radius:14px;padding:20px 20px 16px;
     box-shadow:inset 0 0 0 1px rgba(201,162,39,.2),0 18px 50px rgba(0,0,0,.65)}
   .kcbox h3{font-family:var(--display);font-weight:800;font-size:18px;color:var(--brass-hi);margin:0 0 12px;text-align:center}
@@ -149,6 +156,17 @@
       <button class="kact" id="kMsgBtn">💬 <span data-es="Mensaje" data-en="Message">Mensaje</span></button>
     </div>
   </div>
+
+  <div id="kToast"></div>
+  <!-- desafío de duelo entrante -->
+  <div id="kChal"><div class="kcbox" style="text-align:center">
+    <h3>⚔ <span data-es="Desafío de duelo" data-en="Duel challenge">Desafío de duelo</span></h3>
+    <p style="font-family:var(--flavor);font-style:italic;color:var(--muted);margin:0 0 14px"><b id="kChalWho" style="color:var(--brass-hi)">?</b> <span data-es="te desafía a un duelo PvP." data-en="challenges you to a PvP duel.">te desafía a un duelo PvP.</span></p>
+    <div class="kcbtns" style="justify-content:center">
+      <button id="kChalNo" data-es="Rechazar" data-en="Decline">Rechazar</button>
+      <button id="kChalYes" class="accept" data-es="Aceptar" data-en="Accept">Aceptar</button>
+    </div>
+  </div></div>
 
   <!-- compositor de mensaje -->
   <div id="kCompose">
