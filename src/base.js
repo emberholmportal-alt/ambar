@@ -675,6 +675,11 @@ function create(){
   cronica(L('Tip: construí Murallas y Torres antes de la 1ª oleada.','Tip: build Walls and Towers before the 1st wave.'),randAv());
   window.__raid=()=>lanzarOleada();
   window.__over=()=>gameOver();
+  // evitar perder la partida por accidente: avisa al recargar/cerrar si hay progreso
+  window.addEventListener('beforeunload',(e)=>{
+    if(saliendo) return;                                 // salida intencional (menú → vivo) ya avisó
+    if(S && !S.over && (S.score>0 || S.tSurv>20)){ e.preventDefault(); e.returnValue=''; }
+  });
   // el mundo ya está armado: completá la barra y disolvé el splash (timer del DOM, siempre corre)
   const sb=document.getElementById('splashBar'); if(sb) sb.style.width='100%';
   const sr=document.getElementById('splashRunner'); if(sr) sr.style.left='100%';   // el jinete llega al final
@@ -2729,10 +2734,11 @@ async function mostrarRecords(){
   }catch(e){ renderRecordsLocal(); }                        // si el backend no responde, cae a local
 }
 $('btnRecords')&&($('btnRecords').onclick=()=>{ $('menu').classList.remove('open'); mostrarRecords(); });
+let saliendo=false;                                                   // salida intencional: no volver a avisar en beforeunload
 $('btnLive')&&($('btnLive').onclick=()=>{                              // ir al vivo: avisa que se cierra la partida sin puntos
   $('menu').classList.remove('open');
   const msg=L('Si vas al vivo se cierra la partida y NO sumás puntos al ranking. ¿Continuar?','If you go to the live, your game closes and you will NOT earn ranking points. Continue?');
-  if(window.confirm(msg)) location.href='/live';
+  if(window.confirm(msg)){ saliendo=true; location.href='/live'; }
 });
 $('btnRecordsCerrar')&&($('btnRecordsCerrar').onclick=()=>$('recordsOv').classList.remove('open'));
 $('recSave')&&($('recSave').onclick=()=>{

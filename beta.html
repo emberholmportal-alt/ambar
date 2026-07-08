@@ -210,6 +210,15 @@
   .card .req{font-size:8px;color:var(--ember)}
   .gridmsg{align-self:center;color:var(--muted);font-size:11px;line-height:1.6;padding:6px 12px;max-width:380px}
   @media(max-width:900px){ .selbox{flex-basis:190px} .bottom{height:190px} .agebanner{min-width:240px} .agebanner .game{font-size:17px} }
+  /* teléfono en vertical: la barra inferior se hace deslizable (swipe) para que entren los 3 paneles */
+  @media(max-width:600px){
+    .bottom{height:auto;max-height:46vh;overflow-x:auto;overflow-y:hidden;gap:8px;padding:8px;align-items:stretch;-webkit-overflow-scrolling:touch}
+    .leftcol{flex:0 0 auto}
+    .mapbox canvas{width:148px;height:88px}
+    .resbar{grid-template-columns:1fr 1fr}
+    .selbox{flex:0 0 186px}
+    .gridbox{flex:0 0 auto;min-width:168px}
+  }
 </style>
 </head>
 <body>
