@@ -650,13 +650,26 @@ function create(){
     const wp=cam.getWorldPoint(p.x,p.y);
     cam.centerOn(Phaser.Math.Linear(cam.midPoint.x,wp.x,0.3), Phaser.Math.Linear(cam.midPoint.y,wp.y,0.3));
   });
-  let dragMoved=false;
+  this.input.addPointer(1);   // habilita un 2º puntero para el pinch en mobile
+  let dragMoved=false, pinchDist=0;
   this.input.on('pointermove',p=>{
     if(!S.colocando && !(p.isDown&&!p.rightButtonDown())) hoverCursor(p);   // cursor contextual (carne/espada/madera)
+    const cam=this.cameras.main, p1=this.input.pointer1, p2=this.input.pointer2;
+    if(p1&&p2&&p1.isDown&&p2.isDown){                         // pinch: dos dedos = zoom (no pan ni comando)
+      dragMoved=true;
+      const d=Phaser.Math.Distance.Between(p1.x,p1.y,p2.x,p2.y);
+      if(pinchDist>0 && d>0){
+        const mx=(p1.x+p2.x)/2, my=(p1.y+p2.y)/2, before=cam.getWorldPoint(mx,my);
+        cam.setZoom(Phaser.Math.Clamp(cam.zoom*(d/pinchDist), baseZoom*0.9, 3.6)); overview=false;
+        const after=cam.getWorldPoint(mx,my);
+        cam.scrollX+=before.x-after.x; cam.scrollY+=before.y-after.y;   // ancla el punto entre los dedos
+      }
+      pinchDist=d; return;
+    }
+    pinchDist=0;
     if(!p.isDown||S.colocando||p.rightButtonDown()) return;
     if(Math.abs(p.x-p.downX)+Math.abs(p.y-p.downY)>8) dragMoved=true;
-    if(dragMoved){ const cam=this.cameras.main;
-      cam.scrollX-=(p.x-p.prevPosition.x)/cam.zoom; cam.scrollY-=(p.y-p.prevPosition.y)/cam.zoom; }
+    if(dragMoved){ cam.scrollX-=(p.x-p.prevPosition.x)/cam.zoom; cam.scrollY-=(p.y-p.prevPosition.y)/cam.zoom; }
   });
   this.input.on('pointerup',p=>{
     if(TOUCH && !S.colocando && !dragMoved && !tapOnUnit && esComandable()) ordenar(p);   // tap (no arrastre) con unidad = comando
