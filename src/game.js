@@ -264,6 +264,9 @@ new Phaser.Game({type:Phaser.AUTO,backgroundColor:'#123041',
 
 function preload(){
   this.load.on('loaderror',f=>{ console.warn('⚠ asset no cargó:',f&&f.key,f&&f.src); });
+  // barra de carga del splash: avanza con el progreso real del preload (mismo look que la beta)
+  this.load.on('progress',p=>{ const b=$('liveBar'); if(b) b.style.width=Math.round(p*100)+'%';
+    const r=$('liveRunner'); if(r) r.style.left=Math.round(p*100)+'%'; });   // el guerrero corre con la barra
   const W={blue:"assets/img/warrior_blue.png",red:"assets/img/warrior_red.png",purple:"assets/img/warrior_purple.png",yellow:"assets/img/warrior_yellow.png"};
   for(const k in W) this.load.spritesheet('warrior_'+k, W[k], {frameWidth:110,frameHeight:98});
   this.load.spritesheet('sheep','assets/img/sheep.png',{frameWidth:64,frameHeight:64});
@@ -743,7 +746,8 @@ function create(){
   this.game.canvas.addEventListener('dblclick',()=>{ manualView=false; cameraBusy=false; fitCamera(); });
   renderMarcador();                                  // el marcador ya se sembró; refresca por si la escena tardó
   this.time.addEvent({delay:rint(9000,16000),loop:true,callback:()=>{ if(!paused&&Math.random()<0.7) bandada(); }});   // bandadas cruzando el cielo
-  const sp=$('liveSplash'); if(sp){ sp.classList.add('hide'); setTimeout(()=>{ if(sp) sp.style.display='none'; },700); }   // mapa listo: oculta la pantalla de carga
+  { const b=$('liveBar'); if(b) b.style.width='100%'; const r=$('liveRunner'); if(r) r.style.left='100%'; }   // mapa listo: completa la barra
+  const sp=$('liveSplash'); if(sp){ sp.classList.add('hide'); setTimeout(()=>{ if(sp) sp.style.display='none'; },700); }   // y oculta la pantalla de carga
 }
 
 /* ===== colocación ===== */
@@ -1341,7 +1345,7 @@ window.dev=function(estado, opts){
   // opts: número = mostrar UNA vez ese tiempo · {steady:true} = fijo · {show,hide} = ciclo a medida · sin opts = INTERMITENTE (aparece por momentos)
   if(typeof opts==='number' && opts>0){ bar.classList.add('on'); devOnceT=setTimeout(()=>{ bar.classList.remove('on'); devEstado=null; }, opts); return devMsg(key); }
   if(opts && opts.steady){ bar.classList.add('on'); return devMsg(key); }
-  const showMs=(opts&&opts.show)||8000, hideMs=(opts&&opts.hide)||14000;      // por defecto: 8s visible / 14s oculto, en loop
+  const showMs=(opts&&opts.show)||16000, hideMs=(opts&&opts.hide)||5000;      // por defecto: 16s visible / 5s oculto, en loop (aparece más tiempo, sale unos segundos)
   const tick=()=>{ if(!devEstado) return; bar.classList.add('on'); setTimeout(()=>{ if(devEstado&&devCycle) bar.classList.remove('on'); }, showMs); };
   tick(); devCycle=setInterval(tick, showMs+hideMs);
   return devMsg(key);
