@@ -608,14 +608,14 @@ function create(){
   placeDecoImg('tdeco18',gc.x+1,gc.y+1,0.95); placeDecoImg('tdeco14',gc.x-1,gc.y+1,0.9);   // tótem y huesos
   for(let i=0;i<6;i++){const fx=gc.x+rint(-3,2),fy=gc.y+rint(-1,3);
     if(isLand(fx,fy)&&!blocked[fy][fx]&&!inSand(fx,fy)&&Math.random()<0.7){scene.add.image(fx*T+T/2,fy*T+T-6,'fence',pick([1,2,9,10])).setOrigin(0.5,1).setDepth(fy*T+T-6); blocked[fy][fx]=true;}}
-  for(let i=0;i<4;i++) spawnMonster(pick(['torch','spear','shaman','tnt']), gc.x+rint(-3,2), gc.y+rint(-1,3), {tx:gc.x,ty:gc.y,r:4});
+  if(!KINGDOM) for(let i=0;i<4;i++) spawnMonster(pick(['torch','spear','shaman','tnt']), gc.x+rint(-3,2), gc.y+rint(-1,3), {tx:gc.x,ty:gc.y,r:4});
 
   // ---- ZONA SALVAJE (O): cueva, fieras y carroña ----
   const cv=nudgeToLand(4,py-2);
   scene.add.sprite(cv.x*T+T/2,cv.y*T+T,'cave').play('cave-a').setOrigin(0.5,1).setScale(0.9).setDepth(cv.y*T+T);
   if(blocked[cv.y]) blocked[cv.y][cv.x]=true;
   placeDecoImg('tdeco14',cv.x+1,cv.y+1,0.9); placeDecoImg('tdeco15',cv.x-1,cv.y,0.9);
-  spawnMonster('bear',cv.x+2,cv.y+1,{tx:cv.x,ty:cv.y,r:5}); spawnMonster('snake',cv.x+1,cv.y+2,{tx:cv.x,ty:cv.y,r:4}); spawnMonster('spider',cv.x+3,cv.y,{tx:cv.x,ty:cv.y,r:4});
+  if(!KINGDOM){ spawnMonster('bear',cv.x+2,cv.y+1,{tx:cv.x,ty:cv.y,r:5}); spawnMonster('snake',cv.x+1,cv.y+2,{tx:cv.x,ty:cv.y,r:4}); spawnMonster('spider',cv.x+3,cv.y,{tx:cv.x,ty:cv.y,r:4}); }
   // (los murciélagos volaban acá: eran Tiny Dungeon → purgados; "criatura voladora" queda en la lista de huecos de VISUAL.md)
 
   // ---- mina (S-O) ----
@@ -657,15 +657,17 @@ function create(){
   // ---- casillas caminables ----
   for(let y=1;y<ROWS-1;y++)for(let x=1;x<COLS-1;x++) if(isLand(x,y)&&!blocked[y][x]) walkTiles.push({x:x*T+T/2,y:y*T+T/2});
 
-  // ---- población: guerreros, aldeanos, arqueros y monjes ----
-  for(let i=0;i<NPC_START;i++) spawnNpc(null, pick(POPMIX));                       // pobladores humanos (spawnNpc(null) ya elige sólo gremios humanos)
-  GUILDS.filter(g=>g.kind!=='humano').forEach(g=>{ for(let i=0;i<10;i++) spawnNpc(g.id, null); });   // ciudadanos goblin/villano en su barrio
-  const HUM=GUILDS.filter(g=>g.kind==='humano');
-  for(const g of HUM){ spawnWorker(g.id,'waxe'); spawnWorker(g.id,'wpick'); }      // leñador y minero por facción humana
-  spawnWorker(pick(HUM).id,'wgold'); spawnWorker(pick(HUM).id,'wgold');            // cargadores de oro
-  spawnWorker(pick(HUM).id,'wmeat'); spawnWorker(pick(HUM).id,'wmeat');            // recolectores de carne (van a la pastura)
-  refreshRoster(); poblarUsuarios();                                               // etiqueta unidades con nombres del roster (usuarios reales)
-  for(let i=0;i<N_MONSTERS;i++){ const t=randFree(); if(t) spawnMonster(pick(ROAMERS),t.x,t.y); }
+  // ---- población: guerreros, aldeanos, arqueros y monjes (en el reino no hay NPCs: sólo usuarios reales) ----
+  if(!KINGDOM){
+    for(let i=0;i<NPC_START;i++) spawnNpc(null, pick(POPMIX));                       // pobladores humanos (spawnNpc(null) ya elige sólo gremios humanos)
+    GUILDS.filter(g=>g.kind!=='humano').forEach(g=>{ for(let i=0;i<10;i++) spawnNpc(g.id, null); });   // ciudadanos goblin/villano en su barrio
+    const HUM=GUILDS.filter(g=>g.kind==='humano');
+    for(const g of HUM){ spawnWorker(g.id,'waxe'); spawnWorker(g.id,'wpick'); }      // leñador y minero por facción humana
+    spawnWorker(pick(HUM).id,'wgold'); spawnWorker(pick(HUM).id,'wgold');            // cargadores de oro
+    spawnWorker(pick(HUM).id,'wmeat'); spawnWorker(pick(HUM).id,'wmeat');            // recolectores de carne (van a la pastura)
+    refreshRoster(); poblarUsuarios();                                               // etiqueta unidades con nombres del roster (usuarios reales)
+    for(let i=0;i<N_MONSTERS;i++){ const t=randFree(); if(t) spawnMonster(pick(ROAMERS),t.x,t.y); }
+  }
 
   // ---- barcos y tiburón navegando el mar abierto ----
   const openSea=[];
@@ -1251,7 +1253,7 @@ function update(time,delta){
       const vis=wv.contains(n.spr.x,n.spr.y); n._plate.setVisible(vis);
       if(vis){ n._plate.x=n.spr.x; n._plate.y=n.spr.y-44; n._plate.setScale(1/cam.zoom); n._plate.setDepth(n.spr.y+40); } }
   }
-  if(KINGDOM) movePlayer(delta);                          // reino: mueve la unidad del usuario
+  if(KINGDOM){ movePlayer(delta); kUpdateOthers(); }      // reino: mueve la unidad del usuario + los demás usuarios reales
   if(paused) return;
 
   clkAcc+=delta*m;
@@ -1390,8 +1392,9 @@ if(ADMIN){
 }
 
 /* ===== MODO REINO: el usuario elige nombre + unidad y camina por la isla ===== */
-let player=null, kReady=false, kUnitList=null, kSel=null, kCursors=null, kKeys=null;
+let player=null, kReady=false, kUnitList=null, kSel=null, kCursors=null, kKeys=null, kNear=null;
 const KSPEED=115;                                        // velocidad de paseo del jugador (px/s)
+const MSG_MAX=60;                                        // límite de caracteres del mensaje sobre la cabeza
 const KCOLLAB={blue:'Blue',red:'Red',purple:'Purple',yellow:'Yellow'};
 function kingdomUnits(){                                 // todas las unidades con animación de caminar
   const U=[];
@@ -1418,7 +1421,72 @@ function makePlayerSprite(u){
   scene.cameras.main.startFollow(s,true,0.12,0.12);
   scene.cameras.main.setFollowOffset(0, kReady?0:130);   // mientras elige, corre la vista para que la unidad se vea arriba del panel
 }
-function syncPlate(){ if(player&&player._plate&&scene){ player._plate.x=player.spr.x; player._plate.y=player.spr.y-46; player._plate.setScale(1/scene.cameras.main.zoom); player._plate.setDepth(player.spr.y+60); } }
+function syncPlate(){ if(!player||!scene) return; const iz=1/scene.cameras.main.zoom;
+  if(player._plate){ player._plate.x=player.spr.x; player._plate.y=player.spr.y-46; player._plate.setScale(iz); player._plate.setDepth(player.spr.y+60); }
+  if(player._say){ player._say.x=player.spr.x; player._say.y=player.spr.y-(player._plate?66:48); player._say.setScale(iz); player._say.setDepth(player.spr.y+70); } }
+function showSay(obj,txt){                                // globo de mensaje sobre la cabeza (jugador o usuario remoto)
+  if(!obj||!obj.spr||!scene) return;
+  txt=(''+txt).trim().slice(0,MSG_MAX); if(!txt) return;
+  if(obj._sayEv){ obj._sayEv.remove(false); obj._sayEv=null; }
+  if(obj._say){ obj._say.destroy(); obj._say=null; }
+  const w=Math.min(250,46+txt.length*6.4);
+  const box=scene.add.container(obj.spr.x,obj.spr.y-66).setDepth(100003);
+  const bg=scene.add.graphics(); bg.fillStyle(0x14100b,0.95); bg.lineStyle(1.5,0xf0d564,0.9);
+  bg.fillRoundedRect(-w/2,-26,w,32,7); bg.strokeRoundedRect(-w/2,-26,w,32,7);
+  bg.fillStyle(0x14100b,0.95); bg.fillTriangle(-5,5,5,5,0,13);
+  const t=scene.add.text(0,-10,txt,{fontFamily:'"IM Fell English",Georgia,serif',fontStyle:'italic',fontSize:'12.5px',color:'#f4ecd6',align:'center',wordWrap:{width:w-14}}).setOrigin(0.5,0.5).setResolution(2);
+  box.add([bg,t]); box.setScale(1/scene.cameras.main.zoom); obj._say=box;
+  obj._sayEv=scene.time.delayedCall(6000,()=>{ if(obj._say){ scene.tweens.add({targets:obj._say,alpha:0,duration:400,onComplete:()=>{ if(obj._say){obj._say.destroy();obj._say=null;} }}); } });
+}
+function playerSay(txt){                                  // el jugador escribe: se muestra local y se envía a los demás
+  txt=(''+txt).trim().slice(0,MSG_MAX); if(!txt||!player) return;
+  showSay(player,txt); syncPlate();
+  if(ws&&ws.readyState===1){ try{ ws.send(JSON.stringify({t:'say',msg:txt})); }catch(e){} }
+}
+function kUpdateNear(){                                   // ¿el jugador está cerca de OTRO usuario real? (habilita PvP contextual)
+  kNear=null;
+  if(player&&player.spr){ let bd=80; for(const id in kOthers){ const o=kOthers[id]; if(!o.spr) continue;
+      const d=Math.hypot(o.spr.x-player.spr.x,o.spr.y-player.spr.y); if(d<bd){ bd=d; kNear=o; } } }
+  const pv=$('kPvpBtn'); if(pv){ pv.style.display=(kReady&&kNear)?'inline-flex':'none';
+    if(kNear){ const nm=$('kPvpName'); if(nm) nm.textContent=kNear.name||''; } }
+}
+/* --- presencia en tiempo real: otros usuarios (WebSocket) --- */
+let ws=null, myId=null, wsPosAcc=0; const kOthers={};
+function kWsUrl(){ const api=(window.AOA_API||'').replace(/\/$/,''); return api?api.replace(/^http/,'ws')+'/ws/kingdom':null; }
+function kUnitByKey(key){ const l=kUnitList||kingdomUnits(); return l.find(u=>u.key===key)||l[0]; }
+function kSpawnOther(id,name,unit,x,y){
+  if(!scene||kOthers[id]) return; const u=kUnitByKey(unit);
+  const s=scene.physics.add.sprite(x,y,u.tex,0).setOrigin(0.5,u.oy).setScale(u.scale).setDepth(y); s.play(u.idle);
+  const o={id,spr:s,u,tx:x,ty:y,name:name||'',flip:false,moving:false,_plate:null,_say:null,_sayEv:null,guild:null};
+  kOthers[id]=o; nameplate(o,{name:o.name,me:false,rank:0});
+}
+function kRemoveOther(id){ const o=kOthers[id]; if(!o) return;
+  if(o._sayEv) o._sayEv.remove(false); if(o._say) o._say.destroy(); if(o._plate) o._plate.destroy(); if(o.spr) o.spr.destroy(); delete kOthers[id]; }
+function kUpdateOthers(){
+  if(!scene) return; const iz=1/scene.cameras.main.zoom;
+  for(const id in kOthers){ const o=kOthers[id]; if(!o.spr) continue;
+    o.spr.x+=(o.tx-o.spr.x)*0.25; o.spr.y+=(o.ty-o.spr.y)*0.25;
+    o.spr.play(o.moving?o.u.run:o.u.idle,true); o.spr.setFlipX(!!o.flip); o.spr.setDepth(o.spr.y);
+    if(o._plate){ o._plate.x=o.spr.x; o._plate.y=o.spr.y-46; o._plate.setScale(iz); o._plate.setDepth(o.spr.y+60); }
+    if(o._say){ o._say.x=o.spr.x; o._say.y=o.spr.y-(o._plate?66:48); o._say.setScale(iz); o._say.setDepth(o.spr.y+70); }
+  }
+}
+function kOnMsg(d){
+  if(!d||!d.t) return;
+  if(d.t==='welcome'){ myId=d.id; (d.players||[]).forEach(p=>{ if(p.id!==myId) kSpawnOther(p.id,p.name,p.unit,p.x,p.y); }); }
+  else if(d.t==='join'){ if(d.id!==myId) kSpawnOther(d.id,d.name,d.unit,d.x,d.y); }
+  else if(d.t==='pos'){ const o=kOthers[d.id]; if(o){ o.tx=d.x; o.ty=d.y; o.flip=!!d.f; o.moving=!!d.m; } }
+  else if(d.t==='say'){ const o=kOthers[d.id]; if(o) showSay(o,d.msg); }
+  else if(d.t==='leave'){ kRemoveOther(d.id); }
+}
+function kConnect(){                                      // conecta al reino en vivo (si hay backend); sin backend, jugás solo
+  const url=kWsUrl(); if(!url||!('WebSocket'in window)) return;
+  try{ ws=new WebSocket(url); }catch(e){ ws=null; return; }
+  ws.onopen=()=>{ try{ ws.send(JSON.stringify({t:'join',name:player.name,unit:kSel.key,x:Math.round(player.spr.x),y:Math.round(player.spr.y)})); }catch(e){} };
+  ws.onmessage=ev=>{ let d; try{ d=JSON.parse(ev.data); }catch(e){ return; } kOnMsg(d); };
+  ws.onclose=()=>{ ws=null; for(const id in kOthers) kRemoveOther(id); };
+  ws.onerror=()=>{};
+}
 function movePlayer(delta){
   if(!player||!player.spr||!player.spr.body) return;
   const b=player.spr.body, spd=player.spd;
@@ -1445,7 +1513,9 @@ function movePlayer(delta){
     player.spr.play((player.faceUp&&player.animIB)?player.animIB:player.animI,true);
     player.spr.setFlipX(!!player.faceLeft);
   }
-  player.spr.setDepth(player.spr.y); syncPlate();
+  player.spr.setDepth(player.spr.y); syncPlate(); kUpdateNear();
+  wsPosAcc+=delta;                                        // avisa la posición a los demás ~8/s
+  if(ws&&ws.readyState===1&&wsPosAcc>120){ wsPosAcc=0; try{ ws.send(JSON.stringify({t:'pos',x:Math.round(player.spr.x),y:Math.round(player.spr.y),f:player.faceLeft,m:moving})); }catch(e){} }
 }
 function kBuildPicker(){
   const box=$('kUnits'); if(!box) return; box.innerHTML=''; let cat=null;
@@ -1473,6 +1543,19 @@ function startKingdom(sc){
   const nameEl=$('kName'); if(nameEl&&saved&&saved.name) nameEl.value=saved.name;
   const btn=$('kEnter'); if(btn) btn.onclick=kingdomEnter;
   if(nameEl) nameEl.addEventListener('keydown',e=>{ if(e.key==='Enter') kingdomEnter(); });
+  kWireChat();
+}
+function kWireChat(){                                     // botón de mensaje (siempre) + PvP (contextual, desactivado) + compositor
+  const open=$('kMsgBtn'), comp=$('kCompose'), input=$('kMsgInput'), count=$('kMsgCount'), send=$('kMsgSend'), cancel=$('kMsgCancel');
+  const refresh=()=>{ if(count&&input) count.textContent=(input.value.length)+'/'+MSG_MAX; };
+  const show=on=>{ if(comp) comp.classList.toggle('on',on); if(on&&input){ input.value=''; refresh(); setTimeout(()=>input.focus(),30); } };
+  const fire=()=>{ if(!input) return; const v=input.value.trim().slice(0,MSG_MAX); if(v){ playerSay(v); } show(false); };
+  if(input){ input.maxLength=MSG_MAX; input.addEventListener('input',refresh);
+    input.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); fire(); } else if(e.key==='Escape'){ show(false); } }); }
+  if(open) open.onclick=()=>show(true);
+  if(send) send.onclick=fire;
+  if(cancel) cancel.onclick=()=>show(false);
+  const pv=$('kPvpBtn'); if(pv){ pv.disabled=true; pv.title=L('PvP — próximamente','PvP — coming soon'); }
 }
 function kingdomEnter(){
   const nameEl=$('kName'), hint=$('kHint'); let nm=((nameEl&&nameEl.value)||'').trim().slice(0,16);
@@ -1483,6 +1566,8 @@ function kingdomEnter(){
   nameplate(player,{name:nm,me:true,rank:0});
   kReady=true;
   if(scene) scene.cameras.main.setFollowOffset(0,0);      // centra la cámara en la unidad al entrar
+  const bar=$('kBar'); if(bar) bar.classList.add('on');   // barra de acciones (mensaje siempre; PvP al cruzarse)
+  kConnect();                                             // entra al reino en vivo: se ve con los demás usuarios reales
   const lg=$('kLogin'); if(lg){ lg.classList.add('hide'); setTimeout(()=>{ if(lg) lg.style.display='none'; },400); }
   const hc=$('kControls'); if(hc){ hc.classList.add('on'); setTimeout(()=>hc.classList.remove('on'),6500); }
 }

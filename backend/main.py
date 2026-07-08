@@ -3,12 +3,14 @@
    Endpoints bajo /api. Ver README.md para desplegar en Render."""
 import hmac
 import hashlib
+import json
 import re
+import secrets
 import time
 import threading
 from typing import Optional
 
-from fastapi import FastAPI, Depends, HTTPException, Header
+from fastapi import FastAPI, Depends, HTTPException, Header, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -170,3 +172,63 @@ def roster(limit: int = 40, db: Session = Depends(get_db)):
     limit = max(1, min(200, limit))
     us = db.query(User).order_by(User.best_score.desc(), User.updated_at.desc()).limit(limit).all()
     return [{"name": u.username, "rank": i + 1, "holder": u.holder} for i, u in enumerate(us)]
+
+
+# ---- Reino (/kingdom): presencia en tiempo real por WebSocket ----
+# En memoria (una sola instancia): cada visitante ve a los demás caminar, sus mensajes y la
+# cercanía para habilitar chat/PvP. Sin NPCs: sólo usuarios reales conectados.
+kingdom_conns: dict = {}   # cid -> {ws, joined, name, unit, x, y, f, m}
+KMAX = 60                  # límite de caracteres del mensaje
+
+async def _kbroadcast(msg: str, exclude: str = None):
+    dead = []
+    for cid, c in list(kingdom_conns.items()):
+        if cid == exclude:
+            continue
+        try:
+            await c["ws"].send_text(msg)
+        except Exception:
+            dead.append(cid)
+    for cid in dead:
+        kingdom_conns.pop(cid, None)
+
+@app.websocket('/ws/kingdom')
+async def ws_kingdom(ws: WebSocket):
+    await ws.accept()
+    cid = secrets.token_hex(4)
+    kingdom_conns[cid] = {"ws": ws, "joined": False, "name": "?", "unit": "pawn_blue", "x": 0.0, "y": 0.0, "f": False, "m": False}
+    try:
+        while True:
+            raw = await ws.receive_text()
+            try:
+                d = json.loads(raw)
+            except Exception:
+                continue
+            c = kingdom_conns.get(cid)
+            if not c:
+                break
+            t = d.get("t")
+            if t == "join":
+                c["name"] = (str(d.get("name", "?")) or "?")[:16]
+                c["unit"] = (str(d.get("unit", "pawn_blue")) or "pawn_blue")[:24]
+                c["x"] = float(d.get("x", 0) or 0); c["y"] = float(d.get("y", 0) or 0)
+                c["joined"] = True
+                others = [{"id": k, "name": v["name"], "unit": v["unit"], "x": v["x"], "y": v["y"]}
+                          for k, v in kingdom_conns.items() if k != cid and v.get("joined")]
+                await ws.send_text(json.dumps({"t": "welcome", "id": cid, "players": others}))
+                await _kbroadcast(json.dumps({"t": "join", "id": cid, "name": c["name"], "unit": c["unit"], "x": c["x"], "y": c["y"]}), exclude=cid)
+            elif t == "pos" and c["joined"]:
+                c["x"] = float(d.get("x", 0) or 0); c["y"] = float(d.get("y", 0) or 0)
+                c["f"] = bool(d.get("f")); c["m"] = bool(d.get("m"))
+                await _kbroadcast(json.dumps({"t": "pos", "id": cid, "x": c["x"], "y": c["y"], "f": c["f"], "m": c["m"]}), exclude=cid)
+            elif t == "say" and c["joined"]:
+                msg = (str(d.get("msg", "")) or "").strip()[:KMAX]
+                if msg:
+                    await _kbroadcast(json.dumps({"t": "say", "id": cid, "msg": msg}), exclude=cid)
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        kingdom_conns.pop(cid, None)
+        await _kbroadcast(json.dumps({"t": "leave", "id": cid}))
