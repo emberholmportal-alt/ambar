@@ -28,6 +28,8 @@
   .ptag{font-family:var(--title);font-size:12px;letter-spacing:.16em;color:var(--brass-hi)}
   .crowns{display:flex;align-items:center;gap:12px;font-family:var(--display);font-weight:700;font-size:15px}
   .crowns .foe{color:#e5533a}.crowns .you{color:#8fbfff}
+  .crowns .timer{font-family:var(--mono);font-size:13px;color:var(--brass-hi);font-variant-numeric:tabular-nums;min-width:42px;text-align:center}
+  .crowns .timer.low{color:var(--ember)}
   .gbtn{font-family:var(--mono);font-size:11px;font-weight:700;color:#f4ecda;cursor:pointer;background:linear-gradient(180deg,var(--bg2),var(--bg3));border:1px solid var(--line2);border-radius:7px;padding:8px 11px}
   .gbtn:hover{border-color:var(--brass);color:var(--brass-hi)}
   .menuwrap{position:relative}
@@ -89,7 +91,7 @@
       <img class="brandlogo" src="assets/img/aoa_logo.png" alt="Age of Ansem: The Black Bull"/>
       <span class="ptag" data-es="ARENA PvP · BETA" data-en="PvP ARENA · BETA">ARENA PvP · BETA</span>
     </div>
-    <div class="crowns"><span class="foe">👑 <span id="crownsFoe">0</span></span><span class="you"><span id="crownsYou">0</span> 👑</span></div>
+    <div class="crowns"><span class="foe">👑 <span id="crownsFoe">0</span></span><span id="pvTimer" class="timer">2:30</span><span class="you"><span id="crownsYou">0</span> 👑</span></div>
     <button class="gbtn" id="btnSound">SOUND</button>
     <div class="menuwrap">
       <button class="gbtn" id="btnMenu">☰</button>
@@ -114,6 +116,7 @@
     <div id="pvToast"></div>
     <div id="pvEnd"><div class="endbox">
       <h2 id="pvEndT">—</h2>
+      <div id="pvEndSub" style="font-family:var(--mono);font-size:13px;color:var(--muted);margin:-8px 0 16px"></div>
       <div class="endbtns">
         <button class="primary" onclick="pvpStart()" data-es="Jugar de nuevo" data-en="Play again">Jugar de nuevo</button>
         <a href="/beta" data-es="Desbloquear más" data-en="Unlock more">Desbloquear más</a>

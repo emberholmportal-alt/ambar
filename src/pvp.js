@@ -9,7 +9,9 @@ const rint=(a,b)=>Math.floor(Math.random()*(b-a+1))+a, pick=a=>a[Math.floor(Math
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 
 const ARENA_W=720, ARENA_H=1080, MID=ARENA_H/2;
-const ENERGY_MAX=10, ENERGY_REGEN=2600;              // +1 de energía cada 2.6s
+const ENERGY_MAX=10, ENERGY_REGEN=2300;              // +1 de energía cada 2.3s
+const MATCH_TIME=150;                                // duración de la partida (s); al terminar gana quien tiró más torres
+const VS_TOWER=1.6;                                  // las unidades pegan más fuerte a las torres (asedios más ágiles)
 
 /* archivos de spritesheet -> [ruta, frameW, frameH] */
 const FILES={
@@ -54,8 +56,8 @@ function unlockedKeys(){
 }
 
 let scene;
-const S={ units:[], towers:[], shots:[], enYou:5, enFoe:5, regYou:0, regFoe:0, aiT:0, aiNext:2600,
-          deck:[], hand:[], sel:-1, crownsYou:0, crownsFoe:0, over:false };
+const S={ units:[], towers:[], shots:[], enYou:6, enFoe:6, regYou:0, regFoe:0, aiT:0, aiNext:2600,
+          deck:[], hand:[], sel:-1, crownsYou:0, crownsFoe:0, over:false, time:MATCH_TIME, timeAcc:0, zoneHi:null };
 
 const config={ type:Phaser.AUTO, parent:'game', backgroundColor:'#0d2417',
   scale:{mode:Phaser.Scale.RESIZE, autoCenter:Phaser.Scale.CENTER_BOTH, width:'100%', height:'100%'},
@@ -99,12 +101,17 @@ function create(){
   const T=(side,x,y,king)=>{
     const img=this.add.image(x,y,king?'castle_black':(side==='you'?'tower_blue':'tower_red')).setOrigin(0.5,0.9).setScale(king?0.62:0.5).setDepth(y);
     if(side==='foe'&&!king) img.setTint(0xffb0b0);
-    const hp=king?1300:720;
+    const hp=king?1000:560;
     const t={side,king,spr:img,x,y:y-30,hp,maxhp:hp,range:king?230:210,rate:king?1100:950,dmg:king?20:16,cd:rint(0,600),dead:false,hpbar:this.add.graphics().setDepth(99000)};
     S.towers.push(t); return t;
   };
   T('foe',ARENA_W*0.5,150,true); T('foe',ARENA_W*0.2,320); T('foe',ARENA_W*0.8,320);
   T('you',ARENA_W*0.5,ARENA_H-150,true); T('you',ARENA_W*0.2,ARENA_H-320); T('you',ARENA_W*0.8,ARENA_H-320);
+
+  // zona de despliegue (tu mitad), se resalta al elegir carta
+  S.zoneHi=this.add.graphics().setDepth(-90).setVisible(false);
+  S.zoneHi.fillStyle(0x5fa5ff,0.10); S.zoneHi.fillRect(4,MID+26,ARENA_W-8,MID-30-146);
+  S.zoneHi.lineStyle(2,0x5fa5ff,0.35); S.zoneHi.strokeRect(4,MID+26,ARENA_W-8,MID-30-146);
 
   // ---- cámara ----
   const cam=this.cameras.main; cam.setBounds(0,0,ARENA_W,ARENA_H);
@@ -135,9 +142,10 @@ function renderHand(){
   S.hand.forEach((key,i)=>{
     const c=CARD_BY_KEY[key]; const el=document.createElement('button'); el.className='card'+(i===S.sel?' sel':'')+(S.enYou<c.cost?' poor':'');
     el.innerHTML='<span class="cthumb" style="background-image:url('+thumb(c)+')"></span><span class="cname">'+L(c.es,c.en)+'</span><span class="ccost">⚡'+c.cost+'</span>';
-    el.onclick=()=>{ S.sel=(S.sel===i?-1:i); renderHand(); };
+    el.onclick=()=>{ S.sel=(S.sel===i?-1:i); renderHand(); if(S.zoneHi) S.zoneHi.setVisible(S.sel>=0&&!S.over); };
     box.appendChild(el);
   });
+  if(S.zoneHi) S.zoneHi.setVisible(S.sel>=0&&!S.over);
 }
 const _thumbs={};
 function thumb(c){                                   // dibuja el frame 0 del sprite en un dataURL para la carta
@@ -170,11 +178,17 @@ function nearestEnemyUnit(e,maxD){ let best=null,bd=maxD; for(const u of S.units
   const d=Math.hypot(u.spr.x-e.spr.x,u.spr.y-e.spr.y); if(d<bd){ bd=d; best=u; } } return best; }
 function nearestEnemyTower(e){ let best=null,bd=1e9; for(const t of S.towers){ if(t.dead||t.side===e.side) continue;
   const d=Math.hypot(t.spr.x-e.spr.x,(t.y)-e.spr.y); if(d<bd){ bd=d; best=t; } } return best; }
-function hurt(o,dmg){ if(o.dead) return; o.hp-=dmg; if(o.hp<=0){ o.hp=0; o.dead=true;
-  if(o.card){ o.spr.destroy(); if(o.hpbar) o.hpbar.destroy(); }               // unidad
-  else { boom(o.spr.x,o.spr.y-20); if(o.hpbar) o.hpbar.destroy(); o.spr.destroy();   // torre
+function flashHit(o){                                     // parpadeo blanco + chispa al recibir daño
+  if(!o.spr||!o.spr.active) return; spark(o.spr.x, o.spr.y-16);
+  try{ o.spr.setTintFill(0xffffff); }catch(e){ return; }
+  scene.time.delayedCall(70,()=>{ if(o.spr&&o.spr.active){ if(o.card&&o.side==='foe') o.spr.setTint(0xff9a9a); else o.spr.clearTint(); } });
+}
+function hurt(o,dmg){ if(o.dead) return; o.hp-=dmg; flashHit(o);
+  if(o.hp>0) return; o.hp=0; o.dead=true; if(o.hpbar) o.hpbar.destroy();
+  if(o.card){ deathPoof(o.spr, o.side); }                                     // unidad: se desvanece con humo
+  else { boom(o.spr.x,o.spr.y-20); o.spr.destroy();                          // torre: explota
     if(o.side==='foe') S.crownsYou++; else S.crownsFoe++; refreshHUD();
-    if(o.king) endGame(o.side==='foe'); } } }
+    if(o.king) endGame(o.side==='foe'?'win':'lose'); } }
 function drawBar(gr,x,y,w,ratio,col){ gr.clear(); if(ratio<=0) return; gr.fillStyle(0x120d09,0.8); gr.fillRect(x-w/2-1,y-1,w+2,6);
   gr.fillStyle(col,1); gr.fillRect(x-w/2,y,w*ratio,4); }
 
@@ -191,6 +205,8 @@ function update(time,delta){
     S.regYou+=delta; if(S.regYou>=ENERGY_REGEN){ S.regYou=0; S.enYou=Math.min(ENERGY_MAX,S.enYou+1); renderHand(); refreshHUD(); }
     S.regFoe+=delta; if(S.regFoe>=ENERGY_REGEN){ S.regFoe=0; S.enFoe=Math.min(ENERGY_MAX,S.enFoe+1); }
     S.aiT+=delta; if(S.aiT>=S.aiNext){ S.aiT=0; S.aiNext=rint(2000,4200); aiPlay(); }
+    S.timeAcc+=delta; if(S.timeAcc>=1000){ S.timeAcc-=1000; S.time--; refreshHUD();
+      if(S.time<=0) endGame(S.crownsYou>S.crownsFoe?'win':S.crownsYou<S.crownsFoe?'lose':'draw'); }
   }
   // unidades
   for(const u of S.units){ if(u.dead) continue;
@@ -200,9 +216,9 @@ function update(time,delta){
     const tx=tgt.spr.x, ty=(tgt.card?tgt.spr.y:tgt.y), dx=tx-u.spr.x, dy=ty-u.spr.y, d=Math.hypot(dx,dy)||1;
     if(d<=u.range){                                       // atacar
       u.spr.play(u.key+'-i',true);
-      if(u.cd<=0){ u.cd=u.rate;
-        if(u.ranged) shoot(u,tgt,u.dmg,u.side==='you'?0x8ec8ff:0xff9a9a);
-        else { hurt(tgt,u.dmg); if(!u.ranged) miniLunge(u,dx,dy); }
+      if(u.cd<=0){ u.cd=u.rate; const dmg=tgt.card?u.dmg:Math.round(u.dmg*VS_TOWER);   // más daño a torres
+        if(u.ranged) shoot(u,tgt,dmg,u.side==='you'?0x8ec8ff:0xff9a9a);
+        else { hurt(tgt,dmg); miniLunge(u,dx,dy); }
       }
     } else {                                              // avanzar
       const sp=u.sp*dt; u.spr.x+=dx/d*sp; u.spr.y+=dy/d*sp;
@@ -227,10 +243,22 @@ function update(time,delta){
   S.units=S.units.filter(u=>!u.dead); S.shots=S.shots.filter(s=>!s.dead);
 }
 function miniLunge(u,dx,dy){ const d=Math.hypot(dx,dy)||1; scene.tweens.add({targets:u.spr,x:u.spr.x+dx/d*6,y:u.spr.y+dy/d*6,duration:90,yoyo:true}); }
-function aiPlay(){
+function spark(x,y){ for(let i=0;i<3;i++){ const p=scene.add.circle(x+rint(-6,6),y+rint(-6,6),rint(2,3),0xffe08a,0.9).setDepth(99550);
+  scene.tweens.add({targets:p,x:p.x+rint(-14,14),y:p.y-rint(6,18),alpha:0,duration:rint(220,380),onComplete:()=>p.destroy()}); } }
+function deathPoof(spr,side){                             // muerte de unidad: humo + desvanecido
+  if(!spr||!spr.active){ return; }
+  const c=scene.add.circle(spr.x,spr.y-14,10,side==='you'?0x8ec8ff:0xff9a9a,0.5).setDepth(99450);
+  scene.tweens.add({targets:c,radius:30,alpha:0,duration:360,onComplete:()=>c.destroy()});
+  scene.tweens.add({targets:spr,alpha:0,scaleX:spr.scaleX*0.6,scaleY:spr.scaleY*0.6,y:spr.y+6,duration:340,ease:'Quad.easeIn',onComplete:()=>spr.destroy()});
+}
+function aiPlay(){                                         // IA: responde a tus avances y aprovecha la energía
   const affordable=FOE_POOL.map(k=>CARD_BY_KEY[k]).filter(c=>c&&c.cost<=S.enFoe);
-  if(!affordable.length) return; const c=pick(affordable); S.enFoe-=c.cost;
-  deploy(c.key,'foe', rint(60,ARENA_W-60), rint(210,MID-70));
+  if(!affordable.length) return;
+  const threats=S.units.filter(u=>u.side==='you'&&u.spr.y<MID+140);   // tropas tuyas cruzando a su terreno
+  let x= threats.length ? clamp(pick(threats).spr.x+rint(-40,40),60,ARENA_W-60) : rint(70,ARENA_W-70);
+  affordable.sort((a,b)=>b.cost-a.cost);
+  const c = Math.random()<0.6 ? affordable[0] : pick(affordable);    // suele usar la carta más cara que puede pagar
+  S.enFoe-=c.cost; deploy(c.key,'foe', x, rint(210,MID-70));
 }
 
 /* ===== fx / hud ===== */
@@ -240,12 +268,18 @@ let soundOn=false;
 function sfx(k,v){ if(soundOn&&scene) try{ scene.sound.play('s_'+k,{volume:v||0.4}); }catch(e){} }
 function refreshHUD(){ const ef=$('energyFill'); if(ef) ef.style.width=Math.round(S.enYou/ENERGY_MAX*100)+'%';
   const en=$('energyNum'); if(en) en.textContent=Math.floor(S.enYou);
-  const cy=$('crownsYou'); if(cy) cy.textContent=S.crownsYou; const cf=$('crownsFoe'); if(cf) cf.textContent=S.crownsFoe; }
+  const cy=$('crownsYou'); if(cy) cy.textContent=S.crownsYou; const cf=$('crownsFoe'); if(cf) cf.textContent=S.crownsFoe;
+  const tm=$('pvTimer'); if(tm){ const s=Math.max(0,S.time); tm.textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); tm.classList.toggle('low',s<=20); } }
 let toastT=null;
 function toast(t){ const el=$('pvToast'); if(!el) return; el.textContent=t; el.classList.add('on'); if(toastT) clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('on'),1600); }
-function endGame(win){ if(S.over) return; S.over=true; sfx(win?'coins':'bong',0.6);
-  const ov=$('pvEnd'); if(ov){ $('pvEndT').textContent=win?L('¡VICTORIA!','VICTORY!'):L('DERROTA','DEFEAT');
-    $('pvEndT').style.color=win?'#8fe08a':'#e5533a'; ov.classList.add('on'); } }
+function endGame(result){ if(S.over) return; S.over=true; if(S.zoneHi) S.zoneHi.setVisible(false);
+  sfx(result==='win'?'coins':'bong',0.6);
+  const ov=$('pvEnd'), t=$('pvEndT'); if(!ov||!t) return;
+  if(result==='win'){ t.textContent=L('¡VICTORIA!','VICTORY!'); t.style.color='#8fe08a'; }
+  else if(result==='lose'){ t.textContent=L('DERROTA','DEFEAT'); t.style.color='#e5533a'; }
+  else { t.textContent=L('EMPATE','DRAW'); t.style.color='#e9b04a'; }
+  const sub=$('pvEndSub'); if(sub) sub.textContent='👑 '+S.crownsYou+' – '+S.crownsFoe+' 👑';
+  ov.classList.add('on'); }
 
 /* ===== controles del chrome ===== */
 window.pvpStart=function(){ if(scene){ S.units.forEach(u=>{u.spr.destroy(); if(u.hpbar)u.hpbar.destroy();}); }
