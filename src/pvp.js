@@ -90,6 +90,14 @@ function preload(){
   for(const k in FILES) this.load.spritesheet(k, FILES[k][0], {frameWidth:FILES[k][1], frameHeight:FILES[k][2]});
   for(const c of ['blue','red']) this.load.image('tower_'+c, TSB+'tower_'+c+'.png');
   this.load.image('castle_black', TSB+'castle_black.png');
+  // terreno rico (tiles reales + puente + naturaleza), igual que el reino
+  this.load.spritesheet('ground', TSB+'ground.png', {frameWidth:64,frameHeight:64});
+  this.load.image('pwater', TSB+'water.png');
+  this.load.spritesheet('foam', TSB+'foam.png', {frameWidth:192,frameHeight:192});
+  this.load.spritesheet('atree', TSB+'tree_anim.png', {frameWidth:192,frameHeight:192});
+  this.load.image('bridge', TSB+'bridge.png');
+  for(let i=1;i<=4;i++){ this.load.spritesheet('abush'+i, TSB+'bush'+i+'.png', {frameWidth:128,frameHeight:128}); this.load.image('arock'+i, TSB+'rock'+i+'.png'); }
+  for(let i=1;i<=18;i++) this.load.image('adeco'+i, TSB+'deco'+String(i).padStart(2,'0')+'.png');
   ['clash','fire','bell','coins','bong'].forEach(k=>this.load.audio('s_'+k,'assets/sfx/'+k+'.ogg'));
 }
 
@@ -99,24 +107,37 @@ function mkAnim(an,key,sheet,frames,rate,loop){
   an.create({key,frames:f,frameRate:rate||10,repeat:loop===false?0:-1});
 }
 function makeDot(s){ const g=s.add.graphics({add:false}); g.fillStyle(0xffffff,1); g.fillCircle(5,5,5); g.generateTexture('pdot',10,10); g.destroy(); }
+function buildArena(s){                                    // terreno rico con tiles reales, caminos, río, puentes y naturaleza
+  s.add.tileSprite(0,0,ARENA_W,ARENA_H,'ground',11).setOrigin(0,0).setDepth(-200);        // pasto (tile real)
+  for(const lx of LANES) s.add.tileSprite(lx-54,0,108,ARENA_H,'ground',16).setOrigin(0,0).setDepth(-190).setAlpha(0.96);   // caminos de arena
+  s.add.tileSprite(0,MID-46,ARENA_W,92,'pwater').setOrigin(0,0).setDepth(-180);            // río
+  for(let x=48;x<ARENA_W;x+=92){                                                            // espuma en las dos orillas
+    s.add.sprite(x,MID-46,'foam').play({key:'foam-a',startFrame:rint(0,7)}).setScale(0.5).setDepth(-179).setAlpha(0.9);
+    s.add.sprite(x,MID+46,'foam').play({key:'foam-a',startFrame:rint(0,7)}).setScale(0.5).setDepth(-179).setAlpha(0.9); }
+  for(const lx of LANES) s.add.image(lx,MID,'bridge').setOrigin(0.5,0.5).setScale(0.62).setDepth(-168);   // puentes reales
+  const okSpot=(x,y)=> (x<ARENA_W*0.14||x>ARENA_W*0.86) && Math.abs(y-MID)>70 && y>44 && y<ARENA_H-44;
+  let placed=0, it=0;
+  while(placed<28 && it++<500){ const x=rint(24,ARENA_W-24), y=rint(24,ARENA_H-24); if(!okSpot(x,y)) continue;
+    const r=Math.random();
+    if(r<0.34) s.add.sprite(x,y,'atree').play({key:'atree-a',startFrame:rint(0,3)}).setOrigin(0.5,0.92).setScale(Phaser.Math.FloatBetween(0.5,0.66)).setDepth(y);
+    else if(r<0.70){ const bi=rint(1,4); s.add.sprite(x,y,'abush'+bi).play({key:'abush'+bi+'-a',startFrame:rint(0,7)}).setOrigin(0.5,0.9).setScale(Phaser.Math.FloatBetween(0.42,0.6)).setDepth(y); }  // arbustos animados = césped
+    else if(r<0.86) s.add.image(x,y,'arock'+rint(1,4)).setOrigin(0.5,0.9).setScale(Phaser.Math.FloatBetween(0.5,0.8)).setDepth(y);
+    else s.add.image(x,y,'adeco'+rint(1,18)).setOrigin(0.5,0.9).setScale(Phaser.Math.FloatBetween(0.6,0.9)).setDepth(y);
+    placed++;
+  }
+  const b=s.add.graphics().setDepth(95000); b.lineStyle(6,0x4a3420,1); b.strokeRoundedRect(3,3,ARENA_W-6,ARENA_H-6,18);   // marco del tablero
+  b.lineStyle(2,0xc9a227,0.55); b.strokeRoundedRect(7,7,ARENA_W-14,ARENA_H-14,14);
+}
 
 let camFit;
+const LANES=[ARENA_W*0.2, ARENA_W*0.8];   // los dos caminos/puentes (alineados con las torres laterales)
 function create(){
   scene=this; const an=this.anims;
   makeDot(this);
   CARDS.forEach(c=>{ mkAnim(an,c.key+'-i',c.si,c.fi,8); mkAnim(an,c.key+'-r',c.sr,c.fr,11); });
-
-  // ---- arena ----
-  const g=this.add.graphics().setDepth(-100);
-  g.fillStyle(0x3f6b34,1); g.fillRoundedRect(0,0,ARENA_W,ARENA_H,26);
-  g.fillStyle(0x37602e,1); g.fillRect(0,0,ARENA_W,MID);                 // mitad enemiga apenas distinta
-  g.fillStyle(0x2c5670,1); g.fillRect(0,MID-26,ARENA_W,52);             // río central
-  g.lineStyle(3,0x1c3a24,1); g.strokeRoundedRect(2,2,ARENA_W-4,ARENA_H-4,26);
-  for(let i=0;i<70;i++){ const gx=rint(10,ARENA_W-10),gy=rint(10,ARENA_H-10); if(Math.abs(gy-MID)<30)continue;
-    this.add.circle(gx,gy,rint(2,4),0x2f5327,0.5).setDepth(-99); }
-  // puentes sobre el río
-  for(const bx of [ARENA_W*0.28, ARENA_W*0.72]){ this.add.rectangle(bx,MID,120,52,0x7a5a34).setDepth(-98); this.add.rectangle(bx,MID,120,52).setStrokeStyle(3,0x5a3f22).setDepth(-98); }
-
+  mkAnim(an,'foam-a','foam',[0,7],7); mkAnim(an,'atree-a','atree',[0,3],4);
+  for(let i=1;i<=4;i++) mkAnim(an,'abush'+i+'-a','abush'+i,[0,7],6);
+  buildArena(this);
   buildTowers();
 
   // zona de despliegue (tu mitad), se resalta al elegir carta
@@ -129,20 +150,10 @@ function create(){
   camFit=()=>{ const vw=this.scale.width, vh=this.scale.height; cam.setZoom(Math.min(vw/ARENA_W, vh/ARENA_H)); cam.centerOn(ARENA_W/2,ARENA_H/2); };
   camFit(); this.scale.on('resize',camFit);
 
-  // ---- desplegar tocando tu mitad ----
+  // ---- desplegar: arrastrando la carta al campo (o tocando con carta elegida) ----
   this.input.on('pointerdown',p=>{
-    if(!S.started||S.over) return; const wp=cam.getWorldPoint(p.x,p.y);
-    if(S.sel<0){ toast(L('Elegí una carta primero.','Pick a card first.')); return; }
-    const key=S.hand[S.sel]; const c=CARD_BY_KEY[key]; if(!c) return;
-    if(S.enYou<c.cost){ toast(L('Sin energía suficiente.','Not enough energy.')); return; }
-    if(S.guest){                                           // invitado: ve el tablero espejado, despliega desde ABAJO (su lado)
-      if(wp.y<MID+40) return;
-      if(dws&&dws.readyState===1){ try{ dws.send(JSON.stringify({t:'dep',key,x:Math.round(clamp(wp.x,50,ARENA_W-50)),lvl:cardLevel(key)})); }catch(e){} }
-      cycleHand(S.sel); S.sel=-1; renderHand(); return;
-    }
-    if(wp.y<MID+40) return;                                // sólo tu mitad (abajo)
-    S.enYou-=c.cost; deploy(key,'you', clamp(wp.x,50,ARENA_W-50), clamp(wp.y,MID+70,ARENA_H-190));
-    cycleHand(S.sel); S.sel=-1; renderHand();
+    if(S.sel<0) return; const wp=cam.getWorldPoint(p.x,p.y);
+    if(tryDeployAt(S.hand[S.sel], wp.x, wp.y)){ cycleHand(S.sel); S.sel=-1; renderHand(); }
   });
 
   buildDeck(); renderHand(); renderLocked(); refreshHUD();
@@ -183,10 +194,43 @@ function renderHand(){
   S.hand.forEach((key,i)=>{
     const c=CARD_BY_KEY[key]; const el=document.createElement('button'); el.className='card'+(i===S.sel?' sel':'')+(S.enYou<c.cost?' poor':'');
     el.innerHTML='<span class="cthumb" style="background-image:url('+thumb(c)+')"></span><span class="cname">'+L(c.es,c.en)+'</span><span class="ccost">⚡'+c.cost+'</span>';
-    el.onclick=()=>{ S.sel=(S.sel===i?-1:i); renderHand(); if(S.zoneHi) S.zoneHi.setVisible(S.sel>=0&&!S.over); };
+    el.addEventListener('pointerdown',ev=>startDrag(i,ev));   // arrastrar la carta al campo (o tocar = elegir)
     box.appendChild(el);
   });
   if(S.zoneHi) S.zoneHi.setVisible(S.sel>=0&&!S.over);
+}
+function tryDeployAt(key,wx,wy){                            // despliega una carta en (wx,wy) del mundo si se puede
+  if(!S.started||S.over) return false; const c=CARD_BY_KEY[key]; if(!c) return false;
+  if(S.enYou<c.cost){ toast(L('Sin energía suficiente.','Not enough energy.')); return false; }
+  if(wy<MID+40){ toast(L('Soltá en tu mitad (abajo).','Drop on your half (bottom).')); return false; }
+  if(S.guest){ if(dws&&dws.readyState===1){ try{ dws.send(JSON.stringify({t:'dep',key,x:Math.round(clamp(wx,50,ARENA_W-50)),lvl:cardLevel(key)})); }catch(e){} } return true; }
+  S.enYou-=c.cost; deploy(key,'you', clamp(wx,50,ARENA_W-50), clamp(wy,MID+70,ARENA_H-190)); return true;
+}
+let dragEl=null, dragKey=null, dragSlot=-1, dragMoved=false;
+function startDrag(slot,ev){
+  if(!S.started||S.over||dragEl) return;
+  dragSlot=slot; dragKey=S.hand[slot]; dragMoved=false;
+  if(S.zoneHi) S.zoneHi.setVisible(true);
+  const c=CARD_BY_KEY[dragKey];
+  dragEl=document.createElement('div'); dragEl.className='dragghost'; dragEl.style.backgroundImage='url('+thumb(c)+')';
+  document.body.appendChild(dragEl); moveGhost(ev);
+  window.addEventListener('pointermove',moveGhost);
+  window.addEventListener('pointerup',endDrag,{once:true});
+  ev.preventDefault();
+}
+function moveGhost(ev){ if(Math.abs(ev.movementX||0)+Math.abs(ev.movementY||0)>0) dragMoved=true;
+  if(dragEl){ dragEl.style.left=ev.clientX+'px'; dragEl.style.top=ev.clientY+'px'; } }
+function endDrag(ev){
+  window.removeEventListener('pointermove',moveGhost);
+  if(dragEl){ dragEl.remove(); dragEl=null; }
+  const cvs=document.querySelector('#game canvas'); let done=false;
+  if(dragMoved && cvs && dragKey && scene){ const r=cvs.getBoundingClientRect();
+    if(ev.clientX>=r.left&&ev.clientX<=r.right&&ev.clientY>=r.top&&ev.clientY<=r.bottom){
+      const wp=scene.cameras.main.getWorldPoint(ev.clientX-r.left, ev.clientY-r.top);
+      if(tryDeployAt(dragKey,wp.x,wp.y)){ cycleHand(dragSlot); done=true; } } }
+  S.sel = done ? -1 : (dragMoved ? -1 : (S.sel===dragSlot?-1:dragSlot));   // tap sin arrastrar = elegir/deseleccionar
+  if(S.zoneHi) S.zoneHi.setVisible(S.sel>=0&&!S.over);
+  dragKey=null; dragSlot=-1; renderHand();
 }
 const _thumbs={};
 function thumb(c){                                   // dibuja el frame 0 del sprite en un dataURL para la carta
