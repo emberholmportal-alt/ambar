@@ -38,8 +38,16 @@
   .menu a{font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:none;padding:9px 11px;border-radius:6px}
   .menu a:hover{background:rgba(201,162,39,.14);color:var(--brass-hi)}
   /* arena */
-  .arena{flex:1;position:relative;min-height:0}
+  .arena{flex:1;position:relative;min-height:0;display:flex;align-items:center;justify-content:center;padding:10px;
+    background:radial-gradient(130% 120% at 50% 28%,#132a1c,#0a150e 68%,#060b08)}
+  .board{position:relative;height:100%;aspect-ratio:2/3;max-width:100%;flex:none;
+    border:3px solid var(--brass);border-radius:16px;overflow:hidden;background:#0a150e;
+    box-shadow:0 0 0 2px rgba(0,0,0,.55),0 16px 44px rgba(0,0,0,.6),inset 0 0 42px rgba(0,0,0,.4)}
   #game{position:absolute;inset:0} #game canvas{display:block}
+  /* carta fantasma que sigue al dedo/mouse al arrastrar */
+  .dragghost{position:fixed;z-index:9998;width:66px;height:66px;pointer-events:none;transform:translate(-50%,-62%);
+    background-size:contain;background-position:center;background-repeat:no-repeat;image-rendering:pixelated;
+    filter:drop-shadow(0 7px 11px rgba(0,0,0,.65));opacity:.94}
   /* splash */
   #pvSplash{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;
     background:radial-gradient(120% 120% at 50% 40%,#123d24,#0a1b12 60%,#060d09);transition:opacity .5s}
@@ -135,7 +143,7 @@
   </div>
 
   <div class="arena">
-    <div id="game"></div>
+    <div class="board"><div id="game"></div></div>
     <div id="lockMsg" style="display:none"></div>
     <div id="pvToast"></div>
     <div id="pvEnd"><div class="endbox">
