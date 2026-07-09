@@ -95,7 +95,7 @@ function preload(){
   this.load.image('pwater', TSB+'water.png');
   this.load.spritesheet('foam', TSB+'foam.png', {frameWidth:192,frameHeight:192});
   this.load.spritesheet('atree', TSB+'tree_anim.png', {frameWidth:192,frameHeight:192});
-  this.load.image('bridge', TSB+'bridge.png');
+  this.load.image('bridge', TSB+'bridge_v.png');   // puente vertical recortado del atlas (cruza el río horizontal)
   for(let i=1;i<=4;i++){ this.load.spritesheet('abush'+i, TSB+'bush'+i+'.png', {frameWidth:128,frameHeight:128}); this.load.image('arock'+i, TSB+'rock'+i+'.png'); }
   for(let i=1;i<=18;i++) this.load.image('adeco'+i, TSB+'deco'+String(i).padStart(2,'0')+'.png');
   ['clash','fire','bell','coins','bong'].forEach(k=>this.load.audio('s_'+k,'assets/sfx/'+k+'.ogg'));
@@ -108,13 +108,20 @@ function mkAnim(an,key,sheet,frames,rate,loop){
 }
 function makeDot(s){ const g=s.add.graphics({add:false}); g.fillStyle(0xffffff,1); g.fillCircle(5,5,5); g.generateTexture('pdot',10,10); g.destroy(); }
 function buildArena(s){                                    // terreno rico con tiles reales, caminos, río, puentes y naturaleza
-  s.add.tileSprite(0,0,ARENA_W,ARENA_H,'ground',11).setOrigin(0,0).setDepth(-200);        // pasto (tile real)
-  for(const lx of LANES) s.add.tileSprite(lx-54,0,108,ARENA_H,'ground',16).setOrigin(0,0).setDepth(-190).setAlpha(0.96);   // caminos de arena
-  s.add.tileSprite(0,MID-46,ARENA_W,92,'pwater').setOrigin(0,0).setDepth(-180);            // río
-  for(let x=48;x<ARENA_W;x+=92){                                                            // espuma en las dos orillas
-    s.add.sprite(x,MID-46,'foam').play({key:'foam-a',startFrame:rint(0,7)}).setScale(0.5).setDepth(-179).setAlpha(0.9);
-    s.add.sprite(x,MID+46,'foam').play({key:'foam-a',startFrame:rint(0,7)}).setScale(0.5).setDepth(-179).setAlpha(0.9); }
-  for(const lx of LANES) s.add.image(lx,MID,'bridge').setOrigin(0.5,0.5).setScale(0.62).setDepth(-168);   // puentes reales
+  const RIV=44;                                                                             // medio ancho del río
+  const TOP=MID-RIV, BOT=MID+RIV;
+  // capas (de abajo hacia arriba): agua → espuma → tierra (tapa la mitad terrestre de la espuma, como la costa del juego)
+  s.add.tileSprite(0,TOP-4,ARENA_W,RIV*2+8,'pwater').setOrigin(0,0).setDepth(-200);         // río (agua real, base)
+  for(let x=0;x<=ARENA_W;x+=48){                                                            // espuma animada en las dos orillas
+    s.add.sprite(x,TOP,'foam').play({key:'foam-a',startFrame:rint(0,7)}).setScale(0.56).setDepth(-196);
+    s.add.sprite(x,BOT,'foam').play({key:'foam-a',startFrame:rint(0,7)}).setScale(0.56).setDepth(-196); }
+  // pasto en las dos mitades (deja ver el río+espuma en el medio; la tierra tapa la parte terrestre de la espuma → sólo se ve la ola en el agua)
+  s.add.tileSprite(0,0,ARENA_W,TOP,'ground',11).setOrigin(0,0).setDepth(-190);
+  s.add.tileSprite(0,BOT,ARENA_W,ARENA_H-BOT,'ground',11).setOrigin(0,0).setDepth(-190);
+  for(const lx of LANES){                                                                   // caminos de arena (cortados por el río)
+    s.add.tileSprite(lx-54,0,108,TOP,'ground',16).setOrigin(0,0).setDepth(-188).setAlpha(0.97);
+    s.add.tileSprite(lx-54,BOT,108,ARENA_H-BOT,'ground',16).setOrigin(0,0).setDepth(-188).setAlpha(0.97); }
+  for(const lx of LANES) s.add.image(lx,MID,'bridge').setOrigin(0.5,0.5).setScale(0.92).setDepth(-168);   // puente vertical real sobre el río
   const okSpot=(x,y)=> (x<ARENA_W*0.14||x>ARENA_W*0.86) && Math.abs(y-MID)>70 && y>44 && y<ARENA_H-44;
   let placed=0, it=0;
   while(placed<28 && it++<500){ const x=rint(24,ARENA_W-24), y=rint(24,ARENA_H-24); if(!okSpot(x,y)) continue;
@@ -296,6 +303,7 @@ function update(time,delta){
     S.timeAcc+=delta; if(S.timeAcc>=1000){ S.timeAcc-=1000; S.time--; refreshHUD();
       if(S.time<=0) endGame(S.crownsYou>S.crownsFoe?'win':S.crownsYou<S.crownsFoe?'lose':'draw'); }
     if(S.duel){ snapAcc+=delta; if(snapAcc>=100){ snapAcc=0; duelBroadcast(); } }   // host: envía el estado ~10/s
+    paintEnergy(S.enYou + (S.enYou<ENERGY_MAX?S.regYou/ENERGY_REGEN:0));   // el segmento que carga avanza suave
   }
   // unidades
   for(const u of S.units){ if(u.dead) continue;
@@ -429,8 +437,13 @@ function puff(x,y,col){ const c=scene.add.circle(x,y,8,col,0.5).setDepth(99400);
 function boom(x,y){ sfx('fire',0.4); const c=scene.add.circle(x,y,10,0xffb060,0.8).setDepth(99600); scene.tweens.add({targets:c,radius:60,alpha:0,duration:500,onComplete:()=>c.destroy()}); if(scene.cameras&&scene.cameras.main) scene.cameras.main.shake(200,0.006); }
 let soundOn=false;
 function sfx(k,v){ if(soundOn&&scene) try{ scene.sound.play('s_'+k,{volume:v||0.4}); }catch(e){} }
-function refreshHUD(){ const ef=$('energyFill'); if(ef) ef.style.width=Math.round(S.enYou/ENERGY_MAX*100)+'%';
-  const en=$('energyNum'); if(en) en.textContent=Math.floor(S.enYou);
+const ESEGS=[];
+function buildEnergyBar(){ const bar=$('ebar'); if(!bar||ESEGS.length) return;
+  for(let i=0;i<ENERGY_MAX;i++){ const seg=document.createElement('div'); seg.className='eseg'; const f=document.createElement('div'); f.className='efill'; seg.appendChild(f); bar.appendChild(seg); ESEGS.push(f); } }
+function paintEnergy(val){ buildEnergyBar(); const v=Math.max(0,Math.min(ENERGY_MAX,val));
+  for(let i=0;i<ESEGS.length;i++){ const fill=Math.max(0,Math.min(1,v-i)); ESEGS[i].style.width=(fill*100)+'%'; ESEGS[i].parentElement.classList.toggle('full',fill>=0.999); }
+  const en=$('energyNum'); if(en) en.textContent=Math.floor(v+0.0001); }
+function refreshHUD(){ paintEnergy(S.enYou);
   const cy=$('crownsYou'); if(cy) cy.textContent=S.crownsYou; const cf=$('crownsFoe'); if(cf) cf.textContent=S.crownsFoe;
   const tm=$('pvTimer'); if(tm){ const s=Math.max(0,S.time); tm.textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); tm.classList.toggle('low',s<=20); }
   const tr=$('hudTrophies'); if(tr) tr.textContent=PROG.trophies; const gd=$('hudGold'); if(gd) gd.textContent=PROG.gold; }

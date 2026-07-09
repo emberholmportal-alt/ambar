@@ -1000,8 +1000,8 @@ function nameplate(n,entry){
   n.user=entry.name;
   const crown = entry.rank===1 ? ' 👑' : '';
   const box=scene.add.container(n.spr.x,n.spr.y-44).setDepth(100000);
-  const t=scene.add.text(5,0,entry.name+crown,{fontFamily:'"Grenze Gotisch",Georgia,serif',fontSize:'13px',
-    color: entry.me?'#f0d564':'#f4ecd6', stroke:'#120d09',strokeThickness:3}).setOrigin(0.5,0.5).setResolution(3);
+  const t=scene.add.text(5,0,entry.name+crown,{fontFamily:'"Cinzel",Georgia,serif',fontStyle:'700',fontSize:'13px',
+    color: entry.me?'#f0d564':'#f4ecd6', stroke:'#120d09',strokeThickness:3.5}).setOrigin(0.5,0.5).setResolution(3);
   const w=Math.ceil(t.width)+22;
   const bg=scene.add.graphics();
   bg.fillStyle(0x140f0a,0.82); bg.lineStyle(1, entry.me?0xf0d564:0xc9a227, 0.7);
@@ -1256,7 +1256,8 @@ function update(time,delta){
       const vis=wv.contains(n.spr.x,n.spr.y); n._plate.setVisible(vis);
       if(vis){ n._plate.x=n.spr.x; n._plate.y=n.spr.y-44; n._plate.setScale(1/cam.zoom); n._plate.setDepth(n.spr.y+40); } }
   }
-  if(KINGDOM){ movePlayer(delta); kUpdateOthers(); }      // reino: mueve la unidad del usuario + los demás usuarios reales
+  if(KINGDOM){ movePlayer(delta); kUpdateOthers();         // reino: mueve la unidad del usuario + los demás usuarios reales
+    if(kReady){ kMMacc+=delta; if(kMMacc>=90){ kMMacc=0; try{ kMinimap(); }catch(e){} } } }
   if(paused) return;
 
   clkAcc+=delta*m;
@@ -1437,7 +1438,7 @@ function showSay(obj,txt){                                // globo de mensaje so
   const bg=scene.add.graphics(); bg.fillStyle(0x14100b,0.95); bg.lineStyle(1.5,0xf0d564,0.9);
   bg.fillRoundedRect(-w/2,-26,w,32,7); bg.strokeRoundedRect(-w/2,-26,w,32,7);
   bg.fillStyle(0x14100b,0.95); bg.fillTriangle(-5,5,5,5,0,13);
-  const t=scene.add.text(0,-10,txt,{fontFamily:'"Grenze Gotisch",Georgia,sans-serif',fontStyle:'700',fontSize:'13.5px',color:'#f6efdd',align:'center',wordWrap:{width:w-14}}).setOrigin(0.5,0.5).setResolution(3);
+  const t=scene.add.text(0,-10,txt,{fontFamily:'"Cinzel",Georgia,serif',fontStyle:'600',fontSize:'13.5px',color:'#f6efdd',align:'center',wordWrap:{width:w-14}}).setOrigin(0.5,0.5).setResolution(3);
   box.add([bg,t]); box.setScale(1/scene.cameras.main.zoom); obj._say=box;
   obj._sayEv=scene.time.delayedCall(6000,()=>{ if(obj._say){ scene.tweens.add({targets:obj._say,alpha:0,duration:400,onComplete:()=>{ if(obj._say){obj._say.destroy();obj._say=null;} }}); } });
 }
@@ -1581,12 +1582,29 @@ function startKingdom(sc){
   const btn=$('kEnter'); if(btn) btn.onclick=kingdomEnter;
   if(nameEl) nameEl.addEventListener('keydown',e=>{ if(e.key==='Enter') kingdomEnter(); });
   kWireChat();
+  kWalletPaint();                                          // estado de la billetera en el login
+  kMM=$('kMinimap'); if(kMM&&kMM.getContext) kMMx=kMM.getContext('2d');   // minimapa
+}
+// ===== minimapa: dónde están los otros jugadores reales =====
+let kMM=null, kMMx=null, kMMacc=0;
+function kMinimap(){
+  if(!kMMx||!kMM) return; const W=kMM.width, H=kMM.height, sx=W/WORLD_W, sy=H/WORLD_H;
+  kMMx.clearRect(0,0,W,H);
+  kMMx.fillStyle='#0e2a38'; kMMx.fillRect(0,0,W,H);                                   // mar
+  kMMx.fillStyle='#3f7a3a';                                                            // isla (elipse aprox del terreno)
+  kMMx.beginPath(); kMMx.ellipse((COLS/2)*T*sx,(ROWS/2)*T*sy, COLS*0.435*T*sx, ROWS*0.415*T*sy, 0,0,Math.PI*2); kMMx.fill();
+  kMMx.fillStyle='#f2e8cf';                                                            // otros usuarios
+  for(const id in kOthers){ const o=kOthers[id]; if(!o.spr) continue; kMMx.fillRect(o.spr.x*sx-1.6,o.spr.y*sy-1.6,3.2,3.2); }
+  if(player&&player.spr){                                                              // yo (punto dorado)
+    kMMx.fillStyle='#f0d564'; kMMx.beginPath(); kMMx.arc(player.spr.x*sx,player.spr.y*sy,2.8,0,Math.PI*2); kMMx.fill();
+    kMMx.lineWidth=1; kMMx.strokeStyle='#120d09'; kMMx.stroke();
+  }
 }
 function kWireChat(){                                     // botón de mensaje (siempre) + PvP (contextual, desactivado) + compositor
   const open=$('kMsgBtn'), comp=$('kCompose'), input=$('kMsgInput'), count=$('kMsgCount'), send=$('kMsgSend'), cancel=$('kMsgCancel');
   const refresh=()=>{ if(count&&input) count.textContent=(input.value.length)+'/'+MSG_MAX; };
   const show=on=>{ if(comp) comp.classList.toggle('on',on); if(on&&input){ input.value=''; refresh(); setTimeout(()=>input.focus(),30); } };
-  const fire=()=>{ if(!input) return; const v=input.value.trim().slice(0,MSG_MAX); if(v){ playerSay(v); } show(false); };
+  const fire=()=>{ if(!input) return; const v=input.value.trim().slice(0,MSG_MAX); if(v){ playerSay(v); sfx('latch',0.3); } show(false); };
   if(input){ input.maxLength=MSG_MAX; input.placeholder=L('¡Hola, reino!','Hi, kingdom!'); input.addEventListener('input',refresh);
     input.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); fire(); } else if(e.key==='Escape'){ show(false); } }); }
   { const ne=$('kName'); if(ne) ne.placeholder=L('Tu nombre','Your name'); }   // el placeholder del nombre también en el idioma
@@ -1606,20 +1624,49 @@ function toast(t){ const el=$('kToast'); if(!el){ console.log(t); return; } el.t
 function kChalPrompt(fromId,name){                        // llega un desafío: aceptar / rechazar
   const ov=$('kChal'); if(!ov){ if(ws) ws.send(JSON.stringify({t:'chalyes',to:fromId})); return; }
   const who=$('kChalWho'); if(who) who.textContent=(name||'?');
-  ov.classList.add('on');
+  ov.classList.add('on'); sfx('bell',0.4);
   $('kChalYes').onclick=()=>{ ov.classList.remove('on'); if(ws&&ws.readyState===1) ws.send(JSON.stringify({t:'chalyes',to:fromId})); };
   $('kChalNo').onclick=()=>{ ov.classList.remove('on'); if(ws&&ws.readyState===1) ws.send(JSON.stringify({t:'chalno',to:fromId})); };
 }
-function kingdomEnter(){
+function kSession(){ const A=window.AOA_AUTH; return (A&&A.getSession&&A.getSession())||null; }
+function kWalletPaint(){                                   // muestra el estado de la billetera en el login
+  const el=$('kWallet'); if(!el) return; const s=kSession();
+  if(s&&s.pubkey){ const pk=s.pubkey; el.innerHTML='🔗 '+L('Billetera: ','Wallet: ')+'<b>'+pk.slice(0,4)+'…'+pk.slice(-4)+'</b>'; el.className='kwallet ok'; }
+  else{ el.textContent=L('Conectá tu billetera para entrar y guardar tu nombre.','Connect your wallet to enter and save your name.'); el.className='kwallet'; }
+}
+async function kWalletConnect(nm){                         // conecta la billetera, verifica holder y registra el nombre
+  const A=window.AOA_AUTH, hint=$('kHint');
+  if(!A){ if(hint){ hint.textContent=L('Billetera no disponible.','Wallet unavailable.'); hint.className='khint bad'; } return null; }
+  if(!A.hasWallet||!A.hasWallet()){ if(hint){ hint.innerHTML=L('No detectamos ninguna billetera de Solana. Instalá ','No Solana wallet detected. Install ')+'<a href="https://phantom.app" target="_blank" style="color:var(--brass-hi)">Phantom</a>.'; hint.className='khint bad'; } return null; }
+  try{
+    if(hint){ hint.textContent=L('Conectando billetera…','Connecting wallet…'); hint.className='khint'; }
+    const pk=await A.connect();
+    const h=await A.isHolder(pk);
+    if(!h||!h.holder){ if(hint){ hint.textContent=L('Esta billetera no holdea $AOA.','This wallet doesn’t hold $AOA.'); hint.className='khint bad'; } return null; }
+    const proof=await A.signProof(pk);
+    try{ if(A.register) await A.register(pk, nm, proof); }catch(e){}   // asocia nombre ↔ billetera (best-effort)
+    if(A.saveSession) A.saveSession({pubkey:pk, username:nm, proof, stub:!!h.stub});
+    kWalletPaint(); if(hint){ hint.textContent=''; hint.className='khint'; }
+    return pk;
+  }catch(e){ if(hint){ hint.textContent=L('No se pudo conectar la billetera.','Couldn’t connect the wallet.'); hint.className='khint bad'; } return null; }
+}
+async function kingdomEnter(){
   const nameEl=$('kName'), hint=$('kHint'); let nm=((nameEl&&nameEl.value)||'').trim().slice(0,16);
   if(!/^[\w .\-]{2,16}$/.test(nm)){ if(hint){ hint.textContent=L('Elegí un nombre válido (2 a 16 caracteres).','Choose a valid name (2 to 16 chars).'); hint.className='khint bad'; } return; }
+  if(!player){ if(hint){ hint.textContent=L('El reino todavía está cargando…','The kingdom is still loading…'); hint.className='khint'; } return; }   // la escena aún no creó la unidad
+  const A=window.AOA_AUTH; let s=kSession(); let wallet=s&&s.pubkey||null;
+  if(!wallet){ wallet=await kWalletConnect(nm); if(!wallet) return; }   // requiere billetera para entrar
+  else{ try{ if(A&&A.register) await A.register(wallet, nm, s.proof||null); }catch(e){}   // ya conectado: asocia el nombre elegido
+        if(A&&A.saveSession) A.saveSession(Object.assign({},s,{username:nm})); }
   player.name=nm;
-  try{ localStorage.setItem('aoa_kingdom',JSON.stringify({name:nm,unit:kSel.key})); }catch(e){}
+  try{ localStorage.setItem('aoa_kingdom',JSON.stringify({name:nm,unit:kSel.key,wallet:wallet})); }catch(e){}
   if(player._plate){ player._plate.destroy(); player._plate=null; }
   nameplate(player,{name:nm,me:true,rank:0});
   kReady=true;
   if(scene) scene.cameras.main.setFollowOffset(0,0);      // centra la cámara en la unidad al entrar
   const bar=$('kBar'); if(bar) bar.classList.add('on');   // barra de acciones (mensaje siempre; PvP al cruzarse)
+  if(kMM) kMM.classList.add('on');                        // minimapa
+  sfx('door',0.3);
   kConnect();                                             // entra al reino en vivo: se ve con los demás usuarios reales
   const lg=$('kLogin'); if(lg){ lg.classList.add('hide'); setTimeout(()=>{ if(lg) lg.style.display='none'; },400); }
   const hc=$('kControls'); if(hc){ hc.classList.add('on'); setTimeout(()=>hc.classList.remove('on'),6500); }
