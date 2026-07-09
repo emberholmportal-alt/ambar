@@ -789,6 +789,8 @@ function placeTree(tx,ty){
   const x=tx*T+T/2, y=ty*T+T;
   scene.add.sprite(x,y,'tree').play({key:'tree-a',startFrame:rint(0,3)}).setOrigin(0.5,0.92).setScale(Phaser.Math.FloatBetween(0.55,0.72)).setDepth(y);
   if(blocked[ty]) blocked[ty][tx]=true;
+  if(KINGDOM && obstacles){ const foot=scene.add.rectangle(x, y-12, 18, 14).setVisible(false);   // tronco sólido: en el reino el jugador lo rodea
+    scene.physics.add.existing(foot,true); obstacles.add(foot); }
   treeSpots.push({x:x, y:y+T*0.6});
 }
 function banner(tx,ty,color){
@@ -908,6 +910,7 @@ function spawnMonster(kind,tx,ty,home){
 /* ===== pathfinding (BFS por tiles): nadie camina por el agua ===== */
 const walkable=(x,y)=>x>=1&&x<COLS-1&&y>=1&&y<ROWS-1&&isLand(x,y)&&!blocked[y][x];
 function walkableAtPx(px,py){ const t=tileOf(px,py); return walkable(t.x,t.y); }   // ¿el píxel cae en tierra caminable?
+function landAtPx(px,py){ const t=tileOf(px,py); return isIn(t.x,t.y)&&isLand(t.x,t.y); }   // sólo tierra (ignora props: los árboles se rodean por física)
 function findPath(x0,y0,x1,y1){
   if(!walkable(x1,y1)||(!walkable(x0,y0))) return null;
   if(x0===x1&&y0===y1) return [];
@@ -1342,7 +1345,7 @@ function devRender(){
   const p=DEV_PRESETS[devEstado], msg = p ? L(p[0],p[1]) : ('📣 '+devEstado);
   const ds=$('devStatus'), db=$('devBeta');
   if(ds) ds.textContent=msg;
-  if(db) db.innerHTML=L('🎮 Los holders pueden probar la beta en ','🎮 Holders can test the beta at ')+'<b>ageofansem.xyz</b>';
+  if(db) db.innerHTML=L('🎮 Los holders pueden probar la beta en ','🎮 Holders can test the beta at ')+'<b>ageoffomo.xyz</b>';
 }
 function devStop(){ if(devCycle){ clearInterval(devCycle); devCycle=null; } if(devOnceT){ clearTimeout(devOnceT); devOnceT=null; } }
 function devMsg(key){ return 'dev: '+(($('devStatus')&&$('devStatus').textContent)||key); }
@@ -1371,7 +1374,7 @@ dev.help=function(){
   console.log("dev('trabajando', {show:6000,hide:20000})  // ciclo a medida (ms)");
   console.log("dev.fijo('trabajando')                 // fijo, sin parpadear");
   console.log("dev.off()                              // apaga el cartel");
-  console.log('Siempre acompaña con: 🎮 los holders pueden probar la beta en ageofansem.xyz');
+  console.log('Siempre acompaña con: 🎮 los holders pueden probar la beta en ageoffomo.xyz');
   return Object.keys(DEV_PRESETS);
 };
 try{ console.log('%c⚙ Comando disponible: %cdev.help()','color:#c9a227','color:#f0d564;font-weight:bold'); }catch(e){}
@@ -1434,7 +1437,7 @@ function showSay(obj,txt){                                // globo de mensaje so
   const bg=scene.add.graphics(); bg.fillStyle(0x14100b,0.95); bg.lineStyle(1.5,0xf0d564,0.9);
   bg.fillRoundedRect(-w/2,-26,w,32,7); bg.strokeRoundedRect(-w/2,-26,w,32,7);
   bg.fillStyle(0x14100b,0.95); bg.fillTriangle(-5,5,5,5,0,13);
-  const t=scene.add.text(0,-10,txt,{fontFamily:'"IM Fell English",Georgia,serif',fontStyle:'italic',fontSize:'12.5px',color:'#f4ecd6',align:'center',wordWrap:{width:w-14}}).setOrigin(0.5,0.5).setResolution(2);
+  const t=scene.add.text(0,-10,txt,{fontFamily:'"Grenze Gotisch",Georgia,sans-serif',fontStyle:'700',fontSize:'13.5px',color:'#f6efdd',align:'center',wordWrap:{width:w-14}}).setOrigin(0.5,0.5).setResolution(3);
   box.add([bg,t]); box.setScale(1/scene.cameras.main.zoom); obj._say=box;
   obj._sayEv=scene.time.delayedCall(6000,()=>{ if(obj._say){ scene.tweens.add({targets:obj._say,alpha:0,duration:400,onComplete:()=>{ if(obj._say){obj._say.destroy();obj._say=null;} }}); } });
 }
@@ -1494,14 +1497,15 @@ function movePlayer(delta){
   if(!player||!player.spr||!player.spr.body) return;
   const b=player.spr.body, spd=player.spd;
   if(!kReady||paused){ b.setVelocity(0); syncPlate(); return; }
+  const typing=document.activeElement&&/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);   // no mover mientras se escribe
   let ix=0,iy=0;
-  if(kCursors){ if(kCursors.left.isDown)ix--; if(kCursors.right.isDown)ix++; if(kCursors.up.isDown)iy--; if(kCursors.down.isDown)iy++; }
-  if(kKeys){ if(kKeys.A.isDown)ix--; if(kKeys.D.isDown)ix++; if(kKeys.W.isDown)iy--; if(kKeys.S.isDown)iy++; }
+  if(!typing&&kCursors){ if(kCursors.left.isDown)ix--; if(kCursors.right.isDown)ix++; if(kCursors.up.isDown)iy--; if(kCursors.down.isDown)iy++; }
+  if(!typing&&kKeys){ if(kKeys.A.isDown)ix--; if(kKeys.D.isDown)ix++; if(kKeys.W.isDown)iy--; if(kKeys.S.isDown)iy++; }
   let vx=0,vy=0;
   if(ix||iy){                                            // teclado / WASD: control directo
     player.path=null; const mag=Math.hypot(ix,iy)||1; vx=ix/mag*spd; vy=iy/mag*spd;
-    if(vx&&!walkableAtPx(player.spr.x+Math.sign(vx)*18, player.spr.y+10)) vx=0;   // no pisar agua
-    if(vy&&!walkableAtPx(player.spr.x, player.spr.y+10+Math.sign(vy)*18)) vy=0;
+    if(vx&&!landAtPx(player.spr.x+Math.sign(vx)*18, player.spr.y+10)) vx=0;   // no pisar agua (los árboles se rodean por colisión física)
+    if(vy&&!landAtPx(player.spr.x, player.spr.y+10+Math.sign(vy)*18)) vy=0;
   } else if(player.path&&player.path.length){             // tap / click: seguir la ruta (BFS)
     const p=player.path[0], dx=p.x-player.spr.x, dy=p.y-player.spr.y, d=Math.hypot(dx,dy);
     if(d<8){ player.path.shift(); } else { vx=dx/d*spd; vy=dy/d*spd; }
@@ -1583,8 +1587,9 @@ function kWireChat(){                                     // botón de mensaje (
   const refresh=()=>{ if(count&&input) count.textContent=(input.value.length)+'/'+MSG_MAX; };
   const show=on=>{ if(comp) comp.classList.toggle('on',on); if(on&&input){ input.value=''; refresh(); setTimeout(()=>input.focus(),30); } };
   const fire=()=>{ if(!input) return; const v=input.value.trim().slice(0,MSG_MAX); if(v){ playerSay(v); } show(false); };
-  if(input){ input.maxLength=MSG_MAX; input.addEventListener('input',refresh);
+  if(input){ input.maxLength=MSG_MAX; input.placeholder=L('¡Hola, reino!','Hi, kingdom!'); input.addEventListener('input',refresh);
     input.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); fire(); } else if(e.key==='Escape'){ show(false); } }); }
+  { const ne=$('kName'); if(ne) ne.placeholder=L('Tu nombre','Your name'); }   // el placeholder del nombre también en el idioma
   if(open) open.onclick=()=>show(true);
   if(send) send.onclick=fire;
   if(cancel) cancel.onclick=()=>show(false);

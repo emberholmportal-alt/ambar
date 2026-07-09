@@ -1,4 +1,4 @@
-/* Age of Ansem · PvP — mini batalla de cartas estilo Clash (versión beta, un jugador vs IA).
+/* Age of Fomo · PvP — mini batalla de cartas estilo Clash (versión beta, un jugador vs IA).
    Cartas = unidades propias + enemigos vistos en la beta. Energía, torres, puntos.
    Reusa sprites/animaciones/sonidos del pack. Sin build step (Phaser por CDN). */
 const $=id=>document.getElementById(id);
