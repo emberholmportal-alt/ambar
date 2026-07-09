@@ -1,4 +1,4 @@
-/* Age of Ansem · capa de acceso a la beta (Solana / Phantom).
+/* Age of Fomo · capa de acceso a la beta (Solana / Phantom).
    COSTURA: hoy funciona client-only. Cuando esté el backend en Render, sólo cambian
    `isHolder` (verificación server-side) y `registerUser` (unicidad + persistencia). */
 const AOA_AUTH = (function(){
@@ -78,7 +78,7 @@ const AOA_AUTH = (function(){
   async function signProof(pubkey){                 // firma un nonce → sirve para atribuir el score en el backend (más adelante)
     try{
       const p = getProvider(); if(!p || !p.signMessage) return null;
-      const nonce = 'Age of Ansem · ingreso beta · ' + pubkey.slice(0,6) + ' · ' + Math.floor(Date.now()/1000);
+      const nonce = 'Age of Fomo · ingreso beta · ' + pubkey.slice(0,6) + ' · ' + Math.floor(Date.now()/1000);
       const enc = new TextEncoder().encode(nonce);
       const out = await p.signMessage(enc, 'utf8');
       const bytes = out.signature || out;
