@@ -276,6 +276,7 @@ function preload(){
   this.load.spritesheet('tmg',TSB+'tilemap_grass.png',{frameWidth:64,frameHeight:64});   // mesetas: cima de pasto + cara de piedra (grass-on-elevation)
   this.load.image('water',TSB+'water.png');
   this.load.spritesheet('foam',TSB+'foam.png',{frameWidth:192,frameHeight:192});
+  if(KINGDOM){ this.load.spritesheet('boat',TSB+'boat.png',{frameWidth:256,frameHeight:256}); this.load.image('bridge',TSB+'bridge_v.png'); }   // barcos + muelle del reino
   // edificios por facción + castillo real
   for(const c of COLORES) for(const b of [...CASAS,'tower',...ESPECIALES]) this.load.image(b+'_'+c,TSB+b+'_'+c+'.png');
   this.load.image('castle_black',TSB+'castle_black.png');
@@ -459,6 +460,7 @@ function create(){
   }
   an.create({key:'sheep-idle',frames:an.generateFrameNumbers('sheep',{start:0,end:1}),frameRate:3,repeat:-1});
   an.create({key:'foam-a',frames:an.generateFrameNumbers('foam',{start:0,end:7}),frameRate:7,repeat:-1});
+  if(KINGDOM&&this.textures.exists('boat')) an.create({key:'boat-a',frames:an.generateFrameNumbers('boat',{start:0,end:7}),frameRate:6,repeat:-1});
   an.create({key:'tree-a',frames:an.generateFrameNumbers('tree',{start:0,end:3}),frameRate:4,repeat:-1});
   for(let i=1;i<=4;i++) an.create({key:'bush'+i+'-a',frames:an.generateFrameNumbers('bush'+i,{start:0,end:7}),frameRate:6,repeat:-1});
   an.create({key:'cave-a',frames:an.generateFrameNumbers('cave',{start:0,end:7}),frameRate:6,repeat:-1});
@@ -520,6 +522,23 @@ function create(){
   }
   const rt=this.add.renderTexture(0,0,WORLD_W,WORLD_H).setOrigin(0,0).setDepth(-20);
   for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) if(land[y][x]) rt.drawFrame('ground',groundIdx(x,y),x*T,y*T);
+  if(KINGDOM){                                                  // barcos en mar abierto + un muelle de tablones en la costa
+    const openSea=(x,y)=>{ if(isLand(x,y))return false; for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++) if(isLand(x+ox,y+oy))return false; return true; };
+    let boats=0, it=0;
+    while(boats<4 && it++<400){ const x=rint(2,COLS-3), y=rint(2,ROWS-3); if(!openSea(x,y)) continue;
+      const bx=x*T+T/2, by=y*T+T/2, bt=this.add.sprite(bx,by,'boat').play({key:'boat-a',startFrame:rint(0,7)}).setScale(0.5).setDepth(by).setFlipX(Math.random()<0.5);
+      this.tweens.add({targets:bt, y:by+7, duration:rint(1700,2400), yoyo:true, repeat:-1, ease:'Sine.easeInOut'});      // cabeceo
+      this.tweens.add({targets:bt, x:bx+rint(-30,30), duration:rint(6000,9000), yoyo:true, repeat:-1, ease:'Sine.easeInOut'}); // deriva
+      boats++;
+    }
+    // muelle: busca una costa con agua al sur y tiende 3 tablones hacia el mar
+    for(let tries=0, done=false; tries<300 && !done; tries++){ const x=rint(4,COLS-5), y=rint(4,ROWS-5);
+      if(isLand(x,y) && !isLand(x,y+1) && !isLand(x,y+2)){
+        for(let k=0;k<3;k++) this.add.image(x*T+T/2,(y+1+k)*T+T/2,'bridge').setOrigin(0.5,0.5).setScale(0.5,0.62).setDepth((y+1+k)*T);
+        done=true;
+      }
+    }
+  }
 
   // ---- plaza real + CALLES de arena (autotile) barrio→plaza ----
   const px=Math.floor(COLS/2), py=Math.floor(ROWS/2);
@@ -1541,18 +1560,21 @@ function movePlayer(delta){
 let atkCd=0;
 function playerAttack(){
   if(!kReady||!player||!player.spr||atkCd>0||player._jumping) return;
-  atkCd=380; const s=player.spr, dir=player.faceLeft?-1:1;
-  scene.tweens.add({targets:s, x:s.x+dir*7, duration:80, yoyo:true, ease:'Quad.easeOut'});   // pequeña estocada
-  const cx=s.x+dir*20, cy=s.y-14;                                                             // arco de tajo blanco
-  const g=scene.add.graphics().setDepth(s.y+80); g.lineStyle(4,0xffffff,0.92);
-  g.beginPath(); g.arc(cx,cy,20, dir>0?-1.0:Math.PI+1.0, dir>0?1.0:Math.PI-1.0, false); g.strokePath();
-  g.lineStyle(2,0xf0d564,0.7); g.beginPath(); g.arc(cx,cy,20, dir>0?-1.0:Math.PI+1.0, dir>0?1.0:Math.PI-1.0, false); g.strokePath();
-  scene.tweens.add({targets:g, alpha:0, scaleX:1.25, scaleY:1.25, duration:230, ease:'Quad.easeOut', onComplete:()=>g.destroy()});
-  burst(cx,cy,0xffffff,5,7); sfx('clash',0.35);
+  atkCd=360; const s=player.spr, dir=player.faceLeft?-1:1; s.setFlipX(player.faceLeft);
+  // el cuerpo hace el gesto del golpe (inclinación + estocada) — sirve para cualquier unidad/color
+  scene.tweens.add({targets:s, angle:dir*17, duration:75, yoyo:true, ease:'Quad.easeOut', onComplete:()=>s.setAngle(0)});
+  scene.tweens.add({targets:s, scaleY:s.scaleY*0.88, duration:75, yoyo:true, ease:'Quad.easeOut'});
+  const cx=s.x+dir*22, cy=s.y-14;                                                             // arco de tajo
+  const g=scene.add.graphics().setDepth(s.y+80); g.lineStyle(5,0xffffff,0.95);
+  g.beginPath(); g.arc(cx,cy,22, dir>0?-1.0:Math.PI+1.0, dir>0?1.0:Math.PI-1.0, false); g.strokePath();
+  g.lineStyle(2,0xf0d564,0.75); g.beginPath(); g.arc(cx,cy,22, dir>0?-1.0:Math.PI+1.0, dir>0?1.0:Math.PI-1.0, false); g.strokePath();
+  scene.tweens.add({targets:g, alpha:0, scaleX:1.3, scaleY:1.3, duration:230, ease:'Quad.easeOut', onComplete:()=>g.destroy()});
+  burst(cx,cy,0xffffff,6,8); sfx('clash',0.4);
 }
 function playerJump(){
   if(!kReady||!player||!player.spr||player._jumping) return; const s=player.spr, b=s.body; if(!b) return;
   player._jumping=true; b.setVelocity(0,0); b.enable=false; const y0=s.y;                     // desactiva la física para que el tween mueva la Y
+  s.play(player.animR,true);                                                                  // reutiliza la animación de correr → mueve las piernas en el aire
   const sh=scene.add.ellipse(s.x, y0+2, 26,10, 0x000000, 0.28).setDepth(y0-1);                // sombra en el piso
   scene.tweens.add({targets:s, y:y0-26, duration:180, yoyo:true, ease:'Quad.easeOut',
     onComplete:()=>{ s.y=y0; if(s.body) s.body.enable=true; player._jumping=false; sh.destroy(); } });
