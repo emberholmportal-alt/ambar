@@ -38,13 +38,13 @@
   .menu a{font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:none;padding:9px 11px;border-radius:6px}
   .menu a:hover{background:rgba(201,162,39,.14);color:var(--brass-hi)}
   /* escenario: fondo atenuado que centra el modal del PvP */
-  .pvstage{flex:1;position:relative;min-height:0;display:flex;align-items:center;justify-content:center;padding:10px;
+  .pvstage{flex:1;position:relative;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:8px;
     background:radial-gradient(130% 120% at 50% 28%,#122417,#0a120c 66%,#050906)}
-  /* modal chico centrado: tablero + dock juntos */
+  /* modal centrado: tablero + dock juntos */
   .pvmodal{display:inline-flex;flex-direction:column;flex:none;max-width:96vw;border:3px solid var(--brass);border-radius:18px;
     overflow:hidden;background:linear-gradient(180deg,#14100b,#0a0806);
     box-shadow:0 0 0 2px rgba(0,0,0,.6),0 24px 64px rgba(0,0,0,.72),inset 0 0 0 1px rgba(240,213,100,.12)}
-  .board{position:relative;height:min(62vh,520px);aspect-ratio:2/3;max-width:96vw;overflow:hidden;background:#0a150e}
+  .board{position:relative;height:min(72vh,640px);aspect-ratio:2/3;max-width:96vw;overflow:hidden;background:#0a150e}
   #game{position:absolute;inset:0} #game canvas{display:block}
   /* carta fantasma que sigue al dedo/mouse al arrastrar */
   .dragghost{position:fixed;z-index:9998;width:66px;height:66px;pointer-events:none;transform:translate(-50%,-62%);
@@ -59,7 +59,7 @@
   #pvBarWrap{width:min(52vw,280px);height:14px;background:#0e2416;border:2px solid #2c6b45;border-radius:9px;overflow:hidden}
   #pvBar{height:100%;width:0%;background:linear-gradient(180deg,#8fe08a,#3f9b52);transition:width .2s}
   /* banner de bloqueados */
-  #lockMsg{position:absolute;top:52px;left:50%;transform:translateX(-50%);z-index:16;max-width:92%;text-align:center;
+  #lockMsg{position:relative;flex:none;order:2;max-width:96vw;text-align:center;
     font-family:var(--mono);font-size:11px;color:#e9b04a;background:rgba(18,13,9,.85);border:1px solid var(--line2);border-radius:8px;padding:7px 13px}
   #lockMsg a{color:var(--brass-hi)}
   /* barra inferior: energía + cartas */

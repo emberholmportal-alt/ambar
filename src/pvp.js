@@ -100,6 +100,7 @@ function preload(){
   this.load.image('bridge', TSB+'bridge_v.png');   // puente vertical recortado del atlas (cruza el río horizontal)
   for(let i=1;i<=4;i++){ this.load.spritesheet('abush'+i, TSB+'bush'+i+'.png', {frameWidth:128,frameHeight:128}); this.load.image('arock'+i, TSB+'rock'+i+'.png'); }
   for(let i=1;i<=18;i++) this.load.image('adeco'+i, TSB+'deco'+String(i).padStart(2,'0')+'.png');
+  this.load.image('bones1', TSB+'bones1.png'); this.load.image('skull_spike', TSB+'skull_spike.png');   // marca de muerte
   ['clash','fire','bell','coins','bong'].forEach(k=>this.load.audio('s_'+k,'assets/sfx/'+k+'.ogg'));
 }
 
@@ -114,9 +115,10 @@ function buildArena(s){                                    // terreno rico con t
   const TOP=MID-RIV, BOT=MID+RIV;
   // capas (de abajo hacia arriba): agua → espuma → tierra (tapa la mitad terrestre de la espuma, como la costa del juego)
   s.add.tileSprite(0,TOP-4,ARENA_W,RIV*2+8,'pwater').setOrigin(0,0).setDepth(-200);         // río (agua real, base)
-  for(let x=0;x<=ARENA_W;x+=48){                                                            // espuma animada en las dos orillas
-    s.add.sprite(x,TOP,'foam').play({key:'foam-a',startFrame:rint(0,7)}).setScale(0.56).setDepth(-196);
-    s.add.sprite(x,BOT,'foam').play({key:'foam-a',startFrame:rint(0,7)}).setScale(0.56).setDepth(-196); }
+  for(let x=0;x<=ARENA_W;x+=30){                                                            // orilla animada CONTINUA (una sola ola que viaja, no varias sueltas)
+    const ph=Math.floor(x/30)%8;                                                            // fase según X → la ola recorre toda la costa
+    s.add.sprite(x,TOP,'foam').play({key:'foam-a',startFrame:ph}).setScale(0.62).setDepth(-196);
+    s.add.sprite(x,BOT,'foam').play({key:'foam-a',startFrame:ph}).setScale(0.62).setDepth(-196); }
   // pasto en las dos mitades (deja ver el río+espuma en el medio; la tierra tapa la parte terrestre de la espuma → sólo se ve la ola en el agua)
   s.add.tileSprite(0,0,ARENA_W,TOP,'ground',11).setOrigin(0,0).setDepth(-190);
   s.add.tileSprite(0,BOT,ARENA_W,ARENA_H-BOT,'ground',11).setOrigin(0,0).setDepth(-190);
@@ -320,9 +322,14 @@ function update(time,delta){
         if(u.ranged) shoot(u,tgt,dmg,u.side==='you'?0x8ec8ff:0xff9a9a);
         else { hurt(tgt,dmg); miniLunge(u,dx,dy); }
       }
-    } else {                                              // avanzar
-      const sp=u.sp*dt; u.spr.x+=dx/d*sp; u.spr.y+=dy/d*sp; u.st=1;
-      u.spr.play(u.key+'-r',true); if(Math.abs(dx)>1){ u.flip=dx<0; u.spr.setFlipX(u.flip); }
+    } else {                                              // avanzar (las unidades sólo cruzan el río por los puentes)
+      let mx=dx/d, my=dy/d;
+      const lane=LANES.reduce((a,b)=>Math.abs(b-u.spr.x)<Math.abs(a-u.spr.x)?b:a);
+      const nearRiver=Math.abs(u.spr.y-MID)<96, aligned=Math.abs(u.spr.x-lane)<26;
+      if(nearRiver&&!aligned){ mx=Math.sign(lane-u.spr.x); my=0; }        // primero alinearse con el puente
+      else if(nearRiver){ mx=(lane-u.spr.x)/26*0.5; }                     // mantenerse sobre el puente mientras cruza
+      const sp=u.sp*dt; u.spr.x+=mx*sp; u.spr.y+=my*sp; u.st=1;
+      u.spr.play(u.key+'-r',true); if(Math.abs(mx)>0.05){ u.flip=mx<0; u.spr.setFlipX(u.flip); }
     }
     u.spr.setDepth(u.spr.y);
     drawBar(u.hpbar,u.spr.x,u.spr.y-46,34,u.hp/u.maxhp, u.side==='you'?0x5fa5ff:0xe5533a);
@@ -345,11 +352,19 @@ function update(time,delta){
 function miniLunge(u,dx,dy){ const d=Math.hypot(dx,dy)||1; scene.tweens.add({targets:u.spr,x:u.spr.x+dx/d*6,y:u.spr.y+dy/d*6,duration:90,yoyo:true}); }
 function spark(x,y){ for(let i=0;i<3;i++){ const p=scene.add.circle(x+rint(-6,6),y+rint(-6,6),rint(2,3),0xffe08a,0.9).setDepth(99550);
   scene.tweens.add({targets:p,x:p.x+rint(-14,14),y:p.y-rint(6,18),alpha:0,duration:rint(220,380),onComplete:()=>p.destroy()}); } }
-function deathPoof(spr,side){                             // muerte de unidad: humo + desvanecido
+function deathPoof(spr,side){                             // muerte de unidad: humo + desvanecido + calavera donde cae
   if(!spr||!spr.active){ return; }
-  const c=scene.add.circle(spr.x,spr.y-14,10,side==='you'?0x8ec8ff:0xff9a9a,0.5).setDepth(99450);
+  const x=spr.x, y=spr.y;
+  const c=scene.add.circle(x,y-14,10,side==='you'?0x8ec8ff:0xff9a9a,0.5).setDepth(99450);
   scene.tweens.add({targets:c,radius:30,alpha:0,duration:360,onComplete:()=>c.destroy()});
-  scene.tweens.add({targets:spr,alpha:0,scaleX:spr.scaleX*0.6,scaleY:spr.scaleY*0.6,y:spr.y+6,duration:340,ease:'Quad.easeIn',onComplete:()=>spr.destroy()});
+  scene.tweens.add({targets:spr,alpha:0,scaleX:spr.scaleX*0.6,scaleY:spr.scaleY*0.6,y:y+6,duration:340,ease:'Quad.easeIn',onComplete:()=>spr.destroy()});
+  dropBones(x,y);
+}
+function dropBones(x,y){                                   // deja una calavera/huesos donde muere la unidad (se desvanece)
+  if(!scene) return; const tex=Math.random()<0.5?'bones1':'skull_spike';
+  const b=scene.add.image(x,y+4,tex).setOrigin(0.5,0.9).setScale(0).setDepth(y-2).setAlpha(0.95);
+  scene.tweens.add({targets:b,scaleX:0.7,scaleY:0.7,duration:220,ease:'Back.easeOut'});
+  scene.tweens.add({targets:b,alpha:0,delay:5200,duration:1400,onComplete:()=>b.destroy()});
 }
 function aiPlay(){                                         // IA: responde a tus avances y aprovecha la energía
   const affordable=FOE_POOL.map(k=>CARD_BY_KEY[k]).filter(c=>c&&c.cost<=S.enFoe);
