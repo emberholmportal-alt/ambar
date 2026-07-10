@@ -675,7 +675,10 @@ function create(){
     }
     buildWall(wall);
     banner(g.cx, g.cy, g.color); placeTorch(g.cx+1, g.cy); placeTorch(g.cx-QRX+1, g.cy-QRY+1);
-    const casa=(kx,ky,tex,sc)=>{ if(!isLand(kx,ky)||blocked[ky][kx]||inSand(kx,ky)) return false; placeBuilding(tex,kx,ky,sc,{fw:1,fh:1}); return true; };
+    // casa con AIRE alrededor: no se pegan entre sí ni contra la muralla (regla de espaciado del manifiesto)
+    const casa=(kx,ky,tex,sc)=>{ if(!isLand(kx,ky)||blocked[ky][kx]||inSand(kx,ky)) return false;
+      for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]) if(blocked[ky+dy]&&blocked[ky+dy][kx+dx]) return false;
+      placeBuilding(tex,kx,ky,sc,{fw:1,fh:1}); return true; };
     if(g.kind==='goblin'){                                   // aldea goblin: chozas + tótems
       placeBuilding('goblin_house', g.cx, g.cy-1, 0.85, {fw:1,fh:1});
       placeDecoImg('tdeco18',g.cx-1,g.cy+1,0.95); placeDecoImg('tdeco14',g.cx+2,g.cy+2,0.9);
@@ -1183,9 +1186,24 @@ function nameplate(n,entry){
   bg.fillRoundedRect(-w/2,-10,w,20,6); bg.strokeRoundedRect(-w/2,-10,w,20,6);
   const dotCol=(guildById[n.guild]&&guildById[n.guild].color)||0xc9a227;
   const dot=scene.add.circle(-w/2+9,0,3.2,dotCol);
-  box.add([bg,dot,t]); n._plate=box;
+  box.add([bg,dot,t]); n._plate=box; box._pw=w;   // ancho para el de-clutter
 }
 function killPlate(n){ if(n&&n._plate){ n._plate.destroy(); n._plate=null; n.user=null; } }
+// de-clutter: cuando dos nameplates se pisan, se muestra sólo el de adelante (unidad más al frente). Evita el amontonamiento ilegible.
+function declutterPlates(){
+  if(!scene||!npcs.length) return;
+  const cam=scene.cameras.main, wv=cam.worldView, z=cam.zoom, vis=[];
+  for(const n of npcs){ if(n.dead||!n.spr||!n._plate||!n._plate.visible) continue;
+    vis.push({p:n._plate, sx:(n.spr.x-wv.x)*z, sy:(n.spr.y-44-wv.y)*z, w:(n._plate._pw||60), y:n.spr.y}); }
+  if(vis.length<2) return;
+  vis.sort((a,b)=>b.y-a.y);                                   // la de adelante (mayor y) tiene prioridad
+  const kept=[];
+  for(const it of vis){
+    let tapa=false;
+    for(const k of kept){ if(Math.abs(it.sx-k.sx) < (it.w+k.w)/2*0.9 && Math.abs(it.sy-k.sy) < 19){ tapa=true; break; } }
+    if(tapa) it.p.setVisible(false); else kept.push(it);
+  }
+}
 function poblarUsuarios(){                              // reclama unidades con nombres del roster (idempotente: la ciudad se va llenando)
   if(!scene) return;
   const roster=getRoster(); if(!roster.length) return;
@@ -1431,6 +1449,7 @@ function update(time,delta){
       const vis=wv.contains(n.spr.x,n.spr.y); n._plate.setVisible(vis);
       if(vis){ n._plate.x=n.spr.x; n._plate.y=n.spr.y-44; n._plate.setScale(1/cam.zoom); n._plate.setDepth(n.spr.y+40); } }
   }
+  declutterPlates();
   if(KINGDOM){ movePlayer(delta); kUpdateOthers(); kEnemyUpdate(delta); kCarryUpdate();   // reino: usuario + otros + enemigos + acarreo de recursos
     if(atkCd>0) atkCd-=delta;
     if(player&&player._workT>0) player._workT-=delta;
