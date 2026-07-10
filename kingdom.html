@@ -50,7 +50,7 @@
   #liveBarZone{position:relative;width:min(52vw,300px);margin-top:34px}
   #liveBarWrap{width:100%;height:34px;border:0;background:none;box-shadow:none;border-radius:0;display:flex;align-items:center;padding:0 15px;
     border-image:url('assets/img/ui/bar_base.png') 16 16 fill / 8px 14px / 0 stretch;image-rendering:pixelated}
-  #liveBar{height:12px;width:0%;border-radius:5px;transition:width .25s ease;background:url('assets/img/ui/bar_fill.png') left center/auto 100% repeat-x;image-rendering:pixelated;overflow:hidden}
+  #liveBar{height:16px;width:0%;border-radius:5px;transition:width .25s ease;background:url('assets/img/ui/bar_fill.png') left center/auto 100% repeat-x;image-rendering:pixelated;overflow:hidden}
   #liveRunner{position:absolute;left:0%;bottom:6px;width:66px;height:60px;margin-left:-33px;pointer-events:none;
     background:url('assets/img/warrior_blue.png') 0 -118px/396px auto no-repeat;image-rendering:pixelated;filter:drop-shadow(0 4px 5px rgba(0,0,0,.55));transition:left .25s ease;
     animation:warRun .6s steps(6) infinite,warBob .6s ease-in-out infinite}
@@ -91,9 +91,11 @@
   @media(max-width:600px){ #kMinimap{width:112px;height:70px;top:52px;right:8px} }
   /* carrusel de cartas de unidad */
   .kpicker{display:flex;align-items:center;gap:6px}
-  .karr{flex:none;width:40px;height:132px;font-size:28px;color:var(--brass-hi);cursor:pointer;
-    background:linear-gradient(180deg,var(--bg2),var(--bg3));border:1px solid var(--line2);border-radius:10px}
-  .karr:hover{border-color:var(--brass)}
+  .karr{flex:none;width:44px;height:132px;font-family:var(--display);font-weight:800;font-size:30px;color:#3a2610;cursor:pointer;
+    background:linear-gradient(180deg,#e7c06a,#c9962f 55%,#a7761f);border:2px solid #7a5a2a;border-radius:12px;
+    box-shadow:inset 0 2px 0 rgba(255,246,210,.55),inset 0 -3px 6px rgba(80,50,10,.5),0 4px 10px rgba(0,0,0,.45);
+    text-shadow:0 1px 0 rgba(255,246,210,.6);transition:filter .12s,transform .1s}
+  .karr:hover{filter:brightness(1.06)} .karr:active{transform:translateY(1px)}
   .kunits{flex:1;display:flex;gap:10px;overflow-x:auto;padding:10px 6px;scroll-snap-type:x mandatory;
     scrollbar-width:thin;scrollbar-color:var(--brass-dim) transparent}
   .kunits::-webkit-scrollbar{height:6px}.kunits::-webkit-scrollbar-thumb{background:var(--brass-dim);border-radius:4px}
