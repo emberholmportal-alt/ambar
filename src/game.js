@@ -278,7 +278,10 @@ function preload(){
   this.load.spritesheet('foam',TSB+'foam.png',{frameWidth:192,frameHeight:192});
   if(KINGDOM){ this.load.spritesheet('boat',TSB+'boat.png',{frameWidth:256,frameHeight:256}); this.load.image('bridge',TSB+'bridge_v.png');   // barcos + muelle del reino
     for(const c of COLORES) for(const u of ['warrior','archer','monk','pawn'])   // hojas de ataque reales (espada/arco/báculo/pico) por unidad y color
-      this.load.spritesheet('atk_'+u+'_'+c, TSB+'atk_'+u+'_'+c+'.png',{frameWidth:192,frameHeight:192}); }
+      this.load.spritesheet('atk_'+u+'_'+c, TSB+'atk_'+u+'_'+c+'.png',{frameWidth:192,frameHeight:192});
+    this.load.image('bones1',TSB+'bones1.png');   // marca donde cae el enemigo
+    for(const e of KENEMY_DEF){ this.load.spritesheet('ke_'+e.key+'_i',TSB+e.key+'_idle.png',{frameWidth:e.fw,frameHeight:e.fw});   // enemigos salvajes del Enemy Pack
+      this.load.spritesheet('ke_'+e.key+'_r',TSB+e.key+'_run.png',{frameWidth:e.fw,frameHeight:e.fw}); } }
   // edificios por facción + castillo real
   for(const c of COLORES) for(const b of [...CASAS,'tower',...ESPECIALES]) this.load.image(b+'_'+c,TSB+b+'_'+c+'.png');
   this.load.image('castle_black',TSB+'castle_black.png');
@@ -473,7 +476,10 @@ function create(){
   if(KINGDOM&&this.textures.exists('boat')) an.create({key:'boat-a',frames:an.generateFrameNumbers('boat',{start:0,end:7}),frameRate:6,repeat:-1});
   if(KINGDOM){ const ATKF={warrior:4,archer:8,monk:11,pawn:6};                    // ataque real por unidad/color (una pasada)
     for(const c of COLORES) for(const u in ATKF){ const k='atk_'+u+'_'+c; if(this.textures.exists(k))
-      an.create({key:k+'-a',frames:an.generateFrameNumbers(k,{start:0,end:ATKF[u]-1}),frameRate:14,repeat:0}); } }
+      an.create({key:k+'-a',frames:an.generateFrameNumbers(k,{start:0,end:ATKF[u]-1}),frameRate:14,repeat:0}); }
+    for(const e of KENEMY_DEF){ if(this.textures.exists('ke_'+e.key+'_i')){                // enemigos salvajes: idle + run
+      an.create({key:'ke_'+e.key+'-i',frames:an.generateFrameNumbers('ke_'+e.key+'_i',{start:0,end:e.idle-1}),frameRate:6,repeat:-1});
+      an.create({key:'ke_'+e.key+'-r',frames:an.generateFrameNumbers('ke_'+e.key+'_r',{start:0,end:e.run-1}),frameRate:9,repeat:-1}); } } }
   an.create({key:'tree-a',frames:an.generateFrameNumbers('tree',{start:0,end:3}),frameRate:4,repeat:-1});
   for(let i=1;i<=4;i++) an.create({key:'bush'+i+'-a',frames:an.generateFrameNumbers('bush'+i,{start:0,end:7}),frameRate:6,repeat:-1});
   an.create({key:'cave-a',frames:an.generateFrameNumbers('cave',{start:0,end:7}),frameRate:6,repeat:-1});
@@ -1297,7 +1303,7 @@ function update(time,delta){
       const vis=wv.contains(n.spr.x,n.spr.y); n._plate.setVisible(vis);
       if(vis){ n._plate.x=n.spr.x; n._plate.y=n.spr.y-44; n._plate.setScale(1/cam.zoom); n._plate.setDepth(n.spr.y+40); } }
   }
-  if(KINGDOM){ movePlayer(delta); kUpdateOthers();         // reino: mueve la unidad del usuario + los demás usuarios reales
+  if(KINGDOM){ movePlayer(delta); kUpdateOthers(); kEnemyUpdate(delta);   // reino: mueve la unidad del usuario + los demás usuarios reales + enemigos salvajes
     if(atkCd>0) atkCd-=delta;
     if(kReady&&kSpaceKey&&Phaser.Input.Keyboard.JustDown(kSpaceKey)) playerJump();   // Espacio = salto
     if(kReady){ kMMacc+=delta; if(kMMacc>=90){ kMMacc=0; try{ kMinimap(); }catch(e){} }
@@ -1442,6 +1448,13 @@ if(ADMIN){
 
 /* ===== MODO REINO: el usuario elige nombre + unidad y camina por la isla ===== */
 let player=null, kReady=false, kUnitList=null, kSel=null, kCursors=null, kKeys=null, kNear=null, kSpaceKey=null, kTestNpc=null;
+// enemigos salvajes del reino: al derrotarlos se desbloquea su carta en el PvP
+const KENEMY_DEF=[
+  {key:'lizard', card:'lizard', es:'Lagarto', en:'Lizard', fw:192, idle:7, run:6, sc:0.55, hp:3},
+  {key:'panda',  card:'panda',  es:'Panda',   en:'Panda',  fw:256, idle:10, run:6, sc:0.5,  hp:5},
+  {key:'turtle', card:'turtle', es:'Tortuga', en:'Turtle', fw:320, idle:10, run:7, sc:0.42, hp:6},
+];
+let kEnemies=[];
 const KSPEED=115;                                        // velocidad de paseo del jugador (px/s)
 const MSG_MAX=60;                                        // límite de caracteres del mensaje sobre la cabeza
 const KCOLLAB={blue:'Blue',red:'Red',purple:'Purple',yellow:'Yellow'};
@@ -1577,6 +1590,7 @@ let atkCd=0;
 function playerAttack(){
   if(!kReady||!player||!player.spr||atkCd>0||player._jumping) return;
   const s=player.spr, dir=player.faceLeft?-1:1; s.setFlipX(player.faceLeft);
+  scene.time.delayedCall(120, kHitEnemies);               // el golpe daña a los enemigos cercanos al frente
   const m=(kSel&&kSel.key||'').match(/^(warrior|archer|monk|pawn)_(blue|red|purple|yellow)$/);
   const akey=m?('atk_'+m[1]+'_'+m[2]):null;
   if(akey && scene.anims.exists(akey+'-a')){                     // ANIMACIÓN DE ATAQUE REAL (espada/arco/báculo/pico)
@@ -1714,6 +1728,54 @@ function spawnTestNpc(){
   nameplate(kTestNpc,{name:kTestNpc.name,me:false,rank:0});
   if(player&&player.spr) scene.physics.add.collider(player.spr, s);   // no lo atravesás
 }
+// ===== enemigos salvajes: deambulan por el bosque; al derrotarlos se desbloquea su carta en el PvP =====
+function kSpawnEnemies(){
+  if(kEnemies.length||!scene) return;
+  let placed=0, it=0;
+  while(placed<6 && it++<400){ const d=KENEMY_DEF[rint(0,KENEMY_DEF.length-1)];
+    const tx=rint(2,COLS-3), ty=rint(2,ROWS-3);
+    if(!isLand(tx,ty)||(blocked[ty]&&blocked[ty][tx])) continue;
+    const cx=Math.floor(COLS/2), cy=Math.floor(ROWS/2); if(Math.hypot(tx-cx,ty-cy)<7) continue;   // lejos de la plaza
+    const x=tx*T+T/2, y=ty*T+T/2;
+    const s=scene.physics.add.sprite(x,y,'ke_'+d.key+'_i',0).setOrigin(0.5,0.72).setScale(d.sc).setDepth(y); s.play('ke_'+d.key+'-i');
+    if(s.body){ s.body.setSize(26,20); }
+    const e={def:d,spr:s,hp:d.hp,maxhp:d.hp,dead:false,hx:x,hy:y,tx:x,ty:y,moveT:rint(600,2200),moving:false,flip:false};
+    scene.physics.add.collider(s,obstacles); if(player&&player.spr) scene.physics.add.collider(player.spr,s);
+    kEnemies.push(e); placed++;
+  }
+}
+function kEnemyUpdate(delta){
+  for(const e of kEnemies){ if(e.dead||!e.spr) continue; const s=e.spr;
+    e.moveT-=delta;
+    if(e.moveT<=0){ e.moveT=rint(1200,3200);                                   // elige un nuevo destino cerca del hogar
+      if(Math.random()<0.55){ const a=Math.random()*6.28, r=rint(24,120); e.tx=Phaser.Math.Clamp(e.hx+Math.cos(a)*r,T,WORLD_W-T); e.ty=Phaser.Math.Clamp(e.hy+Math.sin(a)*r,T,WORLD_H-T); e.moving=true; }
+      else e.moving=false; }
+    if(e.moving){ const dx=e.tx-s.x, dy=e.ty-s.y, dd=Math.hypot(dx,dy);
+      if(dd<6||!landAtPx(s.x+Math.sign(dx)*14,s.y+10)){ e.moving=false; s.body.setVelocity(0,0); }
+      else { s.body.setVelocity(dx/dd*46,dy/dd*46); s.play('ke_'+e.def.key+'-r',true); if(Math.abs(dx)>1){ e.flip=dx<0; s.setFlipX(e.flip); } } }
+    else { s.body.setVelocity(0,0); s.play('ke_'+e.def.key+'-i',true); }
+    s.setDepth(s.y);
+  }
+}
+function kHitEnemies(){                                    // el golpe del jugador daña a los enemigos cercanos al frente
+  if(!player||!player.spr) return; const px=player.spr.x, py=player.spr.y, dir=player.faceLeft?-1:1;
+  for(const e of kEnemies){ if(e.dead||!e.spr) continue;
+    const dx=e.spr.x-px, dy=e.spr.y-py; if(Math.hypot(dx,dy)>74) continue; if(Math.sign(dx)!==dir&&Math.abs(dx)>20) continue;
+    e.hp--; e.spr.setTintFill(0xffffff); scene.time.delayedCall(90,()=>{ if(e.spr&&e.spr.active) e.spr.clearTint(); });
+    burst(e.spr.x,e.spr.y-14,0xffd0a0,5,7);
+    if(e.hp<=0){ e.dead=true; const ex=e.spr.x, ey=e.spr.y; e.spr.destroy();
+      const b=scene.add.image(ex,ey+4,'bones1').setOrigin(0.5,0.9).setScale(0).setDepth(ey);
+      scene.tweens.add({targets:b,scaleX:0.8,scaleY:0.8,duration:220,ease:'Back.easeOut'});
+      kUnlockCard(e.def);
+    }
+  }
+}
+function kUnlockCard(def){                                 // suma la carta a aoa_cards → disponible en el PvP
+  let s=[]; try{ s=JSON.parse(localStorage.getItem('aoa_cards')||'[]'); }catch(e){}
+  if(!s.includes(def.card)){ s.push(def.card); try{ localStorage.setItem('aoa_cards',JSON.stringify(s)); }catch(e){}
+    toast(L('¡Derrotaste al '+def.es+'! Desbloqueada para el PvP.','Defeated the '+def.en+'! Unlocked for PvP.')); sfx('coins',0.4); addXp(20); }
+  else toast(L('Derrotaste a un '+def.es+'.','Defeated a '+def.en+'.'));
+}
 // ===== minimapa: dónde están los otros jugadores reales =====
 let kMM=null, kMMx=null, kMMacc=0;
 function kMinimap(){
@@ -1797,6 +1859,7 @@ async function kingdomEnter(){
   const bar=$('kBar'); if(bar) bar.classList.add('on');   // barra de acciones (mensaje siempre; PvP al cruzarse)
   if(kMM) kMM.classList.add('on');                        // minimapa
   spawnTestNpc();                                         // maestro de armas en el centro para probar el PvP
+  kSpawnEnemies();                                         // enemigos salvajes en el bosque (derrotalos → desbloqueás su carta)
   sfx('door',0.3);
   kConnect();                                             // entra al reino en vivo: se ve con los demás usuarios reales
   const lg=$('kLogin'); if(lg){ lg.classList.add('hide'); setTimeout(()=>{ if(lg) lg.style.display='none'; },400); }

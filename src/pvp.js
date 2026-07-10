@@ -27,6 +27,10 @@ const FILES={
   pigrider_idle:[TSB+'pigrider_idle.png',256,256], pigrider_run:[TSB+'pigrider_run.png',256,256],
   skull_idle:[TSB+'skull_i.png',192,192], skull_run:[TSB+'skull_r.png',192,192],
   gnome_idle:[TSB+'gnome_i.png',192,192], gnome_run:[TSB+'gnome_r.png',192,192],
+  // nuevos enemigos (Enemy Pack) con animación de ATAQUE
+  lizard_idle:[TSB+'lizard_idle.png',192,192], lizard_run:[TSB+'lizard_run.png',192,192], lizard_atk:[TSB+'lizard_atk.png',192,192],
+  panda_idle:[TSB+'panda_idle.png',256,256], panda_run:[TSB+'panda_run.png',256,256], panda_atk:[TSB+'panda_atk.png',256,256],
+  turtle_idle:[TSB+'turtle_idle.png',320,320], turtle_run:[TSB+'turtle_run.png',320,320], turtle_atk:[TSB+'turtle_atk.png',320,320],
 };
 
 /* cartas: own=propia (siempre); el resto se desbloquea al verlas en la beta. range>60 = a distancia. */
@@ -45,10 +49,13 @@ const CARDS=[
   {key:'shaman', es:'Chamán', en:'Shaman',   cost:4, hp:70,  dmg:17, sp:40, range:175,rate:1250,si:'shaman_idle', sr:'shaman_run', sc:0.52},
   {key:'tnt',    es:'Goblin TNT',en:'TNT Goblin',cost:4, hp:70, dmg:30, sp:42, range:26, rate:1300, si:'goblin_tnt', fi:[0,6], sr:'goblin_tnt', fr:[7,12], sc:0.52},
   {key:'pigrider',es:'Jinete Cerdo',en:'Pig Rider',cost:5, hp:210, dmg:24, sp:48, range:28, rate:1100, si:'pigrider_idle', sr:'pigrider_run', sc:0.44},
+  {key:'lizard', es:'Lagarto', en:'Lizard', cost:3, hp:80,  dmg:15, sp:66, range:26, rate:820, si:'lizard_idle', sr:'lizard_run', sa:'lizard_atk', fa:[0,8], sc:0.52},   // rápido
+  {key:'panda',  es:'Panda',   en:'Panda',  cost:5, hp:235, dmg:22, sp:44, range:28, rate:1150, si:'panda_idle', sr:'panda_run', sa:'panda_atk', fa:[0,12], sc:0.5},    // bruto
+  {key:'turtle', es:'Tortuga', en:'Turtle', cost:4, hp:300, dmg:14, sp:32, range:26, rate:1300, si:'turtle_idle', sr:'turtle_run', sa:'turtle_atk', fa:[0,9], sc:0.4},   // tanque lento
 ];
 const CARD_BY_KEY=Object.fromEntries(CARDS.map(c=>[c.key,c]));
 const CARD_IDX=Object.fromEntries(CARDS.map((c,i)=>[c.key,i]));
-const FOE_POOL=['torch','spear','gnoll','skull','snake','gnome','tnt','pigrider','shaman','warrior','archer'];   // la IA usa todo
+const FOE_POOL=['torch','spear','gnoll','skull','snake','gnome','tnt','pigrider','shaman','warrior','archer','lizard','panda','turtle'];   // la IA usa todo
 
 /* ==== duelo en vivo 1v1 (host-authoritative): ?duel=room&role=host|guest&foe=nombre ==== */
 const QS=new URLSearchParams(location.search);
@@ -147,7 +154,7 @@ const LANES=[ARENA_W*0.2, ARENA_W*0.8];   // los dos caminos/puentes (alineados 
 function create(){
   scene=this; const an=this.anims;
   makeDot(this);
-  CARDS.forEach(c=>{ mkAnim(an,c.key+'-i',c.si,c.fi,8); mkAnim(an,c.key+'-r',c.sr,c.fr,11); });
+  CARDS.forEach(c=>{ mkAnim(an,c.key+'-i',c.si,c.fi,8); mkAnim(an,c.key+'-r',c.sr,c.fr,11); if(c.sa) mkAnim(an,c.key+'-a',c.sa,c.fa,14,false); });
   mkAnim(an,'foam-a','foam',[0,7],7); mkAnim(an,'atree-a','atree',[0,3],4);
   mkAnim(an,'boom-fx','pfx_boom',[0,7],16); mkAnim(an,'dust-fx','pfx_dust',[0,7],20);
   for(let i=1;i<=4;i++) mkAnim(an,'abush'+i+'-a','abush'+i,[0,7],6);
@@ -320,10 +327,11 @@ function update(time,delta){
     if(!tgt){ u.spr.play(u.key+'-i',true); continue; }
     const tx=tgt.spr.x, ty=(tgt.card?tgt.spr.y:tgt.y), dx=tx-u.spr.x, dy=ty-u.spr.y, d=Math.hypot(dx,dy)||1;
     if(d<=u.range){                                       // atacar
-      u.st=0; u.spr.play(u.key+'-i',true);
+      u.st=0; if(u.atkAnimT>0){ u.atkAnimT-=delta; if(Math.abs(dx)>1){ u.flip=dx<0; u.spr.setFlipX(u.flip); } } else u.spr.play(u.key+'-i',true);
       if(u.cd<=0){ u.cd=u.rate; const dmg=tgt.card?u.dmg:Math.round(u.dmg*VS_TOWER);   // más daño a torres
+        if(u.card.sa){ u.spr.play(u.key+'-a',true); u.atkAnimT=Math.min(u.rate-60,560); if(Math.abs(dx)>1){ u.flip=dx<0; u.spr.setFlipX(u.flip); } }   // animación de ataque real
         if(u.ranged) shoot(u,tgt,dmg,u.side==='you'?0x8ec8ff:0xff9a9a);
-        else { hurt(tgt,dmg); miniLunge(u,dx,dy); hitFx(tgt.spr.x, tgt.card?tgt.spr.y-10:tgt.y-8); }
+        else { hurt(tgt,dmg); if(!u.card.sa) miniLunge(u,dx,dy); hitFx(tgt.spr.x, tgt.card?tgt.spr.y-10:tgt.y-8); }
       }
     } else {                                              // avanzar (las unidades sólo cruzan el río por los puentes)
       let mx=dx/d, my=dy/d;
