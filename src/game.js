@@ -281,7 +281,10 @@ function preload(){
       this.load.spritesheet('atk_'+u+'_'+c, TSB+'atk_'+u+'_'+c+'.png',{frameWidth:192,frameHeight:192});
     this.load.image('bones1',TSB+'bones1.png');   // marca donde cae el enemigo
     for(const e of KENEMY_DEF){ this.load.spritesheet('ke_'+e.key+'_i',TSB+e.key+'_idle.png',{frameWidth:e.fw,frameHeight:e.fw});   // enemigos salvajes del Enemy Pack
-      this.load.spritesheet('ke_'+e.key+'_r',TSB+e.key+'_run.png',{frameWidth:e.fw,frameHeight:e.fw}); } }
+      this.load.spritesheet('ke_'+e.key+'_r',TSB+e.key+'_run.png',{frameWidth:e.fw,frameHeight:e.fw}); }
+    for(const c of COLORES) for(const res of ['wood','gold','food']){   // aldeano cargando recurso (pose con la madera/oro/comida en las manos)
+      this.load.spritesheet('pc_'+c+'_'+res+'_i',TSB+'pc_'+c+'_'+res+'_i.png',{frameWidth:192,frameHeight:192});
+      this.load.spritesheet('pc_'+c+'_'+res+'_r',TSB+'pc_'+c+'_'+res+'_r.png',{frameWidth:192,frameHeight:192}); } }
   // edificios por facción + castillo real
   for(const c of COLORES) for(const b of [...CASAS,'tower',...ESPECIALES]) this.load.image(b+'_'+c,TSB+b+'_'+c+'.png');
   this.load.image('castle_black',TSB+'castle_black.png');
@@ -479,7 +482,10 @@ function create(){
       an.create({key:k+'-a',frames:an.generateFrameNumbers(k,{start:0,end:ATKF[u]-1}),frameRate:14,repeat:0}); }
     for(const e of KENEMY_DEF){ if(this.textures.exists('ke_'+e.key+'_i')){                // enemigos salvajes: idle + run
       an.create({key:'ke_'+e.key+'-i',frames:an.generateFrameNumbers('ke_'+e.key+'_i',{start:0,end:e.idle-1}),frameRate:6,repeat:-1});
-      an.create({key:'ke_'+e.key+'-r',frames:an.generateFrameNumbers('ke_'+e.key+'_r',{start:0,end:e.run-1}),frameRate:9,repeat:-1}); } } }
+      an.create({key:'ke_'+e.key+'-r',frames:an.generateFrameNumbers('ke_'+e.key+'_r',{start:0,end:e.run-1}),frameRate:9,repeat:-1}); } }
+    for(const c of COLORES) for(const res of ['wood','gold','food']){ const k='pc_'+c+'_'+res; if(this.textures.exists(k+'_i')){   // aldeano cargando
+      an.create({key:k+'-i',frames:an.generateFrameNumbers(k+'_i',{start:0,end:7}),frameRate:6,repeat:-1});
+      an.create({key:k+'-r',frames:an.generateFrameNumbers(k+'_r',{start:0,end:5}),frameRate:10,repeat:-1}); } } }
   an.create({key:'tree-a',frames:an.generateFrameNumbers('tree',{start:0,end:3}),frameRate:4,repeat:-1});
   for(let i=1;i<=4;i++) an.create({key:'bush'+i+'-a',frames:an.generateFrameNumbers('bush'+i,{start:0,end:7}),frameRate:6,repeat:-1});
   an.create({key:'cave-a',frames:an.generateFrameNumbers('cave',{start:0,end:7}),frameRate:6,repeat:-1});
@@ -1572,13 +1578,13 @@ function movePlayer(delta){
     if(d<8){ player.path.shift(); } else { vx=dx/d*spd; vy=dy/d*spd; }
   }
   b.setVelocity(vx,vy);
-  const moving=Math.abs(vx)>2||Math.abs(vy)>2;
+  const moving=Math.abs(vx)>2||Math.abs(vy)>2, ca=kCarryAnim();   // si el aldeano carga, usa la pose con el recurso en las manos
   if(moving){
     player.faceUp=(Math.abs(vy)>Math.abs(vx))&&vy<0;
-    player.spr.play((player.faceUp&&player.animRB)?player.animRB:player.animR,true);
+    player.spr.play(ca?ca.r:((player.faceUp&&player.animRB)?player.animRB:player.animR),true);
     if(Math.abs(vx)>2){ player.faceLeft=vx<0; player.spr.setFlipX(player.faceLeft); }
   } else {
-    player.spr.play((player.faceUp&&player.animIB)?player.animIB:player.animI,true);
+    player.spr.play(ca?ca.i:((player.faceUp&&player.animIB)?player.animIB:player.animI),true);
     player.spr.setFlipX(!!player.faceLeft);
   }
   player.spr.setDepth(player.spr.y); syncPlate(); kUpdateNear();
@@ -1794,11 +1800,19 @@ function kUnlockCard(def){                                 // suma la carta a ao
 // ===== llevar recursos: recolectás en el bosque/pastura/mina y depositás en el castillo (base para misiones diarias) =====
 let kCarryIcon=null, kRes=null;
 function loadKRes(){ try{ return JSON.parse(localStorage.getItem('aoa_kres')||'null')||{wood:0,gold:0,food:0}; }catch(e){ return {wood:0,gold:0,food:0}; } }
+function kCarryAnim(){                                     // pose de aldeano cargando (pc_color_recurso) si corresponde
+  if(!player||!player.carry||!scene) return null;
+  const m=(kSel&&kSel.key||'').match(/^pawn_(blue|red|purple|yellow)$/); if(!m) return null;
+  const res=player.carry==='res_wood'?'wood':player.carry==='res_gold'?'gold':'food', base='pc_'+m[1]+'_'+res;
+  return scene.anims.exists(base+'-i') ? {i:base+'-i',r:base+'-r'} : null;
+}
 function kSetCarry(tex,es,en){
   if(!player||!scene) return; player.carry=tex; player.carryName={es,en};
-  if(kCarryIcon) kCarryIcon.destroy();
-  kCarryIcon=scene.add.image(player.spr.x,player.spr.y-52,tex).setScale(0.55).setDepth(player.spr.y+80);
-  scene.tweens.add({targets:kCarryIcon,y:kCarryIcon.y-5,duration:600,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+  if(kCarryIcon){ kCarryIcon.destroy(); kCarryIcon=null; }
+  if(!kCarryAnim()){                                       // sólo ícono flotante si la unidad NO tiene pose de carga (la pose ya muestra el recurso)
+    kCarryIcon=scene.add.image(player.spr.x,player.spr.y-52,tex).setScale(0.55).setDepth(player.spr.y+80);
+    scene.tweens.add({targets:kCarryIcon,y:kCarryIcon.y-5,duration:600,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+  }
 }
 function kClearCarry(){ if(player) player.carry=null; if(kCarryIcon){ kCarryIcon.destroy(); kCarryIcon=null; } }
 function kPickResource(){                                  // toma el recurso del nodo más cercano si no lleva nada
