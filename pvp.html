@@ -6,14 +6,14 @@
 <title>Age of Fomo · PvP</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.80.1/phaser.min.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@500;700;800&family=MedievalSharp&family=IM+Fell+English:ital@0;1&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Grenze+Gotisch:wght@500;700;800&family=MedievalSharp&family=IM+Fell+English:ital@0;1&display=swap');
   :root{
     --bg:#16110c;--bg2:#221a11;--bg3:#120d09;--ink:#ece3d0;--muted:#9a8b6f;
     --brass:#c9a227;--brass-hi:#f0d564;--brass-dim:#7a6420;--ember:#e5533a;
     --line:rgba(201,162,39,.22);--line2:rgba(201,162,39,.4);
     --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Courier New",monospace;
-    --display:"Grenze Gotisch","Iowan Old Style",Georgia,serif;
-    --title:"MedievalSharp","Grenze Gotisch",Georgia,serif;
+    --display:"Cinzel","Iowan Old Style",Georgia,serif;
+    --title:"MedievalSharp","Cinzel",Georgia,serif;
     --flavor:"IM Fell English","Iowan Old Style",Georgia,serif;
   }
   *{box-sizing:border-box} html,body{height:100%}
@@ -40,7 +40,7 @@
   /* arena */
   .arena{flex:1;position:relative;min-height:0;display:flex;align-items:center;justify-content:center;padding:10px;
     background:radial-gradient(130% 120% at 50% 28%,#132a1c,#0a150e 68%,#060b08)}
-  .board{position:relative;height:100%;aspect-ratio:2/3;max-width:100%;flex:none;
+  .board{position:relative;height:100%;max-height:560px;aspect-ratio:2/3;max-width:100%;flex:none;
     border:3px solid var(--brass);border-radius:16px;overflow:hidden;background:#0a150e;
     box-shadow:0 0 0 2px rgba(0,0,0,.55),0 16px 44px rgba(0,0,0,.6),inset 0 0 42px rgba(0,0,0,.4)}
   #game{position:absolute;inset:0} #game canvas{display:block}
@@ -64,8 +64,11 @@
   .dock{position:relative;z-index:18;background:linear-gradient(180deg,rgba(18,13,9,.6),rgba(18,13,9,.96));border-top:1px solid var(--line);padding:8px 10px calc(10px + env(safe-area-inset-bottom))}
   .energy{display:flex;align-items:center;gap:9px;margin-bottom:8px}
   .energy .lab{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--muted)}
-  .ebar{flex:1;height:14px;background:#1a1208;border:1px solid var(--line2);border-radius:8px;overflow:hidden}
-  #energyFill{height:100%;width:50%;background:linear-gradient(180deg,#d59bff,#8a4ad6);transition:width .3s}
+  .ebar{flex:1;height:17px;display:flex;gap:2px;background:#1a1208;border:1px solid var(--line2);border-radius:8px;padding:2px}
+  .eseg{flex:1;border-radius:3px;background:#2b1f10;box-shadow:inset 0 0 0 1px rgba(0,0,0,.35);position:relative;overflow:hidden}
+  .eseg .efill{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(180deg,#e0b3ff,#8a4ad6);transition:width .12s linear}
+  .eseg.full .efill{width:100%}
+  .eseg.full{box-shadow:inset 0 0 0 1px rgba(240,213,100,.25),0 0 4px rgba(180,110,230,.4)}
   #energyNum{font-family:var(--display);font-weight:800;font-size:16px;color:#e0b3ff;min-width:20px;text-align:center}
   #hand{display:flex;gap:8px;justify-content:center}
   .card{position:relative;width:76px;height:98px;cursor:pointer;flex:none;display:flex;flex-direction:column;align-items:center;gap:2px;
@@ -167,7 +170,7 @@
   </div>
 
   <div class="dock">
-    <div class="energy"><span class="lab" data-es="ENERGÍA" data-en="ENERGY">ENERGÍA</span><div class="ebar"><div id="energyFill"></div></div><span id="energyNum">5</span></div>
+    <div class="energy"><span class="lab" data-es="ENERGÍA" data-en="ENERGY">ENERGÍA</span><div class="ebar" id="ebar"></div><span id="energyNum">5</span></div>
     <div id="hand"></div>
   </div>
 </div>

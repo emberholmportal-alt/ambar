@@ -6,14 +6,14 @@
 <title>Age of Fomo · Kingdom</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.80.1/phaser.min.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@500;700;800&family=MedievalSharp&family=IM+Fell+English:ital@0;1&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Grenze+Gotisch:wght@500;700;800&family=MedievalSharp&family=IM+Fell+English:ital@0;1&display=swap');
   :root{
     --bg:#16110c;--bg2:#221a11;--bg3:#120d09;--ink:#ece3d0;--muted:#9a8b6f;
     --brass:#c9a227;--brass-hi:#f0d564;--brass-dim:#7a6420;--ember:#e5533a;
     --line:rgba(201,162,39,.22);--line2:rgba(201,162,39,.4);--ok:#5fa55a;--bad:#c94f45;
     --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Courier New",monospace;
-    --display:"Grenze Gotisch","Iowan Old Style",Georgia,serif;
-    --title:"MedievalSharp","Grenze Gotisch",Georgia,serif;
+    --display:"Cinzel","Iowan Old Style",Georgia,serif;
+    --title:"MedievalSharp","Cinzel",Georgia,serif;
     --flavor:"IM Fell English","Iowan Old Style",Georgia,serif;
   }
   *{box-sizing:border-box} html,body{height:100%}
@@ -71,6 +71,13 @@
   #kEnter:hover{border-color:var(--ember)}
   .khint{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;min-height:14px}
   .khint.bad{color:var(--bad)}
+  .kwallet{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;margin-top:4px}
+  .kwallet.ok{color:var(--ok)} .kwallet b{color:var(--brass-hi)}
+  /* minimapa: dónde están los otros jugadores */
+  #kMinimap{position:absolute;top:56px;right:12px;z-index:16;width:150px;height:94px;border:2px solid var(--line2);border-radius:9px;
+    background:#0a1b25;box-shadow:0 6px 18px rgba(0,0,0,.55),inset 0 0 0 1px rgba(0,0,0,.4);display:none;image-rendering:auto}
+  #kMinimap.on{display:block}
+  @media(max-width:600px){ #kMinimap{width:112px;height:70px;top:52px;right:8px} }
   /* carrusel de cartas de unidad */
   .kpicker{display:flex;align-items:center;gap:6px}
   .karr{flex:none;width:38px;height:96px;font-size:26px;color:var(--brass-hi);cursor:pointer;
@@ -157,6 +164,7 @@
 
   <div class="viewport">
     <div id="game"></div><div class="grain"></div>
+    <canvas id="kMinimap" width="150" height="94" title="Jugadores en el reino"></canvas>
     <div id="kControls" data-es="Movete con WASD / flechas · o tocá el mapa para caminar" data-en="Move with WASD / arrows · or tap the map to walk">Movete con WASD / flechas · o tocá el mapa para caminar</div>
     <div id="kBar">
       <button class="kact" id="kPvpBtn" disabled>⚔ <span data-es="PvP" data-en="PvP">PvP</span> <span id="kPvpName"></span> <span class="soon" data-es="PRONTO" data-en="SOON">PRONTO</span></button>
@@ -196,6 +204,7 @@
       <div class="khead">
         <h1 data-es="Visitá el reino" data-en="Visit the Kingdom">Visitá el reino</h1>
         <p data-es="Elegí tu nombre y tu unidad, y caminá libre por la isla." data-en="Choose your name and unit, and roam the island freely.">Elegí tu nombre y tu unidad, y caminá libre por la isla.</p>
+        <div class="kwallet" id="kWallet"></div>
       </div>
       <div class="kpicker"><button class="karr" id="kPrev" aria-label="prev">‹</button><div class="kunits" id="kUnits"></div><button class="karr" id="kNext" aria-label="next">›</button></div>
       <div class="krow">
@@ -208,6 +217,7 @@
 </div>
 
 <script src="src/config.js"></script>
+<script src="src/auth.js"></script>
 <script>window.AOA_MODE='kingdom';</script>
 <script src="src/game.js"></script>
 <script>
