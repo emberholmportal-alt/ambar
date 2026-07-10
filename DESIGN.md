@@ -312,8 +312,11 @@ un escenario limpio, legible y con jerarquía visual.
 2. Mesetas + acantilados (`buildMesetas`): el relieve es **protagonista** — una
    **cordillera** (cadena de mesetas estiradas a lo ancho, que se lee como muro de
    piedra continuo) + 2 mesetas secundarias, con grava/peñascos en las cimas y
-   afloramientos de roca al pie. Escaleras transitables en cada tramo de acantilado
-   para que el reino siga siendo navegable (no parte la isla). Corre igual en live y reino.
+   afloramientos de roca al pie. **Dos niveles de altura apilados** (`elev` 1 y 2):
+   una cima más alta se levanta en el interior de la cordillera, con su propia cara
+   de acantilado → look de acantilado escalonado. **Se sube siempre por escalera**:
+   cada tramo de acantilado (tanto 1→0 como 2→1) tiene una escalera transitable; el
+   resto de la pared bloquea. Corre igual en live y reino, sin partir la isla.
 3. Caminos: calles de arena barrio→plaza (autotile), la plaza es el **punto focal**.
 4. Bosques como **masas** (`forestMass`).
 5. Afloramientos rocosos (`rockCluster`).
