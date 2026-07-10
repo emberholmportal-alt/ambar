@@ -276,7 +276,9 @@ function preload(){
   this.load.spritesheet('tmg',TSB+'tilemap_grass.png',{frameWidth:64,frameHeight:64});   // mesetas: cima de pasto + cara de piedra (grass-on-elevation)
   this.load.image('water',TSB+'water.png');
   this.load.spritesheet('foam',TSB+'foam.png',{frameWidth:192,frameHeight:192});
-  if(KINGDOM){ this.load.spritesheet('boat',TSB+'boat.png',{frameWidth:256,frameHeight:256}); this.load.image('bridge',TSB+'bridge_v.png'); }   // barcos + muelle del reino
+  if(KINGDOM){ this.load.spritesheet('boat',TSB+'boat.png',{frameWidth:256,frameHeight:256}); this.load.image('bridge',TSB+'bridge_v.png');   // barcos + muelle del reino
+    for(const c of COLORES) for(const u of ['warrior','archer','monk','pawn'])   // hojas de ataque reales (espada/arco/báculo/pico) por unidad y color
+      this.load.spritesheet('atk_'+u+'_'+c, TSB+'atk_'+u+'_'+c+'.png',{frameWidth:192,frameHeight:192}); }
   // edificios por facción + castillo real
   for(const c of COLORES) for(const b of [...CASAS,'tower',...ESPECIALES]) this.load.image(b+'_'+c,TSB+b+'_'+c+'.png');
   this.load.image('castle_black',TSB+'castle_black.png');
@@ -461,6 +463,9 @@ function create(){
   an.create({key:'sheep-idle',frames:an.generateFrameNumbers('sheep',{start:0,end:1}),frameRate:3,repeat:-1});
   an.create({key:'foam-a',frames:an.generateFrameNumbers('foam',{start:0,end:7}),frameRate:7,repeat:-1});
   if(KINGDOM&&this.textures.exists('boat')) an.create({key:'boat-a',frames:an.generateFrameNumbers('boat',{start:0,end:7}),frameRate:6,repeat:-1});
+  if(KINGDOM){ const ATKF={warrior:4,archer:8,monk:11,pawn:6};                    // ataque real por unidad/color (una pasada)
+    for(const c of COLORES) for(const u in ATKF){ const k='atk_'+u+'_'+c; if(this.textures.exists(k))
+      an.create({key:k+'-a',frames:an.generateFrameNumbers(k,{start:0,end:ATKF[u]-1}),frameRate:14,repeat:0}); } }
   an.create({key:'tree-a',frames:an.generateFrameNumbers('tree',{start:0,end:3}),frameRate:4,repeat:-1});
   for(let i=1;i<=4;i++) an.create({key:'bush'+i+'-a',frames:an.generateFrameNumbers('bush'+i,{start:0,end:7}),frameRate:6,repeat:-1});
   an.create({key:'cave-a',frames:an.generateFrameNumbers('cave',{start:0,end:7}),frameRate:6,repeat:-1});
@@ -1560,16 +1565,33 @@ function movePlayer(delta){
 let atkCd=0;
 function playerAttack(){
   if(!kReady||!player||!player.spr||atkCd>0||player._jumping) return;
-  atkCd=360; const s=player.spr, dir=player.faceLeft?-1:1; s.setFlipX(player.faceLeft);
-  // el cuerpo hace el gesto del golpe (inclinación + estocada) — sirve para cualquier unidad/color
-  scene.tweens.add({targets:s, angle:dir*17, duration:75, yoyo:true, ease:'Quad.easeOut', onComplete:()=>s.setAngle(0)});
-  scene.tweens.add({targets:s, scaleY:s.scaleY*0.88, duration:75, yoyo:true, ease:'Quad.easeOut'});
-  const cx=s.x+dir*22, cy=s.y-14;                                                             // arco de tajo
-  const g=scene.add.graphics().setDepth(s.y+80); g.lineStyle(5,0xffffff,0.95);
-  g.beginPath(); g.arc(cx,cy,22, dir>0?-1.0:Math.PI+1.0, dir>0?1.0:Math.PI-1.0, false); g.strokePath();
-  g.lineStyle(2,0xf0d564,0.75); g.beginPath(); g.arc(cx,cy,22, dir>0?-1.0:Math.PI+1.0, dir>0?1.0:Math.PI-1.0, false); g.strokePath();
-  scene.tweens.add({targets:g, alpha:0, scaleX:1.3, scaleY:1.3, duration:230, ease:'Quad.easeOut', onComplete:()=>g.destroy()});
-  burst(cx,cy,0xffffff,6,8); sfx('clash',0.4);
+  const s=player.spr, dir=player.faceLeft?-1:1; s.setFlipX(player.faceLeft);
+  const m=(kSel&&kSel.key||'').match(/^(warrior|archer|monk|pawn)_(blue|red|purple|yellow)$/);
+  const akey=m?('atk_'+m[1]+'_'+m[2]):null;
+  if(akey && scene.anims.exists(akey+'-a')){                     // ANIMACIÓN DE ATAQUE REAL (espada/arco/báculo/pico)
+    atkCd = m[1]==='monk'?820:(m[1]==='archer'?560:460);
+    const asp=scene.add.sprite(s.x, s.y, akey, 0).setOrigin(0.5,0.72).setDepth(s.y+1).setFlipX(player.faceLeft);
+    asp.setScale(s.displayHeight/192*1.55);                      // ajusta a la altura de la unidad
+    s.setVisible(false);
+    asp.play(akey+'-a');
+    const restore=()=>{ if(asp&&asp.active) asp.destroy(); if(player&&player.spr){ player.spr.setVisible(true); player.spr.setFlipX(player.faceLeft); } };
+    asp.once('animationcomplete',restore);
+    scene.time.delayedCall(atkCd+140, restore);                 // red de seguridad: la unidad siempre vuelve a mostrarse
+    if(m[1]==='archer') shootArrow(s.x+dir*10, s.y-18, dir);     // el arquero dispara una flecha
+    sfx(m[1]==='monk'?'bell':(m[1]==='archer'?'creak':'clash'), 0.4);
+  } else {                                                       // criaturas/animales sin hoja: gesto del cuerpo + tajo
+    atkCd=360;
+    scene.tweens.add({targets:s, angle:dir*17, duration:75, yoyo:true, ease:'Quad.easeOut', onComplete:()=>s.setAngle(0)});
+    const cx=s.x+dir*22, cy=s.y-14;
+    const g=scene.add.graphics().setDepth(s.y+80); g.lineStyle(5,0xffffff,0.95);
+    g.beginPath(); g.arc(cx,cy,22, dir>0?-1.0:Math.PI+1.0, dir>0?1.0:Math.PI-1.0, false); g.strokePath();
+    scene.tweens.add({targets:g, alpha:0, scaleX:1.3, scaleY:1.3, duration:230, ease:'Quad.easeOut', onComplete:()=>g.destroy()});
+    burst(cx,cy,0xffffff,6,8); sfx('clash',0.4);
+  }
+}
+function shootArrow(x,y,dir){                                    // flecha simple del arquero
+  const a=scene.add.rectangle(x,y,14,3,0x6b4a2a).setDepth(y+2);
+  scene.tweens.add({targets:a, x:x+dir*220, duration:420, ease:'Quad.easeIn', onComplete:()=>a.destroy()});
 }
 function playerJump(){
   if(!kReady||!player||!player.spr||player._jumping) return; const s=player.spr, b=s.body; if(!b) return;

@@ -101,6 +101,8 @@ function preload(){
   for(let i=1;i<=4;i++){ this.load.spritesheet('abush'+i, TSB+'bush'+i+'.png', {frameWidth:128,frameHeight:128}); this.load.image('arock'+i, TSB+'rock'+i+'.png'); }
   for(let i=1;i<=18;i++) this.load.image('adeco'+i, TSB+'deco'+String(i).padStart(2,'0')+'.png');
   this.load.image('bones1', TSB+'bones1.png'); this.load.image('skull_spike', TSB+'skull_spike.png');   // marca de muerte
+  this.load.spritesheet('pfx_boom', TSB+'pfx_boom.png', {frameWidth:192,frameHeight:192});   // explosión real
+  this.load.spritesheet('pfx_dust', TSB+'pfx_dust.png', {frameWidth:64,frameHeight:64});      // polvo de impacto
   ['clash','fire','bell','coins','bong'].forEach(k=>this.load.audio('s_'+k,'assets/sfx/'+k+'.ogg'));
 }
 
@@ -147,6 +149,7 @@ function create(){
   makeDot(this);
   CARDS.forEach(c=>{ mkAnim(an,c.key+'-i',c.si,c.fi,8); mkAnim(an,c.key+'-r',c.sr,c.fr,11); });
   mkAnim(an,'foam-a','foam',[0,7],7); mkAnim(an,'atree-a','atree',[0,3],4);
+  mkAnim(an,'boom-fx','pfx_boom',[0,7],16); mkAnim(an,'dust-fx','pfx_dust',[0,7],20);
   for(let i=1;i<=4;i++) mkAnim(an,'abush'+i+'-a','abush'+i,[0,7],6);
   buildArena(this);
   buildTowers();
@@ -320,7 +323,7 @@ function update(time,delta){
       u.st=0; u.spr.play(u.key+'-i',true);
       if(u.cd<=0){ u.cd=u.rate; const dmg=tgt.card?u.dmg:Math.round(u.dmg*VS_TOWER);   // más daño a torres
         if(u.ranged) shoot(u,tgt,dmg,u.side==='you'?0x8ec8ff:0xff9a9a);
-        else { hurt(tgt,dmg); miniLunge(u,dx,dy); }
+        else { hurt(tgt,dmg); miniLunge(u,dx,dy); hitFx(tgt.spr.x, tgt.card?tgt.spr.y-10:tgt.y-8); }
       }
     } else {                                              // avanzar (las unidades sólo cruzan el río por los puentes)
       let mx=dx/d, my=dy/d;
@@ -349,7 +352,9 @@ function update(time,delta){
   }
   S.units=S.units.filter(u=>!u.dead); S.shots=S.shots.filter(s=>!s.dead);
 }
-function miniLunge(u,dx,dy){ const d=Math.hypot(dx,dy)||1; scene.tweens.add({targets:u.spr,x:u.spr.x+dx/d*6,y:u.spr.y+dy/d*6,duration:90,yoyo:true}); }
+function miniLunge(u,dx,dy){ const d=Math.hypot(dx,dy)||1, s=u.spr;   // estocada telegrafiada (ataque visible)
+  scene.tweens.add({targets:s,x:s.x+dx/d*9,y:s.y+dy/d*9,duration:110,yoyo:true,ease:'Quad.easeOut'});
+  scene.tweens.add({targets:s,scaleY:s.scaleY*0.9,duration:110,yoyo:true,ease:'Quad.easeOut'}); }
 function spark(x,y){ for(let i=0;i<3;i++){ const p=scene.add.circle(x+rint(-6,6),y+rint(-6,6),rint(2,3),0xffe08a,0.9).setDepth(99550);
   scene.tweens.add({targets:p,x:p.x+rint(-14,14),y:p.y-rint(6,18),alpha:0,duration:rint(220,380),onComplete:()=>p.destroy()}); } }
 function deathPoof(spr,side){                             // muerte de unidad: humo + desvanecido + calavera donde cae
@@ -452,8 +457,15 @@ function guestInterp(dt){
 }
 
 /* ===== fx / hud ===== */
-function puff(x,y,col){ const c=scene.add.circle(x,y,8,col,0.5).setDepth(99400); scene.tweens.add({targets:c,radius:34,alpha:0,duration:400,onComplete:()=>c.destroy()}); }
-function boom(x,y){ sfx('fire',0.4); const c=scene.add.circle(x,y,10,0xffb060,0.8).setDepth(99600); scene.tweens.add({targets:c,radius:60,alpha:0,duration:500,onComplete:()=>c.destroy()}); if(scene.cameras&&scene.cameras.main) scene.cameras.main.shake(200,0.006); }
+function puff(x,y,col){ const c=scene.add.circle(x,y,8,col,0.5).setDepth(99400); scene.tweens.add({targets:c,radius:34,alpha:0,duration:400,onComplete:()=>c.destroy()});
+  if(scene.anims.exists('dust-fx')){ const d=scene.add.sprite(x,y,'pfx_dust').setScale(0.9).setDepth(99401).setAlpha(0.9); d.play('dust-fx'); d.once('animationcomplete',()=>d.destroy()); } }
+function hitFx(x,y){                                       // impacto cuerpo a cuerpo: polvo real + chispas
+  spark(x,y);
+  if(scene.anims.exists('dust-fx')){ const d=scene.add.sprite(x,y,'pfx_dust').setScale(1.1).setDepth(99500); d.play('dust-fx'); d.once('animationcomplete',()=>d.destroy()); } }
+function boom(x,y){ sfx('fire',0.5);                       // torre destruida: explosión real (sprite) + sacudida
+  if(scene.anims.exists('boom-fx')){ const b=scene.add.sprite(x,y,'pfx_boom').setScale(1.15).setDepth(99600); b.play('boom-fx'); b.once('animationcomplete',()=>b.destroy()); }
+  else { const c=scene.add.circle(x,y,10,0xffb060,0.8).setDepth(99600); scene.tweens.add({targets:c,radius:60,alpha:0,duration:500,onComplete:()=>c.destroy()}); }
+  if(scene.cameras&&scene.cameras.main) scene.cameras.main.shake(220,0.007); }
 let soundOn=false;
 function sfx(k,v){ if(soundOn&&scene) try{ scene.sound.play('s_'+k,{volume:v||0.4}); }catch(e){} }
 const ESEGS=[];
