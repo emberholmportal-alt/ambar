@@ -413,15 +413,27 @@ function buildMesetas(evitar,esCalle){
   esCalle=esCalle||(()=>false);
   for(let y=0;y<ROWS;y++){ elev[y]=Array(COLS).fill(0); cliff[y]=Array(COLS).fill(false); }
   const lejos=(x,y)=>evitar.every(p=>Math.hypot(x-p.x,y-p.y)>p.r);
-  let puestas=0, intentos=0;
-  while(puestas<4 && intentos++<60){
-    const mx=rint(6,COLS-7), my=rint(4,ROWS-6), mr=rint(2,4), p1=Math.random()*6.28;
-    if(!isLand(mx,my)||!lejos(mx,my)||esCalle(mx,my)) continue;
-    for(let y=my-mr-1;y<=my+mr+1;y++)for(let x=mx-mr-1;x<=mx+mr+1;x++){
-      const ang=Math.atan2(y-my,x-mx), wob=0.9*Math.sin(ang*3+p1);
-      if(isIn(x,y)&&isLand(x,y)&&isLand(x,y+1)&&lejos(x,y)&&!esCalle(x,y)&&Math.hypot(x-mx,y-my)<mr+wob) elev[y][x]=1;
+  // sella una meseta elíptica/orgánica (sx>1 = estirada a lo ancho → cara de acantilado que se lee como muro)
+  const stamp=(mx,my,mr,sx,ph)=>{
+    for(let y=Math.floor(my-mr-1);y<=my+mr+1;y++)for(let x=Math.floor(mx-mr*sx-1);x<=mx+mr*sx+1;x++){
+      if(!isIn(x,y)) continue;
+      const nx=(x-mx)/sx, ny=y-my, ang=Math.atan2(ny,nx), wob=0.8*Math.sin(ang*3+ph)+0.4*Math.sin(ang*5+ph*1.6);
+      if(isLand(x,y)&&isLand(x,y+1)&&lejos(x,y)&&!esCalle(x,y)&&Math.hypot(nx,ny)<mr+wob) elev[y][x]=1;
     }
-    puestas++;
+  };
+  // CORDILLERA principal (el relieve protagonista): cadena de mesetas que serpentea a lo ancho del mapa.
+  { let cx=rint(9,COLS-10), cy=rint(4,Math.floor(ROWS*0.5)), dir=Math.random()<0.5?1:-1, ph=Math.random()*6.28;
+    for(let seg=0, segs=rint(4,6); seg<segs; seg++){
+      stamp(cx,cy,rint(3,5),1.7,ph+seg*0.8);              // estirada horizontal → cordillera continua, no montículos
+      cx=Phaser.Math.Clamp(cx+dir*rint(3,4),7,COLS-8);
+      cy=Phaser.Math.Clamp(cy+pick([-1,0,0,1]),3,ROWS-6); // deriva suave: casi horizontal
+    }
+  }
+  // 2 mesetas secundarias (más chicas) para dar regiones altas/bajas, no un solo bloque
+  let sec=0, it=0;
+  while(sec<2 && it++<80){ const mx=rint(6,COLS-7), my=rint(4,ROWS-6);
+    if(!isLand(mx,my)||!lejos(mx,my)||esCalle(mx,my)) continue;
+    stamp(mx,my,rint(2,3),Phaser.Math.FloatBetween(1.1,1.4),Math.random()*6.28); sec++;
   }
   // erosión: sacar púas sueltas (menos de 2 vecinos altos → baja)
   for(let it=0;it<2;it++){ const snap=elev.map(r=>r.slice());
@@ -755,6 +767,10 @@ function create(){
   for(let i=0;i<Math.min(5,cliffBases.length);i++) rockCluster(cliffBases[i].x,cliffBases[i].y,rint(3,5));
   let extraRock=0, rtry=0;                                                      // 2-3 afloramientos sueltos más (agrupados, nunca una roca sola)
   while(extraRock<3 && rtry++<80){ const t=randFree(); if(t&&lejosPlaza(t.x,t.y)){ rockCluster(t.x,t.y,rint(3,4)); extraRock++; } }
+  // cimas rocosas: grava y algún peñasco sobre las mesetas → el relieve se lee como montaña, no como escalón pelado
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){ if(!elev[y][x]||blocked[y][x]||inSand(x,y)) continue;
+    if(Math.random()<0.16){ decoAt('tdeco'+pick([4,5,6]),x,y,Phaser.Math.FloatBetween(0.6,0.95)); }
+    else if(Math.random()<0.05){ decoAt('rock'+rint(1,4),x,y,Phaser.Math.FloatBetween(0.55,0.8)); bloquear(x,y); } }
 
   // 3) RECURSOS con lógica: el oro sólo junto a la mina (montaña); la madera vive en el bosque; la carne en las pasturas.
   for(let i=0;i<7;i++){ const x=gm.x+rint(-2,2), y=gm.y+rint(-1,2);

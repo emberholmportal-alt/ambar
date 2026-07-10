@@ -309,7 +309,11 @@ un escenario limpio, legible y con jerarquía visual.
 
 ### Z.1 Orden de construcción (se respeta siempre, en `create()`)
 1. Forma de la isla (`buildIsland`, silueta orgánica con foam en la costa).
-2. Mesetas + acantilados (`buildMesetas`, relieve real con escaleras transitables).
+2. Mesetas + acantilados (`buildMesetas`): el relieve es **protagonista** — una
+   **cordillera** (cadena de mesetas estiradas a lo ancho, que se lee como muro de
+   piedra continuo) + 2 mesetas secundarias, con grava/peñascos en las cimas y
+   afloramientos de roca al pie. Escaleras transitables en cada tramo de acantilado
+   para que el reino siga siendo navegable (no parte la isla). Corre igual en live y reino.
 3. Caminos: calles de arena barrio→plaza (autotile), la plaza es el **punto focal**.
 4. Bosques como **masas** (`forestMass`).
 5. Afloramientos rocosos (`rockCluster`).
