@@ -700,8 +700,12 @@ function create(){
     if(isLand(tx,ty)&&!blocked[ty][tx]&&!inSand(tx,ty)) placeTree(tx,ty); }
   placeBuilding('goblin_house',gc.x,gc.y,0.8,{fw:1,fh:1}); placeBuilding('goblin_house',gc.x-2,gc.y+2,0.72,{fw:1,fh:1});
   placeDecoImg('tdeco18',gc.x+1,gc.y+1,0.95); placeDecoImg('tdeco14',gc.x-1,gc.y+1,0.9);   // tótem y huesos
-  for(let i=0;i<6;i++){const fx=gc.x+rint(-3,2),fy=gc.y+rint(-1,3);
-    if(isLand(fx,fy)&&!blocked[fy][fx]&&!inSand(fx,fy)&&Math.random()<0.7){scene.add.image(fx*T+T/2,fy*T+T-6,'fence',pick([1,2,9,10])).setOrigin(0.5,1).setDepth(fy*T+T-6); blocked[fy][fx]=true;}}
+  for(let s=0;s<2;s++){                                    // palizada goblin: tramos cortos y rotos (no postes sueltos flotando)
+    const horiz=Math.random()<0.5, len=rint(2,4), sx=gc.x+rint(-3,1), sy=gc.y+rint(-1,3), seg=[];
+    for(let k=0;k<len;k++){ const x=sx+(horiz?k:0), y=sy+(horiz?0:k);
+      if(isLand(x,y)&&!blocked[y][x]&&!inSand(x,y)) seg.push({x,y,t:false,b:false,l:false,r:false}); }
+    if(seg.length>=2) buildWall(seg);
+  }
   if(!KINGDOM) for(let i=0;i<4;i++) spawnMonster(pick(['torch','spear','shaman','tnt']), gc.x+rint(-3,2), gc.y+rint(-1,3), {tx:gc.x,ty:gc.y,r:4});
 
   // ---- ZONA SALVAJE (O): cueva, fieras y carroña ----
