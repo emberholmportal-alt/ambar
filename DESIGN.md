@@ -297,3 +297,54 @@ la construcción llegue en F1.
 *Convenciones: español rioplatense, sin promesas financieras, tesorería y burns
 públicos. Próximo paso al aprobar este documento: purga de assets (A.2) +
 esqueleto del backend (D.1) en una branch nueva.*
+
+---
+
+## Z. DISEÑO DE ESCENARIO (nivel level-designer, no scatter aleatorio)
+
+Adaptación del manifiesto RTS a nuestro lore y sistemas. **Regla de oro:** si un
+diseñador de Age of Empires / Warcraft III mirara el mapa, debería leerse como
+*hecho a mano*, no *generado al azar*. No maximizamos cantidad de assets: buscamos
+un escenario limpio, legible y con jerarquía visual.
+
+### Z.1 Orden de construcción (se respeta siempre, en `create()`)
+1. Forma de la isla (`buildIsland`, silueta orgánica con foam en la costa).
+2. Mesetas + acantilados (`buildMesetas`, relieve real con escaleras transitables).
+3. Caminos: calles de arena barrio→plaza (autotile), la plaza es el **punto focal**.
+4. Bosques como **masas** (`forestMass`).
+5. Afloramientos rocosos (`rockCluster`).
+6. Recursos con lógica.
+7. Deco de contexto.
+8. Pasturas (rebaños agrupados).
+
+### Z.2 Traducción al lore de ÁMBAR
+- **Punto focal = asentamiento principal:** castillo + plaza + mercado en el centro.
+  Se deja un anillo abierto alrededor (`lejosPlaza`) para que respire y para el
+  recorrido de entrada.
+- **Focos secundarios = los 4 gremios** (Guardia de Hierro, Orden del Yunque, Los
+  Sin Nombre, Casa del Sol) + aldea goblin. Cada uno es un barrio amurallado con su
+  edificio-ancla, casas apiñadas y su estandarte. No se los invade con bosque/roca
+  (`lejosBarrios`).
+- **Zonas de descanso visual = praderas abiertas** entre las masas (regla 70/30).
+
+### Z.3 Reglas concretas aplicadas
+- **Bosques como masas, nunca árboles sueltos uniformes:** blobs con borde
+  orgánico (ruido angular) + claro interno + separación mínima entre copas (nada
+  de filas ni copas encimadas). Un cinturón de bosque en los bordes **oculta el
+  límite del mapa**.
+- **Rocas siempre agrupadas** (afloramiento = roca grande + satélites + grava),
+  ancladas al pie de los acantilados y a la mina. Prohibido: una roca sola en la
+  pradera.
+- **Recursos con lógica:** oro sólo junto a la mina/montaña; madera dentro del
+  bosque (los árboles son los nodos); carne en las pasturas.
+- **Deco de contexto, no ruido:** hongos y arbustos en el bosque; grava en la
+  piedra; pasto y arbustos chicos en la pradera (sin repetir la misma deco
+  seguida). Los props específicos (espantapájaros, cartel, tótem, huesos) sólo
+  donde tienen sentido (granja, mercado, aldea goblin, zona salvaje) — nunca al azar.
+- **Espaciado:** props no se tocan (árbol-roca, roca-edificio, edificio-acantilado).
+
+### Z.4 Antipatrón que se eliminó
+El bloque viejo de "densidad alta" tiraba ~30 árboles sueltos uniformes, 26 rocas
+solas, 12 piedras de oro al azar y 60 decos usando **todas** las texturas 1-18
+(incluidos espantapájaros/carteles/tótems repartidos por todo el mapa). Eso es
+exactamente el ruido visual que el manifiesto prohíbe: reemplazado por composición.
