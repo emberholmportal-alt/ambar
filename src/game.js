@@ -393,6 +393,14 @@ function geIdx(x,y){ const lv=elev[y][x];
 // cara de acantilado (piedra teal) bajo el borde sur de la meseta
 function gcIdx(x,y){ const l=isIn(x-1,y)&&cliff[y][x-1], r=isIn(x+1,y)&&cliff[y][x+1];
   return l&&r?42 : (!l&&r)?41 : (l&&!r)?44 : 43; }
+// escalera de piedra (no hay asset): escalones stackeados en el tono teal del acantilado
+function makeStairsTex(s){ if(s.textures.exists('stairs')) return;
+  const g=s.add.graphics({add:false}), W=54, H=64, steps=4, sh=Math.floor(H/steps), x=(64-W)/2;
+  for(let i=0;i<steps;i++){ const y=i*sh;
+    g.fillStyle(0x22403a,1); g.fillRect(x-2,y,W+4,sh);          // marco/sombra
+    g.fillStyle(0x6f9a90,1); g.fillRect(x,y+2,W,sh-2);          // cara de piedra
+    g.fillStyle(0xaccec4,1); g.fillRect(x,y+2,W,3); }           // brillo del borde del escalón
+  g.generateTexture('stairs',64,H); g.destroy(); }
 // genera mesetas coherentes (blobs) lejos de plaza/barrios, deriva el acantilado sur y bloquea la cara
 function buildMesetas(evitar,esCalle){
   esCalle=esCalle||(()=>false);
@@ -575,11 +583,14 @@ function create(){
   // ---- MESETAS con acantilados (relieve real): cima de pasto + cara de piedra ----
   const evitarMeseta=[{x:px,y:py,r:6}].concat(GUILDS.map(g=>({x:g.cx,y:g.cy,r:6})));
   buildMesetas(evitarMeseta, inSand);
+  const stairSet=new Set();                                                                                     // una escalera transitable por cada tramo de acantilado
+  for(let y=0;y<ROWS;y++){ let x=0; while(x<COLS){ if(cliff[y][x]){ let x2=x; while(x2<COLS&&cliff[y][x2]) x2++; stairSet.add(y*COLS+((x+x2-1)>>1)); x=x2; } else x++; } }
+  makeStairsTex(this);
   for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) if(elev[y][x]) rt.drawFrame('tmg',geIdx(x,y),x*T,y*T);        // cima de pasto elevada
-  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) if(cliff[y][x]) rt.drawFrame('tmg',gcIdx(x,y),x*T,y*T);         // cara de acantilado
-  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) if(cliff[y][x]){                                                // sombra al pie + colisión de la pared
-    blocked[y][x]=true;
-    this.add.rectangle(x*T+T/2,y*T+T-1,T,9,0x0a1508,0.20).setOrigin(0.5,1).setDepth(-19);
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) if(cliff[y][x]&&!stairSet.has(y*COLS+x)) rt.drawFrame('tmg',gcIdx(x,y),x*T,y*T);   // cara de acantilado (salvo donde va la escalera)
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) if(cliff[y][x]){
+    if(stairSet.has(y*COLS+x)){ this.add.image(x*T+T/2,y*T+T,'stairs').setOrigin(0.5,1).setDepth(y*T+2); }      // escalera: se puede subir por acá
+    else { blocked[y][x]=true; this.add.rectangle(x*T+T/2,y*T+T-1,T,9,0x0a1508,0.20).setOrigin(0.5,1).setDepth(-19); }   // pared: colisión + sombra
   }
 
   npcGroup=this.physics.add.group();
