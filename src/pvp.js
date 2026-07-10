@@ -90,6 +90,8 @@ function preload(){
   for(const k in FILES) this.load.spritesheet(k, FILES[k][0], {frameWidth:FILES[k][1], frameHeight:FILES[k][2]});
   for(const c of ['blue','red']) this.load.image('tower_'+c, TSB+'tower_'+c+'.png');
   this.load.image('castle_black', TSB+'castle_black.png');
+  this.load.image('tower_dorso', 'assets/img/Towerdorso.png');    // torre de espaldas: tu lado mira hacia el rival
+  this.load.image('castle_dorso', 'assets/img/Castledorso.png');  // asentamiento de espaldas: tu rey mira hacia arriba
   // terreno rico (tiles reales + puente + naturaleza), igual que el reino
   this.load.spritesheet('ground', TSB+'ground.png', {frameWidth:64,frameHeight:64});
   this.load.image('pwater', TSB+'water.png');
@@ -171,7 +173,8 @@ function buildTowers(){
   if(!scene) return;
   S.towers.forEach(t=>{ if(t.spr)t.spr.destroy(); if(t.hpbar)t.hpbar.destroy(); }); S.towers=[];
   const T=(side,x,y,king)=>{
-    const img=scene.add.image(x,y,king?'castle_black':(side==='you'?'tower_blue':'tower_red')).setOrigin(0.5,0.9).setScale(king?0.62:0.5).setDepth(y);
+    const tex = side==='you' ? (king?'castle_dorso':'tower_dorso') : (king?'castle_black':'tower_red');   // tu lado de espaldas (mira al rival)
+    const img=scene.add.image(x,y,tex).setOrigin(0.5,0.9).setScale(king?0.62:0.5).setDepth(y);
     if(side==='foe'&&!king) img.setTint(0xffb0b0);
     const hp=king?1000:560;
     S.towers.push({side,king,spr:img,x,y:y-30,hp,maxhp:hp,range:king?230:210,rate:king?1100:950,dmg:king?20:16,cd:rint(0,600),dead:false,hpbar:scene.add.graphics().setDepth(99000)});
@@ -405,7 +408,8 @@ function applySnap(d){
   const twSeen=new Set();
   (d.tw||[]).forEach(a=>{ const i=a[0], side=a[1], x=a[2], y=a[3], hp=a[4], mx=a[5], king=a[6]; twSeen.add(i);
     let t=gTowers[i];
-    if(!t){ const mine=gMine(side); const spr=scene.add.image(x, GY(y), king?'castle_black':(mine?'tower_blue':'tower_red')).setOrigin(0.5,0.9).setScale(king?0.62:0.5).setDepth(GY(y));
+    if(!t){ const mine=gMine(side); const gtex = mine ? (king?'castle_dorso':'tower_dorso') : (king?'castle_black':'tower_red');   // el invitado también ve su lado de espaldas
+      const spr=scene.add.image(x, GY(y), gtex).setOrigin(0.5,0.9).setScale(king?0.62:0.5).setDepth(GY(y));
       if(!mine&&!king) spr.setTint(0xffb0b0); t={spr,hpbar:scene.add.graphics().setDepth(99000),king,mine}; gTowers[i]=t; }
     t.hp=hp; t.mx=mx;
   });

@@ -37,12 +37,14 @@
   .menu.on{display:flex}
   .menu a{font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:none;padding:9px 11px;border-radius:6px}
   .menu a:hover{background:rgba(201,162,39,.14);color:var(--brass-hi)}
-  /* arena */
-  .arena{flex:1;position:relative;min-height:0;display:flex;align-items:center;justify-content:center;padding:10px;
-    background:radial-gradient(130% 120% at 50% 28%,#132a1c,#0a150e 68%,#060b08)}
-  .board{position:relative;height:100%;max-height:560px;aspect-ratio:2/3;max-width:100%;flex:none;
-    border:3px solid var(--brass);border-radius:16px;overflow:hidden;background:#0a150e;
-    box-shadow:0 0 0 2px rgba(0,0,0,.55),0 16px 44px rgba(0,0,0,.6),inset 0 0 42px rgba(0,0,0,.4)}
+  /* escenario: fondo atenuado que centra el modal del PvP */
+  .pvstage{flex:1;position:relative;min-height:0;display:flex;align-items:center;justify-content:center;padding:10px;
+    background:radial-gradient(130% 120% at 50% 28%,#122417,#0a120c 66%,#050906)}
+  /* modal chico centrado: tablero + dock juntos */
+  .pvmodal{display:inline-flex;flex-direction:column;flex:none;max-width:96vw;border:3px solid var(--brass);border-radius:18px;
+    overflow:hidden;background:linear-gradient(180deg,#14100b,#0a0806);
+    box-shadow:0 0 0 2px rgba(0,0,0,.6),0 24px 64px rgba(0,0,0,.72),inset 0 0 0 1px rgba(240,213,100,.12)}
+  .board{position:relative;height:min(62vh,520px);aspect-ratio:2/3;max-width:96vw;overflow:hidden;background:#0a150e}
   #game{position:absolute;inset:0} #game canvas{display:block}
   /* carta fantasma que sigue al dedo/mouse al arrastrar */
   .dragghost{position:fixed;z-index:9998;width:66px;height:66px;pointer-events:none;transform:translate(-50%,-62%);
@@ -61,7 +63,7 @@
     font-family:var(--mono);font-size:11px;color:#e9b04a;background:rgba(18,13,9,.85);border:1px solid var(--line2);border-radius:8px;padding:7px 13px}
   #lockMsg a{color:var(--brass-hi)}
   /* barra inferior: energía + cartas */
-  .dock{position:relative;z-index:18;background:linear-gradient(180deg,rgba(18,13,9,.6),rgba(18,13,9,.96));border-top:1px solid var(--line);padding:8px 10px calc(10px + env(safe-area-inset-bottom))}
+  .dock{position:relative;z-index:18;width:100%;background:linear-gradient(180deg,rgba(18,13,9,.75),rgba(12,9,6,.98));border-top:1px solid var(--line);padding:8px 8px 10px}
   .energy{display:flex;align-items:center;gap:9px;margin-bottom:8px}
   .energy .lab{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--muted)}
   .ebar{flex:1;height:17px;display:flex;gap:2px;background:#1a1208;border:1px solid var(--line2);border-radius:8px;padding:2px}
@@ -70,15 +72,15 @@
   .eseg.full .efill{width:100%}
   .eseg.full{box-shadow:inset 0 0 0 1px rgba(240,213,100,.25),0 0 4px rgba(180,110,230,.4)}
   #energyNum{font-family:var(--display);font-weight:800;font-size:16px;color:#e0b3ff;min-width:20px;text-align:center}
-  #hand{display:flex;gap:8px;justify-content:center}
-  .card{position:relative;width:76px;height:98px;cursor:pointer;flex:none;display:flex;flex-direction:column;align-items:center;gap:2px;
-    background:linear-gradient(180deg,#2a2013,#160f08);border:2px solid #6b5226;border-radius:11px;padding:5px 4px 4px;
+  #hand{display:flex;gap:6px;justify-content:center;width:100%}
+  .card{position:relative;flex:1 1 0;min-width:0;max-width:80px;height:96px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;
+    background:linear-gradient(180deg,#2a2013,#160f08);border:2px solid #6b5226;border-radius:11px;padding:5px 3px 4px;
     box-shadow:inset 0 0 0 1px rgba(201,162,39,.18),0 4px 10px rgba(0,0,0,.5);transition:transform .1s,border-color .12s}
   .card:hover{transform:translateY(-3px);border-color:var(--brass)}
   .card.sel{border-color:var(--brass-hi);box-shadow:inset 0 0 0 1px rgba(240,213,100,.5),0 0 16px rgba(240,213,100,.4);transform:translateY(-4px)}
   .card.poor{opacity:.5;filter:grayscale(.4)}
-  .card .cthumb{width:56px;height:52px;background-size:60px 60px;background-position:center;background-repeat:no-repeat;image-rendering:pixelated}
-  .card .cname{font-family:var(--display);font-weight:700;font-size:11px;line-height:1;color:#f0e6cf;text-align:center;white-space:nowrap;overflow:hidden;max-width:70px;text-overflow:ellipsis}
+  .card .cthumb{width:100%;max-width:54px;height:48px;background-size:52px 52px;background-position:center;background-repeat:no-repeat;image-rendering:pixelated}
+  .card .cname{font-family:var(--display);font-weight:700;font-size:10.5px;line-height:1;color:#f0e6cf;text-align:center;white-space:nowrap;overflow:hidden;max-width:100%;text-overflow:ellipsis}
   .card .ccost{position:absolute;top:-8px;right:-6px;font-family:var(--display);font-weight:800;font-size:12px;color:#120d09;background:linear-gradient(180deg,#d59bff,#a45ee0);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,.5)}
   /* toast + fin */
   #pvToast{position:absolute;bottom:150px;left:50%;transform:translateX(-50%);z-index:30;font-family:var(--mono);font-size:12px;color:var(--ink);
@@ -145,8 +147,14 @@
     <div id="pvBarWrap"><div id="pvBar"></div></div>
   </div>
 
-  <div class="arena">
-    <div class="board"><div id="game"></div></div>
+  <div class="pvstage">
+    <div class="pvmodal">
+      <div class="board"><div id="game"></div></div>
+      <div class="dock">
+        <div class="energy"><span class="lab" data-es="ENERGÍA" data-en="ENERGY">ENERGÍA</span><div class="ebar" id="ebar"></div><span id="energyNum">5</span></div>
+        <div id="hand"></div>
+      </div>
+    </div>
     <div id="lockMsg" style="display:none"></div>
     <div id="pvToast"></div>
     <div id="pvEnd"><div class="endbox">
@@ -167,11 +175,6 @@
       <div class="collection" id="collection"></div>
       <button class="bigbtn" onclick="pvpBattle()">⚔ <span data-es="BATALLA" data-en="BATTLE">BATALLA</span></button>
     </div></div>
-  </div>
-
-  <div class="dock">
-    <div class="energy"><span class="lab" data-es="ENERGÍA" data-en="ENERGY">ENERGÍA</span><div class="ebar" id="ebar"></div><span id="energyNum">5</span></div>
-    <div id="hand"></div>
   </div>
 </div>
 

@@ -751,6 +751,12 @@ function create(){
   }
   renderMarcador();                                  // el marcador ya se sembró; refresca por si la escena tardó
   this.time.addEvent({delay:rint(9000,16000),loop:true,callback:()=>{ if(!paused&&Math.random()<0.7) bandada(); }});   // bandadas cruzando el cielo
+  if(KINGDOM){                                       // paredes físicas: cercas, acantilados, rocas y props no se pueden atravesar (hay que rodearlos)
+    for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
+      if(blocked[y]&&blocked[y][x]){ const r=this.add.rectangle(x*T+T/2,y*T+T/2,T-6,T-6).setVisible(false);
+        this.physics.add.existing(r,true); obstacles.add(r); }
+    }
+  }
   if(KINGDOM) startKingdom(this);                    // modo reino: crea el jugador, cámara que sigue, controles y selector
   { const b=$('liveBar'); if(b) b.style.width='100%'; const r=$('liveRunner'); if(r) r.style.left='100%'; }   // mapa listo: completa la barra
   const sp=$('liveSplash'); if(sp){ sp.classList.add('hide'); setTimeout(()=>{ if(sp) sp.style.display='none'; },700); }   // y oculta la pantalla de carga
@@ -1257,7 +1263,11 @@ function update(time,delta){
       if(vis){ n._plate.x=n.spr.x; n._plate.y=n.spr.y-44; n._plate.setScale(1/cam.zoom); n._plate.setDepth(n.spr.y+40); } }
   }
   if(KINGDOM){ movePlayer(delta); kUpdateOthers();         // reino: mueve la unidad del usuario + los demás usuarios reales
-    if(kReady){ kMMacc+=delta; if(kMMacc>=90){ kMMacc=0; try{ kMinimap(); }catch(e){} } } }
+    if(atkCd>0) atkCd-=delta;
+    if(kReady&&kSpaceKey&&Phaser.Input.Keyboard.JustDown(kSpaceKey)) playerJump();   // Espacio = salto
+    if(kReady){ kMMacc+=delta; if(kMMacc>=90){ kMMacc=0; try{ kMinimap(); }catch(e){} }
+      kXpAccrue(delta); }                                  // acumula tiempo de juego → XP/nivel
+  }
   if(paused) return;
 
   clkAcc+=delta*m;
@@ -1396,7 +1406,7 @@ if(ADMIN){
 }
 
 /* ===== MODO REINO: el usuario elige nombre + unidad y camina por la isla ===== */
-let player=null, kReady=false, kUnitList=null, kSel=null, kCursors=null, kKeys=null, kNear=null;
+let player=null, kReady=false, kUnitList=null, kSel=null, kCursors=null, kKeys=null, kNear=null, kSpaceKey=null, kTestNpc=null;
 const KSPEED=115;                                        // velocidad de paseo del jugador (px/s)
 const MSG_MAX=60;                                        // límite de caracteres del mensaje sobre la cabeza
 const KCOLLAB={blue:'Blue',red:'Red',purple:'Purple',yellow:'Yellow'};
@@ -1447,10 +1457,11 @@ function playerSay(txt){                                  // el jugador escribe:
   showSay(player,txt); syncPlate();
   if(ws&&ws.readyState===1){ try{ ws.send(JSON.stringify({t:'say',msg:txt})); }catch(e){} }
 }
-function kUpdateNear(){                                   // ¿el jugador está cerca de OTRO usuario real? (habilita PvP contextual)
+function kUpdateNear(){                                   // ¿el jugador está cerca de OTRO usuario real (o del NPC de práctica)? habilita PvP
   kNear=null;
   if(player&&player.spr){ let bd=80; for(const id in kOthers){ const o=kOthers[id]; if(!o.spr) continue;
-      const d=Math.hypot(o.spr.x-player.spr.x,o.spr.y-player.spr.y); if(d<bd){ bd=d; kNear=o; } } }
+      const d=Math.hypot(o.spr.x-player.spr.x,o.spr.y-player.spr.y); if(d<bd){ bd=d; kNear=o; } }
+    if(kTestNpc&&kTestNpc.spr){ const d=Math.hypot(kTestNpc.spr.x-player.spr.x,kTestNpc.spr.y-player.spr.y); if(d<bd){ bd=d; kNear=kTestNpc; } } }
   const pv=$('kPvpBtn'); if(pv){ pv.style.display=(kReady&&kNear)?'inline-flex':'none';
     if(kNear){ const nm=$('kPvpName'); if(nm) nm.textContent=kNear.name||''; } }
 }
@@ -1498,6 +1509,7 @@ function movePlayer(delta){
   if(!player||!player.spr||!player.spr.body) return;
   const b=player.spr.body, spd=player.spd;
   if(!kReady||paused){ b.setVelocity(0); syncPlate(); return; }
+  if(player._jumping){ if(b.enable) b.setVelocity(0); syncPlate(); kUpdateNear(); return; }   // durante el salto la unidad queda quieta
   const typing=document.activeElement&&/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);   // no mover mientras se escribe
   let ix=0,iy=0;
   if(!typing&&kCursors){ if(kCursors.left.isDown)ix--; if(kCursors.right.isDown)ix++; if(kCursors.up.isDown)iy--; if(kCursors.down.isDown)iy++; }
@@ -1525,43 +1537,93 @@ function movePlayer(delta){
   wsPosAcc+=delta;                                        // avisa la posición a los demás ~8/s
   if(ws&&ws.readyState===1&&wsPosAcc>120){ wsPosAcc=0; try{ ws.send(JSON.stringify({t:'pos',x:Math.round(player.spr.x),y:Math.round(player.spr.y),f:player.faceLeft,m:moving})); }catch(e){} }
 }
-/* desbloqueo de unidades del reino: básicos siempre; criaturas al verlas en la beta (aoa_cards) */
+/* --- golpe (click) y salto (Espacio): sin sheets de ataque, se fingen con un tween + arco de tajo --- */
+let atkCd=0;
+function playerAttack(){
+  if(!kReady||!player||!player.spr||atkCd>0||player._jumping) return;
+  atkCd=380; const s=player.spr, dir=player.faceLeft?-1:1;
+  scene.tweens.add({targets:s, x:s.x+dir*7, duration:80, yoyo:true, ease:'Quad.easeOut'});   // pequeña estocada
+  const cx=s.x+dir*20, cy=s.y-14;                                                             // arco de tajo blanco
+  const g=scene.add.graphics().setDepth(s.y+80); g.lineStyle(4,0xffffff,0.92);
+  g.beginPath(); g.arc(cx,cy,20, dir>0?-1.0:Math.PI+1.0, dir>0?1.0:Math.PI-1.0, false); g.strokePath();
+  g.lineStyle(2,0xf0d564,0.7); g.beginPath(); g.arc(cx,cy,20, dir>0?-1.0:Math.PI+1.0, dir>0?1.0:Math.PI-1.0, false); g.strokePath();
+  scene.tweens.add({targets:g, alpha:0, scaleX:1.25, scaleY:1.25, duration:230, ease:'Quad.easeOut', onComplete:()=>g.destroy()});
+  burst(cx,cy,0xffffff,5,7); sfx('clash',0.35);
+}
+function playerJump(){
+  if(!kReady||!player||!player.spr||player._jumping) return; const s=player.spr, b=s.body; if(!b) return;
+  player._jumping=true; b.setVelocity(0,0); b.enable=false; const y0=s.y;                     // desactiva la física para que el tween mueva la Y
+  const sh=scene.add.ellipse(s.x, y0+2, 26,10, 0x000000, 0.28).setDepth(y0-1);                // sombra en el piso
+  scene.tweens.add({targets:s, y:y0-26, duration:180, yoyo:true, ease:'Quad.easeOut',
+    onComplete:()=>{ s.y=y0; if(s.body) s.body.enable=true; player._jumping=false; sh.destroy(); } });
+  scene.tweens.add({targets:sh, scaleX:0.7, scaleY:0.7, alpha:0.15, duration:180, yoyo:true });
+  sfx('latch',0.25);
+}
+/* ===== nivel del usuario =====
+   XP = tiempo jugado en el reino (+1 cada 20 s) + criaturas desbloqueadas en la beta (+30 c/u).
+   Nivel N necesita 40·(N-1)² de XP. Las unidades más poderosas piden nivel además de estar desbloqueadas. */
+function loadLevel(){ try{ return JSON.parse(localStorage.getItem('aoa_level')||'null')||{xp:0}; }catch(e){ return {xp:0}; } }
+let PLV=loadLevel(), _xpAcc=0;
+function saveLevel(){ try{ localStorage.setItem('aoa_level',JSON.stringify(PLV)); }catch(e){} }
+function unlockedSet(){ try{ return new Set(JSON.parse(localStorage.getItem('aoa_cards')||'[]')); }catch(e){ return new Set(); } }
+function totalXp(){ return (PLV.xp||0) + unlockedSet().size*30; }
+function userLevel(){ return 1 + Math.floor(Math.sqrt(totalXp()/40)); }
+function xpForLevel(L){ return 40*(L-1)*(L-1); }
+function addXp(n){ PLV.xp=(PLV.xp||0)+n; saveLevel(); kLevelPaint(); }
+function kXpAccrue(delta){ _xpAcc+=delta; if(_xpAcc>=20000){ _xpAcc-=20000; addXp(1); } }   // +1 XP cada 20 s de juego
+const KREQ={gnoll:2,thief:2,snake:2,spider:2, skull:3,gnome:3,torch:3,spear:3, shaman:4,tnt:4,pigrider:4, mino:5};   // nivel requerido
+function reqLevel(u){ return KREQ[u.key]||1; }
+/* desbloqueo: básicos siempre; criaturas al verlas en la beta (aoa_cards) Y con nivel suficiente */
 const KBETA={torch:'torch',spear:'spear',gnoll:'gnoll',tnt:'tnt',pigrider:'pigrider',shaman:'shaman',skull:'skull',gnome:'gnome',snake:'snake',spider:'spider',thief:'thief',mino:'toro'};
-function kUnlocked(u){
-  if(/^(pawn|warrior|archer|monk)_/.test(u.key)) return true;   // básicos: siempre
-  if(u.key==='pig'||u.key==='bear') return true;                // animales/bestia: libres
-  const bk=KBETA[u.key]; if(!bk) return true;
-  try{ return new Set(JSON.parse(localStorage.getItem('aoa_cards')||'[]')).has(bk); }catch(e){ return false; }
+function kLockReason(u){                                         // null = disponible; 'beta' = falta jugarla; 'level' = falta nivel
+  const basic=/^(pawn|warrior|archer|monk)_/.test(u.key)||u.key==='pig'||u.key==='bear';
+  if(!basic){ const bk=KBETA[u.key]; if(bk && !unlockedSet().has(bk)) return 'beta'; }
+  if(userLevel()<reqLevel(u)) return 'level';
+  return null;
 }
-const _kthumb={};
-function kThumb(u){                                    // dibuja el frame 0 del sprite → dataURL para la carta
-  if(_kthumb[u.key]) return _kthumb[u.key];
-  try{ const fr=scene.textures.getFrame(u.tex,0), src=scene.textures.get(u.tex).getSourceImage();
-    const cv=document.createElement('canvas'); cv.width=64; cv.height=64; const cx=cv.getContext('2d'); cx.imageSmoothingEnabled=false;
-    cx.drawImage(src, fr.cutX,fr.cutY, fr.cutWidth,fr.cutHeight, 2,2,60,60); const d=cv.toDataURL(); _kthumb[u.key]=d; return d;
-  }catch(e){ return ''; }
+function kUnlocked(u){ return kLockReason(u)===null; }
+function kLevelPaint(){                                          // pinta el nivel/XP en el login
+  const el=$('kLevel'); if(!el) return; const lv=userLevel(), cur=totalXp(), base=xpForLevel(lv), next=xpForLevel(lv+1);
+  el.innerHTML='<b>'+L('Nivel ','Level ')+lv+'</b> · '+(cur-base)+'/'+(next-base)+' XP';
 }
-function kSelectIdx(i){                                // selecciona una carta del carrusel (si está desbloqueada)
+/* carrusel de unidades GRANDE y ANIMADO: cada carta reproduce la animación idle del personaje */
+function kFrames(u){ try{ const a=scene.anims.get(u.idle); return (a&&a.frames.length)?a.frames.map(f=>f.frame):[scene.textures.getFrame(u.tex,0)]; }catch(e){ return []; } }
+function kDrawCard(cv,u,fi){
+  const frames=cv._frames||(cv._frames=kFrames(u)); if(!frames.length) return;
+  const fr=frames[fi%frames.length]; if(!fr) return; let src; try{ src=fr.texture.getSourceImage(); }catch(e){ return; }
+  const cx=cv.getContext('2d'); cx.imageSmoothingEnabled=false; cx.clearRect(0,0,cv.width,cv.height);
+  const fw=fr.cutWidth, fh=fr.cutHeight, s=Math.min((cv.width-8)/fw,(cv.height-8)/fh), dw=fw*s, dh=fh*s;
+  cx.drawImage(src, fr.cutX,fr.cutY,fw,fh, (cv.width-dw)/2,(cv.height-dh)/2, dw,dh);
+}
+let kPickTimer=null, kPickF=0;
+function kPickStart(){ if(kPickTimer) return; kPickTimer=setInterval(()=>{ kPickF++; const box=$('kUnits'); if(!box) return;
+  box.querySelectorAll('canvas.kanim').forEach(cv=>{ if(cv._u) kDrawCard(cv,cv._u,kPickF); }); },140); }
+function kPickStop(){ if(kPickTimer){ clearInterval(kPickTimer); kPickTimer=null; } }
+function kSelectIdx(i){                                // selecciona una carta del carrusel (si está disponible) → se ve en grande en el mundo
   if(i<0||i>=kUnitList.length) return; const u=kUnitList[i]; if(!kUnlocked(u)) return;
   kSel=u; makePlayerSprite(u);
   const box=$('kUnits'); if(box){ box.querySelectorAll('.kunit').forEach((el,j)=>el.classList.toggle('sel', j===i));
     const cur=box.children[i]; if(cur&&cur.scrollIntoView) cur.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'}); }
 }
-function kStep(dir){                                    // flechas ‹ ›: salta a la próxima carta DESBLOQUEADA
+function kStep(dir){                                    // flechas ‹ ›: salta a la próxima carta DISPONIBLE
   let i=kUnitList.indexOf(kSel); if(i<0)i=0;
   for(let n=0;n<kUnitList.length;n++){ i=(i+dir+kUnitList.length)%kUnitList.length; if(kUnlocked(kUnitList[i])){ kSelectIdx(i); return; } }
 }
 function kBuildPicker(){
   const box=$('kUnits'); if(!box) return; box.innerHTML='';
   kUnitList.forEach((u,i)=>{
-    const on=kUnlocked(u); const b=document.createElement('button'); b.type='button';
-    b.className='kunit'+(u===kSel?' sel':'')+(on?'':' locked');
-    b.innerHTML='<span class="kthumb" style="background-image:url('+kThumb(u)+')"></span><span class="kuname">'+u.label+'</span>'+(on?'':'<span class="klock">🔒</span>');
-    if(on) b.onclick=()=>kSelectIdx(i); else b.title=L('Jugá la beta para desbloquearla','Play the beta to unlock');
+    const reason=kLockReason(u), on=!reason;
+    const b=document.createElement('button'); b.type='button'; b.className='kunit'+(u===kSel?' sel':'')+(on?'':' locked');
+    const cv=document.createElement('canvas'); cv.width=112; cv.height=104; cv.className='kanim'; cv._u=u; kDrawCard(cv,u,0); b.appendChild(cv);
+    const nm=document.createElement('span'); nm.className='kuname'; nm.textContent=u.label; b.appendChild(nm);
+    if(reason==='beta'){ const l=document.createElement('span'); l.className='klock'; l.textContent='🔒'; b.appendChild(l); b.title=L('Jugá la beta para desbloquearla','Play the beta to unlock'); }
+    else if(reason==='level'){ const l=document.createElement('span'); l.className='klock lvl'; l.textContent=L('Nv ','Lv ')+reqLevel(u); b.appendChild(l); b.title=L('Necesitás nivel ','Requires level ')+reqLevel(u); }
+    if(on) b.onclick=()=>kSelectIdx(i);
     box.appendChild(b);
   });
   const pv=$('kPrev'), nx=$('kNext'); if(pv) pv.onclick=()=>kStep(-1); if(nx) nx.onclick=()=>kStep(1);
   const cur=kUnitList.indexOf(kSel); if(cur>=0){ const el=box.children[cur]; if(el&&el.scrollIntoView) el.scrollIntoView({inline:'center',block:'nearest'}); }
+  kPickStart();
 }
 function startKingdom(sc){
   kUnitList=kingdomUnits();
@@ -1571,11 +1633,11 @@ function startKingdom(sc){
   makePlayerSprite(kSel);
   kCursors=sc.input.keyboard.createCursorKeys();
   kKeys=sc.input.keyboard.addKeys({W:Phaser.Input.Keyboard.KeyCodes.W,A:Phaser.Input.Keyboard.KeyCodes.A,S:Phaser.Input.Keyboard.KeyCodes.S,D:Phaser.Input.Keyboard.KeyCodes.D});
-  sc.input.on('pointerdown',p=>{                          // tap/click en el mundo: camina hasta ahí (con pathfinding)
-    if(!kReady||!player) return;
-    const cam=sc.cameras.main, wp=cam.getWorldPoint(p.x,p.y), t0=tileOf(player.spr.x,player.spr.y), t1=tileOf(wp.x,wp.y);
-    const dest=nearWalkable(t1.x,t1.y), path=findPath(t0.x,t0.y,dest.x,dest.y);
-    if(path&&path.length) player.path=path;
+  kSpaceKey=sc.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+  sc.input.keyboard.clearCaptures();                      // no capturar teclas hasta entrar: así se pueden escribir a/s/w/d en el nombre
+  sc.input.on('pointerdown',p=>{                          // click en el mundo: golpe según la unidad (te movés con WASD/flechas, saltás con Espacio)
+    if(!kReady||!player||p.y<60) return;                  // ignora clicks sobre la barra superior
+    playerAttack();
   });
   kBuildPicker();
   const nameEl=$('kName'); if(nameEl&&saved&&saved.name) nameEl.value=saved.name;
@@ -1583,7 +1645,19 @@ function startKingdom(sc){
   if(nameEl) nameEl.addEventListener('keydown',e=>{ if(e.key==='Enter') kingdomEnter(); });
   kWireChat();
   kWalletPaint();                                          // estado de la billetera en el login
+  kLevelPaint();                                           // nivel/XP del usuario
   kMM=$('kMinimap'); if(kMM&&kMM.getContext) kMMx=kMM.getContext('2d');   // minimapa
+}
+// ===== NPC de práctica: un maestro de armas en el centro para probar el PvP =====
+function spawnTestNpc(){
+  if(kTestNpc||!scene) return;
+  const c=nearWalkable(Math.floor(COLS/2)+3, Math.floor(ROWS/2)); const x=c.x*T+T/2, y=c.y*T+T/2;
+  const u=kUnitByKey('warrior_red');
+  const s=scene.physics.add.sprite(x,y,u.tex,0).setOrigin(0.5,u.oy).setScale(u.scale).setDepth(y); s.play(u.idle);
+  if(s.body){ s.body.setImmovable(true); s.body.moves=false; s.body.setSize(24,18); }
+  kTestNpc={spr:s, name:L('Maestro de armas','Sparring Master'), isTest:true, _plate:null};
+  nameplate(kTestNpc,{name:kTestNpc.name,me:false,rank:0});
+  if(player&&player.spr) scene.physics.add.collider(player.spr, s);   // no lo atravesás
 }
 // ===== minimapa: dónde están los otros jugadores reales =====
 let kMM=null, kMMx=null, kMMacc=0;
@@ -1616,7 +1690,7 @@ function kWireChat(){                                     // botón de mensaje (
     pv.onclick=()=>{ kChallenge(); }; }
 }
 function kChallenge(){                                    // desafía al usuario cercano a un duelo en vivo
-  if(!kNear){ location.href='/pvp'; return; }             // sin nadie cerca: batalla vs IA
+  if(!kNear || kNear.isTest){ location.href='/pvp'; return; }   // NPC de práctica o nadie cerca: batalla vs IA para probar el PvP
   if(ws&&ws.readyState===1){ try{ ws.send(JSON.stringify({t:'chal', to:kNear.id})); }catch(e){} }
   toast(L('Desafío enviado a ','Challenge sent to ')+(kNear.name||'?')+'…');
 }
@@ -1663,9 +1737,11 @@ async function kingdomEnter(){
   if(player._plate){ player._plate.destroy(); player._plate=null; }
   nameplate(player,{name:nm,me:true,rank:0});
   kReady=true;
+  kPickStop();                                            // frena la animación del carrusel de selección
   if(scene) scene.cameras.main.setFollowOffset(0,0);      // centra la cámara en la unidad al entrar
   const bar=$('kBar'); if(bar) bar.classList.add('on');   // barra de acciones (mensaje siempre; PvP al cruzarse)
   if(kMM) kMM.classList.add('on');                        // minimapa
+  spawnTestNpc();                                         // maestro de armas en el centro para probar el PvP
   sfx('door',0.3);
   kConnect();                                             // entra al reino en vivo: se ve con los demás usuarios reales
   const lg=$('kLogin'); if(lg){ lg.classList.add('hide'); setTimeout(()=>{ if(lg) lg.style.display='none'; },400); }
