@@ -317,7 +317,10 @@ un escenario limpio, legible y con jerarquía visual.
    de acantilado → look de acantilado escalonado. **Se sube siempre por escalera**:
    cada tramo de acantilado (tanto 1→0 como 2→1) tiene una escalera transitable; el
    resto de la pared bloquea. Corre igual en live y reino, sin partir la isla.
-3. Caminos: calles de arena barrio→plaza (autotile), la plaza es el **punto focal**.
+3. Caminos: calles de arena barrio→plaza con **curva suave** (Bézier cuadrática,
+   ~2 tiles de ancho, sin ángulos de 90°); la plaza es el **punto focal**. Se
+   trazan antes que las mesetas, que evitan los tiles de calle → las curvas nunca
+   quedan tapadas por un acantilado.
 4. Bosques como **masas** (`forestMass`).
 5. Afloramientos rocosos (`rockCluster`).
 6. Recursos con lógica.
