@@ -17,11 +17,21 @@ from sqlalchemy.orm import Session
 
 import config
 from db import Base, engine, get_db
-from models import User, Score
+from models import User, Score, DailyMission
 import sol
 import moderation
 
 Base.metadata.create_all(bind=engine)
+
+def _migrate():
+    """Migración liviana e idempotente: agrega columnas nuevas a tablas ya creadas (SQLite y Postgres)."""
+    from sqlalchemy import text
+    with engine.begin() as conn:
+        try:
+            conn.execute(text('ALTER TABLE users ADD COLUMN xp INTEGER DEFAULT 0'))
+        except Exception:
+            pass   # ya existe
+_migrate()
 
 app = FastAPI(title="Age of Ansem API", version="1.0")
 app.add_middleware(
@@ -60,6 +70,16 @@ class ScoreIn(BaseModel):
 
 class PingIn(BaseModel):
     cid: str
+
+class DailyIn(BaseModel):
+    pubkey: str
+    session_token: str
+
+class DepositIn(BaseModel):
+    pubkey: str
+    session_token: str
+    kind: str        # 'wood' | 'gold' | 'food'
+    amount: int = 1
 
 # presencia del live (en memoria): cid -> último visto. Ventana de 25s = espectador "activo".
 _presence: dict = {}
@@ -172,6 +192,91 @@ def roster(limit: int = 40, db: Session = Depends(get_db)):
     limit = max(1, min(200, limit))
     us = db.query(User).order_by(User.best_score.desc(), User.updated_at.desc()).limit(limit).all()
     return [{"name": u.username, "rank": i + 1, "holder": u.holder} for i, u in enumerate(us)]
+
+
+# ---- Misiones diarias: juntar madera/oro/comida en el reino → XP de cuenta ----
+RES = ('wood', 'gold', 'food')
+
+def _level(xp: int) -> int:
+    """Nivel de cuenta a partir del XP (curva suave: cada nivel cuesta un poco más)."""
+    xp = max(0, int(xp or 0))
+    lvl, need, acc = 1, 100, 0
+    while acc + need <= xp:
+        acc += need; lvl += 1; need = int(need * 1.35)
+    return lvl
+
+def _reward_xp(level: int) -> int:
+    """Recompensa por completar la misión del día: crece con el nivel."""
+    return 60 + 15 * max(0, level - 1)
+
+def _day_str(ts=None) -> str:
+    return time.strftime('%Y-%m-%d', time.gmtime(ts))
+
+def _goals(user_id: int, day: str, level: int) -> dict:
+    """Objetivos deterministas por (usuario, día): no se pueden re-rollear. Suben con el nivel."""
+    h = hashlib.sha256(f'{day}:{user_id}'.encode()).digest()
+    return {r: 3 + (h[i] % 4) + (max(1, level) - 1) for i, r in enumerate(RES)}   # 3..6 base + nivel
+
+def _auth_user(pubkey: str, token: str, db: Session) -> User:
+    if not hmac.compare_digest(token or '', session_token(pubkey)):
+        raise HTTPException(401, "sesión inválida")
+    me = db.query(User).filter(User.wallet == pubkey).first()
+    if not me:
+        raise HTTPException(404, "usuario no registrado")
+    return me
+
+def _today_mission(db: Session, user: User) -> DailyMission:
+    day = _day_str()
+    m = db.query(DailyMission).filter(DailyMission.user_id == user.id, DailyMission.day == day).first()
+    if not m:
+        g = _goals(user.id, day, _level(user.xp))
+        m = DailyMission(user_id=user.id, day=day, goal_wood=g['wood'], goal_gold=g['gold'], goal_food=g['food'])
+        db.add(m); db.commit(); db.refresh(m)
+    return m
+
+def _mission_dict(m: DailyMission, user: User) -> dict:
+    goals = {'wood': m.goal_wood, 'gold': m.goal_gold, 'food': m.goal_food}
+    prog = {'wood': m.prog_wood, 'gold': m.prog_gold, 'food': m.prog_food}
+    complete = all(prog[r] >= goals[r] for r in RES)
+    lvl = _level(user.xp)
+    return {"day": m.day, "goals": goals, "progress": prog, "complete": complete, "claimed": bool(m.claimed),
+            "xp": int(user.xp or 0), "level": lvl, "reward_xp": _reward_xp(lvl)}
+
+@app.post('/api/daily')
+def daily_get(inp: DailyIn, db: Session = Depends(get_db)):
+    """Misión del día del usuario (la crea si no existe). Devuelve objetivos, progreso, XP y nivel."""
+    me = _auth_user(inp.pubkey, inp.session_token, db)
+    return _mission_dict(_today_mission(db, me), me)
+
+@app.post('/api/daily/deposit')
+def daily_deposit(inp: DepositIn, db: Session = Depends(get_db)):
+    """Suma un recurso depositado a la misión (capado al objetivo). 1 depósito = 1 recurso en el reino."""
+    if inp.kind not in RES:
+        raise HTTPException(400, "recurso inválido")
+    me = _auth_user(inp.pubkey, inp.session_token, db)
+    m = _today_mission(db, me)
+    amt = max(1, min(5, int(inp.amount)))                       # anti-spam: 1..5 por request
+    col, goalcol = 'prog_' + inp.kind, 'goal_' + inp.kind
+    setattr(m, col, min(getattr(m, goalcol), getattr(m, col) + amt))   # nunca pasa el objetivo
+    db.commit(); db.refresh(m)
+    return _mission_dict(m, me)
+
+@app.post('/api/daily/claim')
+def daily_claim(inp: DailyIn, db: Session = Depends(get_db)):
+    """Reclama la recompensa (XP) si la misión está completa y no fue reclamada."""
+    me = _auth_user(inp.pubkey, inp.session_token, db)
+    m = _today_mission(db, me)
+    goals = {'wood': m.goal_wood, 'gold': m.goal_gold, 'food': m.goal_food}
+    prog = {'wood': m.prog_wood, 'gold': m.prog_gold, 'food': m.prog_food}
+    if not all(prog[r] >= goals[r] for r in RES):
+        raise HTTPException(400, "misión incompleta")
+    if m.claimed:
+        raise HTTPException(409, "ya reclamada")
+    reward = _reward_xp(_level(me.xp))
+    me.xp = int(me.xp or 0) + reward
+    m.claimed = True
+    db.commit(); db.refresh(me)
+    return {"ok": True, "reward_xp": reward, "xp": int(me.xp), "level": _level(me.xp)}
 
 
 # ---- Reino (/kingdom): presencia en tiempo real por WebSocket ----

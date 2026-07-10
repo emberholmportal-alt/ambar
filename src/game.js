@@ -1992,10 +1992,35 @@ function kCarryUpdate(){                                   // sigue la cabeza + 
   if(player.carry && Math.hypot(player.spr.x-WORLD_W/2,player.spr.y-WORLD_H/2)<150){
     const key=player.carry==='res_wood'?'wood':player.carry==='res_gold'?'gold':'food';
     kRes[key]=(kRes[key]||0)+1; try{ localStorage.setItem('aoa_kres',JSON.stringify(kRes)); }catch(e){}
+    kDailyDeposit(key);                                    // suma a la misión diaria del backend
     const nm=player.carryName?L(player.carryName.es,player.carryName.en):key;
     toast(L('Depositaste '+nm+' · total '+kRes[key],'Deposited '+nm+' · total '+kRes[key])); addXp(6); sfx('coins',0.3);
     kClearCarry();
   }
+}
+// ===== misiones diarias (backend): juntar madera/oro/comida en el reino → XP de cuenta =====
+let kDaily=null;
+function kApiBase(){ return (window.AOA_API||'').replace(/\/$/,''); }
+function kDailyAuth(extra){ const s=kSession(); if(!s||!s.pubkey||!s.token) return null; return Object.assign({pubkey:s.pubkey,session_token:s.token},extra||{}); }
+async function kDailyPost(path,extra){ const API=kApiBase(), body=kDailyAuth(extra); if(!API||!body) return null;   // sin backend o sin sesión: no-op (el juego sigue igual)
+  try{ const r=await fetch(API+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) return null; return await r.json(); }catch(e){ return null; } }
+async function kDailyFetch(){ const d=await kDailyPost('/api/daily'); if(d){ kDaily=d; kDailyRender(); } }
+async function kDailyDeposit(kind){ const d=await kDailyPost('/api/daily/deposit',{kind,amount:1}); if(d){ kDaily=d; kDailyRender(); } }
+async function kDailyClaim(){ if(!kDaily||!kDaily.complete||kDaily.claimed) return;
+  const r=await kDailyPost('/api/daily/claim'); if(r&&r.ok){ kDaily.claimed=true; kDaily.xp=r.xp; kDaily.level=r.level; kDailyRender();
+    toast(L('¡Misión diaria completa! +'+r.reward_xp+' XP · Nivel '+r.level,'Daily quest done! +'+r.reward_xp+' XP · Level '+r.level)); sfx('coins',0.4); } }
+const KDMETA={wood:['ic02','Madera','Wood'],gold:['ic03','Oro','Gold'],food:['ic04','Comida','Food']};
+function kDailyRender(){ const el=$('kDaily'); if(!el) return;
+  if(!kDaily||!kReady){ el.classList.remove('on'); return; }
+  el.classList.add('on');
+  let rows='';
+  for(const k of ['wood','gold','food']){ const g=kDaily.goals[k], p=Math.min(kDaily.progress[k],g), pct=g?Math.round(p/g*100):0, done=p>=g;
+    rows+='<div class="kdrow'+(done?' done':'')+'"><img src="assets/img/ui/'+KDMETA[k][0]+'.png" alt=""><span class="kdlbl">'+L(KDMETA[k][1],KDMETA[k][2])+'</span><span class="kdnum">'+p+'/'+g+'</span><div class="kdbar"><i style="width:'+pct+'%"></i></div></div>'; }
+  const foot = kDaily.claimed ? '<div class="kdfoot ok">'+L('Reclamada ✓ · Nivel ','Claimed ✓ · Level ')+kDaily.level+'</div>'
+    : kDaily.complete ? '<button class="kdclaim">'+L('Reclamar +','Claim +')+kDaily.reward_xp+' XP</button>'
+    : '<div class="kdfoot">'+L('Nivel ','Level ')+kDaily.level+' · '+kDaily.xp+' XP</div>';
+  el.innerHTML='<div class="kdttl">'+L('Misión diaria','Daily quest')+'</div>'+rows+foot;
+  const b=el.querySelector('.kdclaim'); if(b) b.onclick=kDailyClaim;
 }
 // ===== minimapa: dónde están los otros jugadores reales =====
 let kMM=null, kMMx=null, kMMacc=0;
@@ -2062,8 +2087,8 @@ async function kWalletConnect(nm){                         // conecta la billete
     const h=await A.isHolder(pk);
     if(!h||!h.holder){ if(hint){ hint.textContent=L('Esta billetera no holdea $AOA.','This wallet doesn’t hold $AOA.'); hint.className='khint bad'; } return null; }
     const proof=await A.signProof(pk);
-    try{ if(A.register) await A.register(pk, nm, proof); }catch(e){}   // asocia nombre ↔ billetera (best-effort)
-    if(A.saveSession) A.saveSession({pubkey:pk, username:nm, proof, stub:!!h.stub});
+    let reg=null; try{ if(A.register) reg=await A.register(pk, nm, proof); }catch(e){}   // asocia nombre ↔ billetera (best-effort)
+    if(A.saveSession) A.saveSession({pubkey:pk, username:nm, proof, stub:!!h.stub, token:(reg&&reg.session_token)||null});   // guarda el session_token para las misiones
     kWalletPaint(); if(hint){ hint.textContent=''; hint.className='khint'; }
     return pk;
   }catch(e){ if(hint){ hint.textContent=L('No se pudo conectar la billetera.','Couldn’t connect the wallet.'); hint.className='khint bad'; } return null; }
@@ -2074,8 +2099,8 @@ async function kingdomEnter(){
   if(!player){ if(hint){ hint.textContent=L('El reino todavía está cargando…','The kingdom is still loading…'); hint.className='khint'; } return; }   // la escena aún no creó la unidad
   const A=window.AOA_AUTH; let s=kSession(); let wallet=s&&s.pubkey||null;
   if(!wallet){ wallet=await kWalletConnect(nm); if(!wallet) return; }   // requiere billetera para entrar
-  else{ try{ if(A&&A.register) await A.register(wallet, nm, s.proof||null); }catch(e){}   // ya conectado: asocia el nombre elegido
-        if(A&&A.saveSession) A.saveSession(Object.assign({},s,{username:nm})); }
+  else{ let reg=null; try{ if(A&&A.register) reg=await A.register(wallet, nm, s.proof||null); }catch(e){}   // ya conectado: asocia el nombre elegido
+        if(A&&A.saveSession) A.saveSession(Object.assign({},s,{username:nm, token:(reg&&reg.session_token)||s.token||null})); }
   player.name=nm;
   try{ localStorage.setItem('aoa_kingdom',JSON.stringify({name:nm,unit:kSel.key,wallet:wallet})); }catch(e){}
   if(player._plate){ player._plate.destroy(); player._plate=null; }
@@ -2088,6 +2113,7 @@ async function kingdomEnter(){
   spawnTestNpc();                                         // maestro de armas en el centro para probar el PvP
   kSpawnEnemies();                                         // enemigos salvajes en el bosque (derrotalos → desbloqueás su carta)
   kRes=loadKRes();                                         // recursos guardados (para misiones diarias)
+  kDailyFetch();                                            // trae la misión diaria del backend y muestra el panel
   sfx('door',0.3);
   kConnect();                                             // entra al reino en vivo: se ve con los demás usuarios reales
   const lg=$('kLogin'); if(lg){ lg.classList.add('hide'); setTimeout(()=>{ if(lg) lg.style.display='none'; },400); }

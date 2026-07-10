@@ -81,4 +81,43 @@ ok(c.post('/api/live/ping', json={"cid": "b2"}).json()['viewers'] == 2, "ping ci
 ok(c.post('/api/live/ping', json={"cid": "a1"}).json()['viewers'] == 2, "re-ping a1 no duplica -> 2")
 ok(c.get('/api/live/viewers').json()['viewers'] == 2, "GET viewers -> 2")
 
+# ---- misiones diarias ----
+DK = {"pubkey": "WalletAAA111", "session_token": tok}
+dm = c.post('/api/daily', json=DK).json()
+ok(set(dm['goals']) == {'wood', 'gold', 'food'} and all(v >= 3 for v in dm['goals'].values()), "misión diaria: 3 objetivos")
+ok(dm['progress'] == {'wood': 0, 'gold': 0, 'food': 0} and not dm['complete'] and not dm['claimed'], "misión arranca en 0")
+ok(dm['level'] == 1 and dm['xp'] == 0, "nivel 1, xp 0 al inicio")
+
+# misión determinista: pedirla de nuevo da los mismos objetivos
+dm2 = c.post('/api/daily', json=DK).json()
+ok(dm2['goals'] == dm['goals'], "misión estable en el día")
+
+# token inválido -> 401
+ok(c.post('/api/daily', json={"pubkey": "WalletAAA111", "session_token": "trucho"}).status_code == 401, "daily token inválido -> 401")
+# recurso inválido -> 400
+ok(c.post('/api/daily/deposit', json={**DK, "kind": "diamante"}).status_code == 400, "recurso inválido -> 400")
+
+# reclamar sin completar -> 400
+ok(c.post('/api/daily/claim', json=DK).status_code == 400, "claim incompleto -> 400")
+
+# depositar hasta cumplir cada objetivo
+for r in ('wood', 'gold', 'food'):
+    need = dm['goals'][r]
+    for _ in range(need):
+        last = c.post('/api/daily/deposit', json={**DK, "kind": r, "amount": 1}).json()
+    ok(last['progress'][r] == need, f"progreso {r} llega al objetivo {need}")
+# el depósito NO pasa del objetivo
+overflow = c.post('/api/daily/deposit', json={**DK, "kind": "wood", "amount": 5}).json()
+ok(overflow['progress']['wood'] == dm['goals']['wood'], "depósito capado al objetivo")
+ok(overflow['complete'], "misión completa")
+
+# reclamar da XP y sube (o mantiene) nivel
+cl = c.post('/api/daily/claim', json=DK).json()
+ok(cl['ok'] and cl['reward_xp'] >= 60 and cl['xp'] == cl['reward_xp'], "claim da XP")
+# no se puede reclamar dos veces
+ok(c.post('/api/daily/claim', json=DK).status_code == 409, "doble claim -> 409")
+# el XP quedó guardado en el usuario
+after = c.post('/api/daily', json=DK).json()
+ok(after['xp'] == cl['xp'] and after['claimed'], "xp persistido + misión reclamada")
+
 print("\nTODO OK")
