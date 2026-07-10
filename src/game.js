@@ -441,8 +441,22 @@ function buildMesetas(evitar,esCalle){
       for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]) if(isIn(x+dx,y+dy)&&snap[y+dy][x+dx]) a++;
       if(a<2) elev[y][x]=0; } }
   for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) if(elev[y][x]&&!isLand(x,y+1)) elev[y][x]=0;   // no colgar sobre el agua
-  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){                                                 // acantilado = fila de piedra al sur del escalón
-    if(elev[y][x] && isIn(x,y+1) && !elev[y+1][x] && isLand(x,y+1) && !esCalle(x,y+1)) cliff[y+1][x]=true;
+  // SEGUNDO NIVEL: cimas más altas apiladas sobre la cordillera. Sólo en el interior (nunca colgando sobre el escalón inferior).
+  const interior=[];
+  for(let y=1;y<ROWS-1;y++)for(let x=1;x<COLS-1;x++){ if(elev[y][x]!==1) continue;
+    let dentro=true; for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1],[0,2]]) if(!(elev[y+dy]&&elev[y+dy][x+dx]===1)){ dentro=false; break; }
+    if(dentro) interior.push({x,y}); }
+  Phaser.Utils.Array.Shuffle(interior);
+  let hi=0;
+  for(let i=0;i<interior.length && hi<2; i++){ const c=interior[i], mr=rint(1,2), ph=Math.random()*6.28, sube=[];
+    for(let y=c.y-mr-1;y<=c.y+mr+1;y++)for(let x=c.x-mr-1;x<=c.x+mr+1;x++){ if(!isIn(x,y)) continue;
+      const ang=Math.atan2(y-c.y,x-c.x), wob=0.7*Math.sin(ang*3+ph);
+      if(elev[y]&&elev[y][x]===1 && elev[y+1]&&elev[y+1][x]>=1 && Math.hypot(x-c.x,y-c.y)<mr+wob) sube.push({x,y}); }
+    if(sube.length>=4){ for(const t of sube) elev[t.y][t.x]=2; hi++; }
+  }
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){                                                 // acantilado = fila de piedra al sur de CUALQUIER escalón (2→1 y 1→0)
+    const below = isIn(x,y+1) ? (elev[y+1][x]||0) : 0;
+    if(elev[y][x] && isIn(x,y+1) && below < elev[y][x] && isLand(x,y+1) && !esCalle(x,y+1)) cliff[y+1][x]=true;
   }
 }
 // autotile 3×3 del bloque de pasto (cols 0-2; col 3 y fila 3 son variantes aisladas) — índice = fila*10+col
