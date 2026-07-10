@@ -616,13 +616,18 @@ function create(){
   for(let y=py-1;y<=py+2;y++)for(let x=px-3;x<=px+3;x++) if(isLand(x,y)) sand.add(pkey(x,y));
   const plazaOnly=new Set(sand);
   const inPlaza=(x,y)=>plazaOnly.has(pkey(x,y));
-  for(const g of GUILDS){                                   // calle en L con serpenteo, 1-2 tiles de ancho
-    let sx=g.cx, sy=g.cy, guard=0;
-    while((sx!==px||sy!==py)&&guard++<120){
-      if(Math.abs(sx-px)>Math.abs(sy-py)) sx+=Math.sign(px-sx);
-      else sy+=Math.sign(py-sy);
-      if(Math.random()<0.22){ const jy=sy+pick([-1,1]); if(isLand(sx,jy)) sand.add(pkey(sx,jy)); }
-      if(isLand(sx,sy)) sand.add(pkey(sx,sy));
+  // calles con CURVA suave (Bézier cuadrática), ~2 tiles de ancho — nada de ángulos de 90°
+  for(const g of GUILDS){
+    const ax=g.cx, ay=g.cy, bx=px, by=py, mx=(ax+bx)/2, my=(ay+by)/2;
+    const dx=bx-ax, dy=by-ay, len=Math.hypot(dx,dy)||1;
+    const bend=len*Phaser.Math.FloatBetween(0.12,0.28)*(Math.random()<0.5?1:-1);   // control perpendicular → arco
+    const cx2=mx-dy/len*bend, cy2=my+dx/len*bend;
+    const steps=Math.ceil(len*3);
+    for(let i=0;i<=steps;i++){ const t=i/steps, it=1-t;
+      const X=it*it*ax+2*it*t*cx2+t*t*bx, Y=it*it*ay+2*it*t*cy2+t*t*by;
+      const dX=2*it*(cx2-ax)+2*t*(bx-cx2), dY=2*it*(cy2-ay)+2*t*(by-cy2), dl=Math.hypot(dX,dY)||1;
+      const nx=-dY/dl, ny=dX/dl;                                                     // perpendicular local → ancho
+      for(const w of [-0.5,0,0.5]){ const x=Math.round(X+nx*w), y=Math.round(Y+ny*w); if(isLand(x,y)) sand.add(pkey(x,y)); }
     }
   }
   const inSand=(x,y)=>sand.has(pkey(x,y));
