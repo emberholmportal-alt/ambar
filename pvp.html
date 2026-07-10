@@ -17,7 +17,9 @@
     --flavor:"IM Fell English","Iowan Old Style",Georgia,serif;
   }
   *{box-sizing:border-box} html,body{height:100%}
-  body{margin:0;background:#0b1a10;color:var(--ink);font-family:var(--mono);overflow:hidden;-webkit-font-smoothing:antialiased}
+  body{margin:0;background:#0b1a10;color:var(--ink);font-family:var(--mono);overflow:hidden;-webkit-font-smoothing:antialiased;
+    cursor:url('assets/img/ui/cur_arrow.png') 2 2,auto}
+  button,a,.card{cursor:url('assets/img/ui/cur_hand.png') 4 2,pointer}
   .app{height:100dvh;display:flex;flex-direction:column;position:relative}
   /* topbar */
   .topbar{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:12px;padding:7px 14px;z-index:20;
@@ -92,7 +94,9 @@
   .endbox{text-align:center;background:linear-gradient(180deg,rgba(32,24,15,.98),rgba(17,12,8,.99));border:2px solid #6b5226;border-radius:16px;padding:28px 34px;box-shadow:0 18px 50px rgba(0,0,0,.65)}
   #pvEndT{font-family:var(--title);font-size:34px;margin:0 0 16px;text-shadow:0 3px 0 #000}
   .endbtns{display:flex;gap:10px;justify-content:center}
-  .endbtns a,.endbtns button{font-family:var(--display);font-weight:700;font-size:15px;cursor:pointer;text-decoration:none;border-radius:10px;padding:11px 18px;border:2px solid #6b5226;color:var(--ink);background:linear-gradient(180deg,rgba(32,24,15,.97),rgba(17,12,8,.98))}
+  .endbtns a,.endbtns button{font-family:var(--display);font-weight:800;font-size:15px;cursor:pointer;text-decoration:none;padding:13px 22px 17px;border:0;color:#fff;
+    background:url('assets/img/ui/ribbon_blue.png') center/100% 100% no-repeat;image-rendering:pixelated;text-shadow:0 1px 2px rgba(10,25,45,.85);transition:transform .1s,filter .1s}
+  .endbtns a:hover,.endbtns button:hover{filter:brightness(1.09)} .endbtns .primary{background-image:url('assets/img/ui/ribbon_red.png')}
   .endbtns .primary{border-color:#8a6a26;color:#120d09;background:linear-gradient(180deg,var(--brass-hi),var(--brass))}
   /* home / colección */
   #pvHome{position:absolute;inset:0;z-index:70;display:none;align-items:center;justify-content:center;padding:16px;
@@ -101,7 +105,8 @@
   .homebox{width:min(96vw,560px);max-height:92%;display:flex;flex-direction:column;gap:12px;
     background:linear-gradient(180deg,rgba(32,24,15,.98),rgba(17,12,8,.99));border:2px solid #6b5226;border-radius:16px;padding:16px;box-shadow:0 18px 50px rgba(0,0,0,.65)}
   .homehead{display:flex;align-items:center;justify-content:space-between;font-family:var(--display);font-weight:700}
-  .homehead .hstat{font-size:17px;color:var(--ink)}.homehead .hstat b{color:var(--brass-hi)}
+  .homehead .hstat{font-size:17px;color:var(--ink);display:inline-flex;align-items:center;gap:5px}.homehead .hstat b{color:var(--brass-hi)}
+  .hicon{width:18px;height:18px;image-rendering:pixelated;vertical-align:-3px}
   .homehead .harena{font-family:var(--title);font-size:14px;letter-spacing:.06em;color:var(--brass)}
   .collection{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;overflow-y:auto;padding:4px;
     scrollbar-width:thin;scrollbar-color:var(--brass-dim) transparent}
@@ -115,9 +120,10 @@
   .ccard .cup:disabled{opacity:.45;cursor:not-allowed;filter:grayscale(.5)}
   .ccard .cmax{font-family:var(--mono);font-size:10px;color:#8fe08a;margin-top:3px}
   .ccard .clock{font-family:var(--mono);font-size:9px;color:#e9b04a;margin-top:3px}
-  .bigbtn{font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:.03em;cursor:pointer;color:#120d09;border:none;border-radius:12px;padding:14px;
-    background:linear-gradient(180deg,#ffd76b,#d89a2a);box-shadow:0 6px 18px rgba(216,154,42,.4)}
-  .bigbtn:hover{filter:brightness(1.06)}
+  .bigbtn{font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:.03em;cursor:pointer;color:#fff;border:none;padding:16px 24px 22px;
+    background:url('assets/img/ui/ribbon_red.png') center/100% 100% no-repeat;image-rendering:pixelated;text-shadow:0 2px 3px rgba(60,10,10,.85);
+    filter:drop-shadow(0 6px 14px rgba(0,0,0,.5));transition:transform .1s,filter .1s}
+  .bigbtn:hover{filter:brightness(1.08) drop-shadow(0 6px 14px rgba(0,0,0,.5))} .bigbtn:active{transform:translateY(1px)}
   @media(max-width:600px){ .brand .ptag{display:none} .card{width:66px;height:90px} .card .cthumb{width:50px;height:46px} }
 </style>
 </head>
@@ -168,12 +174,12 @@
     <!-- pantalla de inicio: colección de cartas + mejora + batalla -->
     <div id="pvHome"><div class="homebox">
       <div class="homehead">
-        <span class="hstat">🏆 <b id="hudTrophies">0</b></span>
+        <span class="hstat"><img class="hicon" src="assets/img/ui/ic06.png" alt=""> <b id="hudTrophies">0</b></span>
         <span id="homeArena" class="harena">Arena: —</span>
-        <span class="hstat">🪙 <b id="hudGold">0</b></span>
+        <span class="hstat"><img class="hicon" src="assets/img/ui/ic03.png" alt=""> <b id="hudGold">0</b></span>
       </div>
       <div class="collection" id="collection"></div>
-      <button class="bigbtn" onclick="pvpBattle()">⚔ <span data-es="BATALLA" data-en="BATTLE">BATALLA</span></button>
+      <button class="bigbtn" onclick="pvpBattle()"><img class="hicon" src="assets/img/ui/ic05.png" alt="" style="width:22px;height:22px;vertical-align:-4px"> <span data-es="BATALLA" data-en="BATTLE">BATALLA</span></button>
     </div></div>
   </div>
 </div>

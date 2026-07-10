@@ -17,7 +17,9 @@
     --flavor:"IM Fell English","Iowan Old Style",Georgia,serif;
   }
   *{box-sizing:border-box} html,body{height:100%}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--mono);overflow:hidden;-webkit-font-smoothing:antialiased}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--mono);overflow:hidden;-webkit-font-smoothing:antialiased;
+    cursor:url('assets/img/ui/cur_arrow.png') 2 2,auto}
+  button,a,.kunit,.karr,#kEnter{cursor:url('assets/img/ui/cur_hand.png') 4 2,pointer}
   .app{height:100dvh;display:flex;flex-direction:column;position:relative}
   /* ==== topbar ==== */
   .topbar{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:12px;padding:8px 14px;z-index:20;
@@ -65,10 +67,18 @@
   #kName{flex:1;min-width:200px;max-width:340px;background:#120d09;border:1px solid var(--line2);border-radius:9px;color:var(--ink);
     font-family:var(--display);font-size:17px;padding:12px 14px;text-align:center}
   #kName:focus{outline:none;border-color:var(--brass)}
-  #kEnter{font-family:var(--display);font-weight:700;font-size:16px;letter-spacing:.02em;cursor:pointer;color:#ffe7cf;
-    border:2px solid #8a3320;background:linear-gradient(180deg,#7a2c1c,#4a1a10);border-radius:11px;padding:12px 22px;white-space:nowrap;
-    box-shadow:inset 0 0 0 1px rgba(255,150,90,.25),0 6px 18px rgba(229,83,58,.28)}
-  #kEnter:hover{border-color:var(--ember)}
+  /* ==== botones y cintas de madera (Tiny Swords UI) ==== */
+  .uibtn{background:url('assets/img/ui/ribbon_red.png') center/100% 100% no-repeat;border:0;color:#fff;white-space:nowrap;
+    font-family:var(--display);font-weight:800;letter-spacing:.02em;image-rendering:pixelated;cursor:pointer;
+    text-shadow:0 1px 2px rgba(60,10,10,.85);padding:14px 30px 18px;transition:transform .1s,filter .1s}
+  .uibtn:hover{filter:brightness(1.09)} .uibtn:active{transform:translateY(1px)} .uibtn:disabled{filter:grayscale(.6) brightness(.8);cursor:not-allowed}
+  .uibtn.blue{background-image:url('assets/img/ui/ribbon_blue.png')}
+  .uiribbon{display:inline-block;background:url('assets/img/ui/ribbon_yellow.png') center/100% 100% no-repeat;image-rendering:pixelated;
+    font-family:var(--title);color:#4a2f10;font-weight:700;font-size:14px;letter-spacing:.05em;padding:11px 54px 15px;text-shadow:0 1px 0 rgba(255,240,190,.5)}
+  #kEnter{font-family:var(--display);font-weight:800;font-size:16px;letter-spacing:.02em;cursor:pointer;color:#fff;white-space:nowrap;
+    border:0;background:url('assets/img/ui/ribbon_red.png') center/100% 100% no-repeat;image-rendering:pixelated;padding:14px 30px 18px;
+    text-shadow:0 1px 2px rgba(60,10,10,.85);transition:transform .1s,filter .1s}
+  #kEnter:hover{filter:brightness(1.09)} #kEnter:active{transform:translateY(1px)}
   .khint{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;min-height:14px}
   .khint.bad{color:var(--bad)}
   .kwallet{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;margin-top:4px}
@@ -105,12 +115,12 @@
   /* ==== barra de acciones (mensaje siempre; PvP al cruzarse con otro usuario) ==== */
   #kBar{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:40;display:none;gap:10px;align-items:center}
   #kBar.on{display:flex}
-  .kact{font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.01em;cursor:pointer;color:#f4ecda;display:inline-flex;align-items:center;gap:7px;
-    background:linear-gradient(180deg,var(--bg2),var(--bg3));border:2px solid var(--line2);border-radius:11px;padding:11px 18px;
-    box-shadow:inset 0 0 0 1px rgba(201,162,39,.16),0 6px 16px rgba(0,0,0,.5)}
-  .kact:hover:not(:disabled){border-color:var(--brass);color:var(--brass-hi)}
-  #kMsgBtn{border-color:#6b5226}
-  #kPvpBtn{display:none;border-color:#7a2c1c;color:#f0c6b0}
+  .kact{font-family:var(--display);font-weight:800;font-size:15px;letter-spacing:.01em;cursor:pointer;color:#fff;display:inline-flex;align-items:center;gap:7px;
+    background:url('assets/img/ui/ribbon_blue.png') center/100% 100% no-repeat;border:0;image-rendering:pixelated;padding:12px 22px 16px;
+    text-shadow:0 1px 2px rgba(10,25,45,.85);filter:drop-shadow(0 5px 12px rgba(0,0,0,.5));transition:transform .1s,filter .1s}
+  .kact:hover:not(:disabled){filter:brightness(1.09) drop-shadow(0 5px 12px rgba(0,0,0,.5))} .kact:active{transform:translateY(1px)}
+  #kMsgBtn{}
+  #kPvpBtn{display:none;background-image:url('assets/img/ui/ribbon_red.png');color:#fff}
   #kPvpBtn:disabled{opacity:.6;cursor:not-allowed}
   #kPvpBtn .soon{font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--muted);border:1px solid var(--line2);border-radius:5px;padding:1px 5px}
   #kPvpName{max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--muted)}
@@ -210,6 +220,7 @@
         <p data-es="Elegí tu nombre y tu unidad, y caminá libre por la isla." data-en="Choose your name and unit, and roam the island freely.">Elegí tu nombre y tu unidad, y caminá libre por la isla.</p>
         <div class="kwallet" id="kWallet"></div>
       </div>
+      <div style="text-align:center;margin-bottom:2px"><span class="uiribbon" data-es="ELEGÍ TU UNIDAD" data-en="CHOOSE YOUR UNIT">ELEGÍ TU UNIDAD</span></div>
       <div class="kpicker"><button class="karr" id="kPrev" aria-label="prev">‹</button><div class="kunits" id="kUnits"></div><button class="karr" id="kNext" aria-label="next">›</button></div>
       <div class="klevel" id="kLevel"></div>
       <div class="krow">
