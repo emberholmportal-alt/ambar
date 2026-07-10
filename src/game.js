@@ -413,15 +413,27 @@ function buildMesetas(evitar,esCalle){
   esCalle=esCalle||(()=>false);
   for(let y=0;y<ROWS;y++){ elev[y]=Array(COLS).fill(0); cliff[y]=Array(COLS).fill(false); }
   const lejos=(x,y)=>evitar.every(p=>Math.hypot(x-p.x,y-p.y)>p.r);
-  let puestas=0, intentos=0;
-  while(puestas<4 && intentos++<60){
-    const mx=rint(6,COLS-7), my=rint(4,ROWS-6), mr=rint(2,4), p1=Math.random()*6.28;
-    if(!isLand(mx,my)||!lejos(mx,my)||esCalle(mx,my)) continue;
-    for(let y=my-mr-1;y<=my+mr+1;y++)for(let x=mx-mr-1;x<=mx+mr+1;x++){
-      const ang=Math.atan2(y-my,x-mx), wob=0.9*Math.sin(ang*3+p1);
-      if(isIn(x,y)&&isLand(x,y)&&isLand(x,y+1)&&lejos(x,y)&&!esCalle(x,y)&&Math.hypot(x-mx,y-my)<mr+wob) elev[y][x]=1;
+  // sella una meseta elíptica/orgánica (sx>1 = estirada a lo ancho → cara de acantilado que se lee como muro)
+  const stamp=(mx,my,mr,sx,ph)=>{
+    for(let y=Math.floor(my-mr-1);y<=my+mr+1;y++)for(let x=Math.floor(mx-mr*sx-1);x<=mx+mr*sx+1;x++){
+      if(!isIn(x,y)) continue;
+      const nx=(x-mx)/sx, ny=y-my, ang=Math.atan2(ny,nx), wob=0.8*Math.sin(ang*3+ph)+0.4*Math.sin(ang*5+ph*1.6);
+      if(isLand(x,y)&&isLand(x,y+1)&&lejos(x,y)&&!esCalle(x,y)&&Math.hypot(nx,ny)<mr+wob) elev[y][x]=1;
     }
-    puestas++;
+  };
+  // CORDILLERA principal (el relieve protagonista): cadena de mesetas que serpentea a lo ancho del mapa.
+  { let cx=rint(9,COLS-10), cy=rint(4,Math.floor(ROWS*0.5)), dir=Math.random()<0.5?1:-1, ph=Math.random()*6.28;
+    for(let seg=0, segs=rint(4,6); seg<segs; seg++){
+      stamp(cx,cy,rint(3,5),1.7,ph+seg*0.8);              // estirada horizontal → cordillera continua, no montículos
+      cx=Phaser.Math.Clamp(cx+dir*rint(3,4),7,COLS-8);
+      cy=Phaser.Math.Clamp(cy+pick([-1,0,0,1]),3,ROWS-6); // deriva suave: casi horizontal
+    }
+  }
+  // 2 mesetas secundarias (más chicas) para dar regiones altas/bajas, no un solo bloque
+  let sec=0, it=0;
+  while(sec<2 && it++<80){ const mx=rint(6,COLS-7), my=rint(4,ROWS-6);
+    if(!isLand(mx,my)||!lejos(mx,my)||esCalle(mx,my)) continue;
+    stamp(mx,my,rint(2,3),Phaser.Math.FloatBetween(1.1,1.4),Math.random()*6.28); sec++;
   }
   // erosión: sacar púas sueltas (menos de 2 vecinos altos → baja)
   for(let it=0;it<2;it++){ const snap=elev.map(r=>r.slice());
@@ -705,20 +717,96 @@ function create(){
   spawnPig(fa.x,fa.y+3,pen); spawnPig(fa.x+1,fa.y+4,pen);
   spawnPig(fa.x-4,fa.y,null); // un cerdo suelto
 
-  // ---- bosques animados + arbustos + rocas + decos por todos lados (densidad alta) ----
-  const bloquear=(x,y)=>{ if(blocked[y]) blocked[y][x]=true; };            // marca colisión en el prop
-  for(let c=0;c<13;c++){ const t=randFree(); if(!t) continue;             // más bosques
-    for(let k=rint(4,8);k>0;k--){ const gx=Phaser.Math.Clamp(t.x+rint(-2,2),1,COLS-2), gy=Phaser.Math.Clamp(t.y+rint(-2,2),1,ROWS-2);
-      if(isLand(gx,gy)&&!blocked[gy][gx]&&!inSand(gx,gy)) placeTree(gx,gy); } }
-  for(let i=0;i<30;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)) placeTree(t.x,t.y);}
-  for(let i=0;i<34;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)){const b='bush'+rint(1,4);
-    scene.add.sprite(t.x*T+T/2,t.y*T+T-4,b).play({key:b+'-a',startFrame:rint(0,7)}).setOrigin(0.5,1).setScale(Phaser.Math.FloatBetween(0.5,0.7)).setDepth(t.y*T+T-4);}}
-  for(let i=0;i<26;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)){ placeDecoImg('rock'+rint(1,4),t.x,t.y,Phaser.Math.FloatBetween(0.7,1.0)); bloquear(t.x,t.y); }}   // las rocas bloquean
-  for(let i=0;i<12;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)){ placeDecoImg('goldstone'+rint(1,6),t.x,t.y,Phaser.Math.FloatBetween(0.5,0.7)); bloquear(t.x,t.y); }}   // piedras de oro sueltas
-  for(let i=0;i<60;i++){const t=randFree(); if(t&&!inSand(t.x,t.y)) placeDecoImg('tdeco'+rint(1,18),t.x,t.y,Phaser.Math.FloatBetween(0.65,1));}   // usa TODAS las decos (1-18)
-  for(let i=0;i<55;i++){const t=randFree(); if(t&&!inSand(t.x,t.y))                    // matojos de pasto: textura/detalle del suelo
+  // ================= ESCENARIO: composición de level-designer (no scatter aleatorio) =================
+  // Orden del manifiesto: bosques como MASAS → afloramientos rocosos → recursos con lógica → deco de contexto.
+  // Regla 70/30: se dejan praderas abiertas (descanso visual). El punto focal es la plaza; los barrios, focos secundarios.
+  const bloquear=(x,y)=>{ if(blocked[y]) blocked[y][x]=true; };
+  const treeCells=new Set(), treeKey=(x,y)=>x+','+y;
+  const libre=(x,y)=>isLand(x,y)&&!blocked[y][x]&&!inSand(x,y);
+  const lejosPlaza=(x,y)=>Math.hypot(x-px,y-py)>6;                              // no invadir el asentamiento principal
+  const lejosBarrios=(x,y)=>GUILDS.every(g=>Math.hypot(x-g.cx,y-g.cy)>5);       // ni los barrios/gremios
+  const canTree=(x,y)=>{ if(!libre(x,y)||treeCells.has(treeKey(x,y))) return false;
+    for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]) if(treeCells.has(treeKey(x+dx,y+dy))) return false;   // sep. mínima: nunca copas pegadas ni filas
+    return true; };
+  const addTree=(x,y)=>{ placeTree(x,y); treeCells.add(treeKey(x,y)); };
+  const decoAt=(k,x,y,sc)=>{ placeDecoImg(k,x,y,sc); };
+
+  // 1) BOSQUES como masas: borde orgánico (ruido angular) + claro interno + variación de escala. Nada de árboles sueltos uniformes.
+  const forestMass=(cx,cy,rad,dens)=>{
+    const ph=Math.random()*6.28, clx=cx+rint(-1,1), cly=cy+rint(-1,1), clr=Math.max(0,rad-2.2);   // claro
+    for(let y=Math.floor(cy-rad-1);y<=cy+rad+1;y++)for(let x=Math.floor(cx-rad-1);x<=cx+rad+1;x++){
+      const ang=Math.atan2(y-cy,x-cx), edge=rad+0.9*Math.sin(ang*3+ph)+0.5*Math.sin(ang*6+ph*1.7);  // borde irregular
+      const d=Math.hypot(x-cx,y-cy);
+      if(d>edge || Math.hypot(x-clx,y-cly)<clr*(0.4+Math.random()*0.6)) continue;                    // fuera del blob o dentro del claro
+      if(Math.random()>dens) continue;
+      if(canTree(x,y)) addTree(x,y);
+    }
+  };
+  const massAnchors=[]; let mtry=0;
+  while(massAnchors.length<5 && mtry++<260){ const t=randFree(); if(!t) continue;
+    if(!lejosPlaza(t.x,t.y)||!lejosBarrios(t.x,t.y)) continue;
+    if(massAnchors.some(a=>Math.hypot(a.x-t.x,a.y-t.y)<7)) continue;            // masas separadas → praderas entre ellas
+    massAnchors.push(t);
+  }
+  for(const a of massAnchors) forestMass(a.x,a.y,Phaser.Math.FloatBetween(3,4.6),0.66);
+  for(let e=0;e<7;e++){ const t=randFree(); if(!t) continue;                    // cinturón de bosque que oculta el borde del mapa
+    let costa=false; for(const[dx,dy]of[[2,0],[-2,0],[0,2],[0,-2]]) if(!isLand(t.x+dx,t.y+dy)) costa=true;
+    if(costa&&lejosPlaza(t.x,t.y)&&lejosBarrios(t.x,t.y)) forestMass(t.x,t.y,Phaser.Math.FloatBetween(2,3),0.6);
+  }
+
+  // 2) AFLORAMIENTOS rocosos: roca grande + satélites, agrupados al pie de acantilados y en la mina (piedra junto a la piedra).
+  const rockCluster=(cx,cy,n)=>{ let p=0,it=0;
+    while(p<n && it++<n*7){ const x=cx+rint(-1,1), y=cy+rint(-1,1);
+      if(!libre(x,y)) continue;
+      decoAt('rock'+rint(1,4), x, y, p===0?Phaser.Math.FloatBetween(0.95,1.15):Phaser.Math.FloatBetween(0.55,0.82));
+      bloquear(x,y); if(Math.random()<0.7) decoAt('tdeco'+pick([4,5,6]), x, y, Phaser.Math.FloatBetween(0.6,0.9)); p++;   // grava alrededor
+    } };
+  const cliffBases=[];
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) if(cliff[y][x]&&libre(x,y+1)) cliffBases.push({x,y:y+1});
+  Phaser.Utils.Array.Shuffle(cliffBases);
+  for(let i=0;i<Math.min(5,cliffBases.length);i++) rockCluster(cliffBases[i].x,cliffBases[i].y,rint(3,5));
+  let extraRock=0, rtry=0;                                                      // 2-3 afloramientos sueltos más (agrupados, nunca una roca sola)
+  while(extraRock<3 && rtry++<80){ const t=randFree(); if(t&&lejosPlaza(t.x,t.y)){ rockCluster(t.x,t.y,rint(3,4)); extraRock++; } }
+  // cimas rocosas: grava y algún peñasco sobre las mesetas → el relieve se lee como montaña, no como escalón pelado
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){ if(!elev[y][x]||blocked[y][x]||inSand(x,y)) continue;
+    if(Math.random()<0.16){ decoAt('tdeco'+pick([4,5,6]),x,y,Phaser.Math.FloatBetween(0.6,0.95)); }
+    else if(Math.random()<0.05){ decoAt('rock'+rint(1,4),x,y,Phaser.Math.FloatBetween(0.55,0.8)); bloquear(x,y); } }
+
+  // 3) RECURSOS con lógica: el oro sólo junto a la mina (montaña); la madera vive en el bosque; la carne en las pasturas.
+  for(let i=0;i<7;i++){ const x=gm.x+rint(-2,2), y=gm.y+rint(-1,2);
+    if(libre(x,y)){ decoAt('goldstone'+rint(1,6),x,y,Phaser.Math.FloatBetween(0.5,0.7)); bloquear(x,y); } }
+
+  // 4) DECO de CONTEXTO (refuerza el entorno, no lo satura): hongos/arbustos en el bosque, grava en la piedra, pasto en la pradera.
+  const decoNear=(cells,opts,chance)=>{ for(const c of cells){ if(Math.random()>chance) continue;
+    const x=c.x+pick([-1,0,1]), y=c.y+pick([-1,0,1]);
+    if(libre(x,y)&&!treeCells.has(treeKey(x,y))) decoAt('tdeco'+pick(opts),x,y,Phaser.Math.FloatBetween(0.65,0.95)); } };
+  const forestCells=[...treeCells].map(k=>{const[x,y]=k.split(',').map(Number);return {x,y};});
+  decoNear(forestCells,[1,2,3],0.10);              // hongos entre los árboles
+  decoNear(forestCells,[7,8,9],0.12);              // arbustos en el sotobosque
+  // arbustos animados agrupados en los bordes del bosque (bultos, no filas)
+  let clumps=0, ctry=0;
+  while(clumps<6 && ctry++<120){ const seed=pick(forestCells); if(!seed) break;
+    const bx=seed.x+rint(-2,2), by=seed.y+rint(-2,2);
+    if(!libre(bx,by)||treeCells.has(treeKey(bx,by))) continue;
+    const b='bush'+rint(1,4);
+    scene.add.sprite(bx*T+T/2,by*T+T-4,b).play({key:b+'-a',startFrame:rint(0,7)}).setOrigin(0.5,1).setScale(Phaser.Math.FloatBetween(0.5,0.72)).setDepth(by*T+T-4);
+    clumps++;
+  }
+  // pradera abierta: unas pocas matas de pasto y algún arbusto chico, esparcidas y sin repetir seguido
+  let last=-1;
+  for(let i=0;i<22;i++){ const t=randFree(); if(!t||!lejosPlaza(t.x,t.y)||treeCells.has(treeKey(t.x,t.y))) continue;
+    let d; do{ d=pick([10,11,7,8]); }while(d===last); last=d;
+    decoAt('tdeco'+d,t.x,t.y,Phaser.Math.FloatBetween(0.7,1)); }
+  for(let i=0;i<20;i++){const t=randFree(); if(t&&libre(t.x,t.y))               // matojos sutiles del suelo (detalle, no bloquean)
     scene.add.image(t.x*T+T/2+rint(-18,18),t.y*T+T/2+rint(-14,14),'ground',pick([4,14,24])).setOrigin(0.5,0.6).setScale(Phaser.Math.FloatBetween(0.7,1.0)).setDepth(-19);}
-  for(let i=0;i<9;i++){const t=randFree(); if(t){ spawnSheep(t.x,t.y); meatSpots.push({x:t.x*T+T/2,y:t.y*T+T/2}); }}   // pasturas = sitios de recolección de carne
+
+  // 5) PASTURAS: rebaños agrupados en claros de pradera (no ovejas sueltas por todo el mapa) = sitios de carne.
+  let flocks=0, ftry=0;
+  while(flocks<3 && ftry++<120){ const t=randFree(); if(!t||!lejosPlaza(t.x,t.y)||treeCells.has(treeKey(t.x,t.y))) continue;
+    for(let s=rint(2,3);s>0;s--){ const sx=t.x+rint(-1,1), sy=t.y+rint(-1,1);
+      if(libre(sx,sy)){ spawnSheep(sx,sy); meatSpots.push({x:sx*T+T/2,y:sy*T+T/2}); } }
+    flocks++;
+  }
 
   // ---- casillas caminables ----
   for(let y=1;y<ROWS-1;y++)for(let x=1;x<COLS-1;x++) if(isLand(x,y)&&!blocked[y][x]) walkTiles.push({x:x*T+T/2,y:y*T+T/2});
