@@ -58,8 +58,9 @@
   #pvSplash.hide{opacity:0;pointer-events:none}
   #pvSplash img{width:min(56vw,320px);height:auto;filter:drop-shadow(0 8px 24px rgba(0,0,0,.6))}
   #pvSplash .lbl{font-family:var(--flavor);font-style:italic;color:var(--muted)}
-  #pvBarWrap{width:min(52vw,280px);height:14px;background:#0e2416;border:2px solid #2c6b45;border-radius:9px;overflow:hidden}
-  #pvBar{height:100%;width:0%;background:linear-gradient(180deg,#8fe08a,#3f9b52);transition:width .2s}
+  #pvBarWrap{width:min(56vw,300px);height:30px;border:0;background:none;display:flex;align-items:center;padding:0 12px;
+    border-image:url('assets/img/ui/bar_base.png') 20 30 fill / 9px 14px / 0 stretch;image-rendering:pixelated}
+  #pvBar{height:15px;width:0%;border-radius:6px;background:url('assets/img/ui/bar_fill.png') left center/auto 100% repeat-x;image-rendering:pixelated;transition:width .2s}
   /* banner de bloqueados */
   #lockMsg{position:relative;flex:none;order:2;max-width:96vw;text-align:center;
     font-family:var(--mono);font-size:11px;color:#e9b04a;background:rgba(18,13,9,.85);border:1px solid var(--line2);border-radius:8px;padding:7px 13px}
