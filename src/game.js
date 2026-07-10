@@ -1303,7 +1303,7 @@ function update(time,delta){
       const vis=wv.contains(n.spr.x,n.spr.y); n._plate.setVisible(vis);
       if(vis){ n._plate.x=n.spr.x; n._plate.y=n.spr.y-44; n._plate.setScale(1/cam.zoom); n._plate.setDepth(n.spr.y+40); } }
   }
-  if(KINGDOM){ movePlayer(delta); kUpdateOthers(); kEnemyUpdate(delta);   // reino: mueve la unidad del usuario + los demás usuarios reales + enemigos salvajes
+  if(KINGDOM){ movePlayer(delta); kUpdateOthers(); kEnemyUpdate(delta); kCarryUpdate();   // reino: usuario + otros + enemigos + acarreo de recursos
     if(atkCd>0) atkCd-=delta;
     if(kReady&&kSpaceKey&&Phaser.Input.Keyboard.JustDown(kSpaceKey)) playerJump();   // Espacio = salto
     if(kReady){ kMMacc+=delta; if(kMMacc>=90){ kMMacc=0; try{ kMinimap(); }catch(e){} }
@@ -1591,6 +1591,7 @@ function playerAttack(){
   if(!kReady||!player||!player.spr||atkCd>0||player._jumping) return;
   const s=player.spr, dir=player.faceLeft?-1:1; s.setFlipX(player.faceLeft);
   scene.time.delayedCall(120, kHitEnemies);               // el golpe daña a los enemigos cercanos al frente
+  kPickResource();                                         // si estás sobre un nodo (árbol/pastura/mina) recogés el recurso
   const m=(kSel&&kSel.key||'').match(/^(warrior|archer|monk|pawn)_(blue|red|purple|yellow)$/);
   const akey=m?('atk_'+m[1]+'_'+m[2]):null;
   if(akey && scene.anims.exists(akey+'-a')){                     // ANIMACIÓN DE ATAQUE REAL (espada/arco/báculo/pico)
@@ -1745,17 +1746,30 @@ function kSpawnEnemies(){
   }
 }
 function kEnemyUpdate(delta){
+  const pOK=kReady&&player&&player.spr;
   for(const e of kEnemies){ if(e.dead||!e.spr) continue; const s=e.spr;
-    e.moveT-=delta;
-    if(e.moveT<=0){ e.moveT=rint(1200,3200);                                   // elige un nuevo destino cerca del hogar
-      if(Math.random()<0.55){ const a=Math.random()*6.28, r=rint(24,120); e.tx=Phaser.Math.Clamp(e.hx+Math.cos(a)*r,T,WORLD_W-T); e.ty=Phaser.Math.Clamp(e.hy+Math.sin(a)*r,T,WORLD_H-T); e.moving=true; }
-      else e.moving=false; }
+    let sp=46, aggro=false;
+    if(pOK){ const pdx=player.spr.x-s.x, pdy=player.spr.y-s.y, pd=Math.hypot(pdx,pdy);   // contraataque: persigue al jugador si está cerca
+      if(pd<160){ aggro=true; sp=64; e.tx=player.spr.x; e.ty=player.spr.y; e.moving=pd>40;
+        if(pd<=40){ s.body.setVelocity(0,0); e.atkCd=(e.atkCd||0)-delta; if(e.atkCd<=0){ e.atkCd=1200; kEnemyStrike(e,pdx); } } } }
+    if(!aggro){ e.moveT-=delta;
+      if(e.moveT<=0){ e.moveT=rint(1200,3200);                                   // deambula cerca del hogar
+        if(Math.random()<0.55){ const a=Math.random()*6.28, r=rint(24,120); e.tx=Phaser.Math.Clamp(e.hx+Math.cos(a)*r,T,WORLD_W-T); e.ty=Phaser.Math.Clamp(e.hy+Math.sin(a)*r,T,WORLD_H-T); e.moving=true; }
+        else e.moving=false; } }
     if(e.moving){ const dx=e.tx-s.x, dy=e.ty-s.y, dd=Math.hypot(dx,dy);
-      if(dd<6||!landAtPx(s.x+Math.sign(dx)*14,s.y+10)){ e.moving=false; s.body.setVelocity(0,0); }
-      else { s.body.setVelocity(dx/dd*46,dy/dd*46); s.play('ke_'+e.def.key+'-r',true); if(Math.abs(dx)>1){ e.flip=dx<0; s.setFlipX(e.flip); } } }
+      if(dd<6||(!aggro&&!landAtPx(s.x+Math.sign(dx)*14,s.y+10))){ e.moving=false; s.body.setVelocity(0,0); }
+      else { s.body.setVelocity(dx/dd*sp,dy/dd*sp); s.play('ke_'+e.def.key+'-r',true); if(Math.abs(dx)>1){ e.flip=dx<0; s.setFlipX(e.flip); } } }
     else { s.body.setVelocity(0,0); s.play('ke_'+e.def.key+'-i',true); }
     s.setDepth(s.y);
   }
+}
+function kEnemyStrike(e,dx){                               // el enemigo golpea al jugador: sacudida + soltás lo que llevás
+  if(!player||!player.spr) return; const s=e.spr; s.setFlipX(dx<0);
+  scene.tweens.add({targets:s, x:s.x+Math.sign(dx)*8, duration:90, yoyo:true});
+  player.spr.setTintFill(0xff5040); scene.time.delayedCall(110,()=>{ if(player&&player.spr) player.spr.clearTint(); });
+  if(scene.cameras&&scene.cameras.main) scene.cameras.main.shake(140,0.006);
+  burst(player.spr.x,player.spr.y-16,0xff8060,5,7); sfx('clash',0.3);
+  if(player.carry){ toast(L('¡Te golpearon! Soltaste la carga.','You got hit! Dropped your load.')); kClearCarry(); }
 }
 function kHitEnemies(){                                    // el golpe del jugador daña a los enemigos cercanos al frente
   if(!player||!player.spr) return; const px=player.spr.x, py=player.spr.y, dir=player.faceLeft?-1:1;
@@ -1775,6 +1789,36 @@ function kUnlockCard(def){                                 // suma la carta a ao
   if(!s.includes(def.card)){ s.push(def.card); try{ localStorage.setItem('aoa_cards',JSON.stringify(s)); }catch(e){}
     toast(L('¡Derrotaste al '+def.es+'! Desbloqueada para el PvP.','Defeated the '+def.en+'! Unlocked for PvP.')); sfx('coins',0.4); addXp(20); }
   else toast(L('Derrotaste a un '+def.es+'.','Defeated a '+def.en+'.'));
+  if(player&&!player.carry) kSetCarry('res_gold','oro','gold');   // el enemigo suelta botín de oro para llevar
+}
+// ===== llevar recursos: recolectás en el bosque/pastura/mina y depositás en el castillo (base para misiones diarias) =====
+let kCarryIcon=null, kRes=null;
+function loadKRes(){ try{ return JSON.parse(localStorage.getItem('aoa_kres')||'null')||{wood:0,gold:0,food:0}; }catch(e){ return {wood:0,gold:0,food:0}; } }
+function kSetCarry(tex,es,en){
+  if(!player||!scene) return; player.carry=tex; player.carryName={es,en};
+  if(kCarryIcon) kCarryIcon.destroy();
+  kCarryIcon=scene.add.image(player.spr.x,player.spr.y-52,tex).setScale(0.55).setDepth(player.spr.y+80);
+  scene.tweens.add({targets:kCarryIcon,y:kCarryIcon.y-5,duration:600,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+}
+function kClearCarry(){ if(player) player.carry=null; if(kCarryIcon){ kCarryIcon.destroy(); kCarryIcon=null; } }
+function kPickResource(){                                  // toma el recurso del nodo más cercano si no lleva nada
+  if(!player||player.carry) return; let best=null,bd=70;
+  for(const t of treeSpots){ const d=Math.hypot(t.x-player.spr.x,(t.y-T*0.6)-player.spr.y); if(d<bd){bd=d;best={t:'res_wood',es:'madera',en:'wood'};} }
+  for(const m of meatSpots){ const d=Math.hypot(m.x-player.spr.x,m.y-player.spr.y); if(d<bd){bd=d;best={t:'res_meat',es:'comida',en:'food'};} }
+  if(gmPos){ const d=Math.hypot(gmPos.x-player.spr.x,gmPos.y-player.spr.y); if(d<bd){bd=d;best={t:'res_gold',es:'oro',en:'gold'};} }
+  if(!best) return;
+  kSetCarry(best.t,best.es,best.en); toast(L('Recogiste '+best.es+'. Llevalo al castillo.','Picked up '+best.en+'. Take it to the castle.')); sfx('door',0.2);
+}
+function kCarryUpdate(){                                   // sigue la cabeza + deposita cerca del castillo
+  if(!player||!player.spr) return;
+  if(kCarryIcon){ kCarryIcon.x=player.spr.x; kCarryIcon.y=player.spr.y-52; kCarryIcon.setDepth(player.spr.y+80); }
+  if(player.carry && Math.hypot(player.spr.x-WORLD_W/2,player.spr.y-WORLD_H/2)<150){
+    const key=player.carry==='res_wood'?'wood':player.carry==='res_gold'?'gold':'food';
+    kRes[key]=(kRes[key]||0)+1; try{ localStorage.setItem('aoa_kres',JSON.stringify(kRes)); }catch(e){}
+    const nm=player.carryName?L(player.carryName.es,player.carryName.en):key;
+    toast(L('Depositaste '+nm+' · total '+kRes[key],'Deposited '+nm+' · total '+kRes[key])); addXp(6); sfx('coins',0.3);
+    kClearCarry();
+  }
 }
 // ===== minimapa: dónde están los otros jugadores reales =====
 let kMM=null, kMMx=null, kMMacc=0;
@@ -1860,6 +1904,7 @@ async function kingdomEnter(){
   if(kMM) kMM.classList.add('on');                        // minimapa
   spawnTestNpc();                                         // maestro de armas en el centro para probar el PvP
   kSpawnEnemies();                                         // enemigos salvajes en el bosque (derrotalos → desbloqueás su carta)
+  kRes=loadKRes();                                         // recursos guardados (para misiones diarias)
   sfx('door',0.3);
   kConnect();                                             // entra al reino en vivo: se ve con los demás usuarios reales
   const lg=$('kLogin'); if(lg){ lg.classList.add('hide'); setTimeout(()=>{ if(lg) lg.style.display='none'; },400); }

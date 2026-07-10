@@ -19,7 +19,9 @@
     --flavor:"IM Fell English","Iowan Old Style",Georgia,serif;
   }
   *{box-sizing:border-box} html,body{height:100%}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--mono);overflow:hidden;-webkit-font-smoothing:antialiased}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--mono);overflow:hidden;-webkit-font-smoothing:antialiased;
+    cursor:url('assets/img/ui/cur_arrow.png') 2 2,auto}
+  a,button{cursor:url('assets/img/ui/cur_hand.png') 4 2,pointer}
   .app{height:100dvh;display:flex;flex-direction:column;position:relative}
   .topbar{display:flex;align-items:center;gap:14px;padding:9px 16px;background:linear-gradient(180deg,var(--bg2),var(--bg3));border-bottom:1px solid var(--line);z-index:20}
   .live{display:flex;align-items:center;gap:8px;font-weight:700;letter-spacing:.14em;font-size:12px;color:var(--ember)}
@@ -48,10 +50,9 @@
   #liveSplash .lbl{font-family:var(--flavor);font-style:italic;color:var(--muted);font-size:14px;letter-spacing:.02em}
   /* barra de carga + personaje corriendo (mismo patrón que la beta, pero con un guerrero en vez del goblin) */
   #liveBarZone{position:relative;width:min(52vw,300px);margin-top:34px}   /* deja aire para el guerrero que corre sobre la barra */
-  #liveBarWrap{width:100%;height:18px;background:#101f28;border:2px solid #2c5a70;border-radius:10px;
-    box-shadow:inset 0 2px 6px rgba(0,0,0,.65),0 0 0 3px #08131a;overflow:hidden}
-  #liveBar{height:100%;width:0%;border-radius:8px;transition:width .25s ease;
-    background:linear-gradient(180deg,#7fd4ff 0%,#4a90c2 55%,#2c5a70 100%);box-shadow:0 0 8px rgba(120,200,255,.45)}
+  #liveBarWrap{width:100%;height:30px;border:0;background:none;box-shadow:none;border-radius:0;display:flex;align-items:center;padding:0 12px;
+    border-image:url('assets/img/ui/bar_base.png') 20 30 fill / 9px 14px / 0 stretch;image-rendering:pixelated}
+  #liveBar{height:15px;width:0%;border-radius:6px;transition:width .25s ease;background:url('assets/img/ui/bar_fill.png') left center/auto 100% repeat-x;image-rendering:pixelated}
   #liveRunner{position:absolute;left:0%;bottom:6px;width:66px;height:60px;margin-left:-33px;pointer-events:none;
     background:url('assets/img/warrior_blue.png') 0 -118px/396px auto no-repeat;image-rendering:pixelated;
     filter:drop-shadow(0 4px 5px rgba(0,0,0,.55));transition:left .25s ease;
