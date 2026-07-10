@@ -613,7 +613,10 @@ function create(){
   const px=Math.floor(COLS/2), py=Math.floor(ROWS/2);
   const pkey=(x,y)=>x+','+y;
   const sand=new Set();                                     // plaza ∪ calles (una sola zona para que empalmen)
-  for(let y=py-1;y<=py+2;y++)for(let x=px-3;x<=px+3;x++) if(isLand(x,y)) sand.add(pkey(x,y));
+  const prx=4.0, pry=2.8, pph=Math.random()*6.28;           // plaza ORGÁNICA: elipse con borde ondulado, no un rectángulo
+  for(let y=py-4;y<=py+4;y++)for(let x=px-6;x<=px+6;x++){ if(!isLand(x,y)) continue;
+    const nx=(x-px)/prx, ny=(y-py)/pry, ang=Math.atan2(ny,nx), wob=0.16*Math.sin(ang*4+pph)+0.08*Math.sin(ang*3-pph);
+    if(Math.hypot(nx,ny) < 1+wob) sand.add(pkey(x,y)); }
   const plazaOnly=new Set(sand);
   const inPlaza=(x,y)=>plazaOnly.has(pkey(x,y));
   // calles con CURVA suave (Bézier cuadrática), ~2 tiles de ancho — nada de ángulos de 90°
@@ -621,13 +624,14 @@ function create(){
     const ax=g.cx, ay=g.cy, bx=px, by=py, mx=(ax+bx)/2, my=(ay+by)/2;
     const dx=bx-ax, dy=by-ay, len=Math.hypot(dx,dy)||1;
     const bend=len*Phaser.Math.FloatBetween(0.12,0.28)*(Math.random()<0.5?1:-1);   // control perpendicular → arco
-    const cx2=mx-dy/len*bend, cy2=my+dx/len*bend;
+    const cx2=mx-dy/len*bend, cy2=my+dx/len*bend, wseed=Math.random()*6.28;
     const steps=Math.ceil(len*3);
     for(let i=0;i<=steps;i++){ const t=i/steps, it=1-t;
       const X=it*it*ax+2*it*t*cx2+t*t*bx, Y=it*it*ay+2*it*t*cy2+t*t*by;
       const dX=2*it*(cx2-ax)+2*t*(bx-cx2), dY=2*it*(cy2-ay)+2*t*(by-cy2), dl=Math.hypot(dX,dY)||1;
       const nx=-dY/dl, ny=dX/dl;                                                     // perpendicular local → ancho
-      for(const w of [-0.5,0,0.5]){ const x=Math.round(X+nx*w), y=Math.round(Y+ny*w); if(isLand(x,y)) sand.add(pkey(x,y)); }
+      const width=0.5 + t*t*1.4 + 0.22*Math.sin(t*7+wseed);                          // se abre hacia la plaza + varía un poco (avenida)
+      for(let w=-width; w<=width+1e-6; w+=0.5){ const x=Math.round(X+nx*w), y=Math.round(Y+ny*w); if(isLand(x,y)) sand.add(pkey(x,y)); }
     }
   }
   const inSand=(x,y)=>sand.has(pkey(x,y));
