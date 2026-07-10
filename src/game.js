@@ -284,7 +284,8 @@ function preload(){
       this.load.spritesheet('ke_'+e.key+'_r',TSB+e.key+'_run.png',{frameWidth:e.fw,frameHeight:e.fw}); }
     for(const c of COLORES) for(const res of ['wood','gold','food']){   // aldeano cargando recurso (pose con la madera/oro/comida en las manos)
       this.load.spritesheet('pc_'+c+'_'+res+'_i',TSB+'pc_'+c+'_'+res+'_i.png',{frameWidth:192,frameHeight:192});
-      this.load.spritesheet('pc_'+c+'_'+res+'_r',TSB+'pc_'+c+'_'+res+'_r.png',{frameWidth:192,frameHeight:192}); } }
+      this.load.spritesheet('pc_'+c+'_'+res+'_r',TSB+'pc_'+c+'_'+res+'_r.png',{frameWidth:192,frameHeight:192}); }
+    for(const c of COLORES) this.load.spritesheet('chop_'+c,TSB+'chop_'+c+'.png',{frameWidth:192,frameHeight:192}); }   // aldeano cortando (hacha)
   // edificios por facción + castillo real
   for(const c of COLORES) for(const b of [...CASAS,'tower',...ESPECIALES]) this.load.image(b+'_'+c,TSB+b+'_'+c+'.png');
   this.load.image('castle_black',TSB+'castle_black.png');
@@ -456,6 +457,22 @@ function nudgeToLand(x,y){ let gx=x,gy=y,tr=0;
   return {x:gx,y:gy};
 }
 function randFree(){for(let i=0;i<80;i++){const x=rint(1,COLS-2),y=rint(1,ROWS-2); if(isLand(x,y)&&!blocked[y][x]) return{x,y};}return null;}
+// Cerca autotileada por VECINOS reales (no por la forma ideal): si la costa/arena se come un tramo,
+// las esquinas y puntas se eligen según qué tiles adyacentes tienen cerca → nunca quedan postes sueltos ni tramos huérfanos.
+// Frames del pack (4×3): 0=esq.sup-izq 3=esq.sup-der 8=esq.inf-izq 11=esq.inf-der · 1/2=borde sup · 9/10=borde inf · 4=lateral izq · 7=lateral der
+function buildWall(cells){
+  const S=new Set(cells.map(c=>c.x+','+c.y)), has=(x,y)=>S.has(x+','+y);
+  for(const c of cells){
+    const nl=has(c.x-1,c.y), nr=has(c.x+1,c.y), nu=has(c.x,c.y-1), nd=has(c.x,c.y+1);
+    let fr;
+    if(nr&&nd) fr=0; else if(nl&&nd) fr=3; else if(nr&&nu) fr=8; else if(nl&&nu) fr=11;   // esquinas: dos brazos perpendiculares
+    else if(nl||nr) fr = c.b?pick([9,10]):pick([1,2]);                                    // tramo horizontal (arriba/abajo según su fila)
+    else if(nu||nd) fr = c.r?7:4;                                                         // tramo vertical (izq/der según su columna)
+    else fr = c.t?pick([1,2]):c.b?pick([9,10]):(c.r?7:4);                                 // poste suelto: al menos coherente con su lado
+    scene.add.image(c.x*T+T/2,c.y*T+T-6,'fence',fr).setOrigin(0.5,1).setDepth(c.y*T+T-6);
+    blocked[c.y][c.x]=true;
+  }
+}
 
 function create(){
   scene=this; makeDot(this); makeBird(this);
@@ -483,6 +500,7 @@ function create(){
     for(const e of KENEMY_DEF){ if(this.textures.exists('ke_'+e.key+'_i')){                // enemigos salvajes: idle + run
       an.create({key:'ke_'+e.key+'-i',frames:an.generateFrameNumbers('ke_'+e.key+'_i',{start:0,end:e.idle-1}),frameRate:6,repeat:-1});
       an.create({key:'ke_'+e.key+'-r',frames:an.generateFrameNumbers('ke_'+e.key+'_r',{start:0,end:e.run-1}),frameRate:9,repeat:-1}); } }
+    for(const c of COLORES){ if(this.textures.exists('chop_'+c)) an.create({key:'chop_'+c+'-a',frames:an.generateFrameNumbers('chop_'+c,{start:0,end:5}),frameRate:13,repeat:0}); }   // cortar
     for(const c of COLORES) for(const res of ['wood','gold','food']){ const k='pc_'+c+'_'+res; if(this.textures.exists(k+'_i')){   // aldeano cargando
       an.create({key:k+'-i',frames:an.generateFrameNumbers(k+'_i',{start:0,end:7}),frameRate:6,repeat:-1});
       an.create({key:k+'-r',frames:an.generateFrameNumbers(k+'_r',{start:0,end:5}),frameRate:10,repeat:-1}); } } }
@@ -623,13 +641,13 @@ function create(){
   const QRX=5, QRY=4;                                       // radio del barrio en tiles
   for(const g of GUILDS){
     const q=nudgeToLand(g.cx,g.cy); g.cx=q.x; g.cy=q.y;
-    for(let y=g.cy-QRY;y<=g.cy+QRY;y++)for(let x=g.cx-QRX;x<=g.cx+QRX;x++){   // muralla (autotile del cerco)
+    const wall=[];
+    for(let y=g.cy-QRY;y<=g.cy+QRY;y++)for(let x=g.cx-QRX;x<=g.cx+QRX;x++){   // muralla (autotile por vecinos)
       const t=y===g.cy-QRY, b=y===g.cy+QRY, l=x===g.cx-QRX, r=x===g.cx+QRX;
-      if(!(t||b||l||r)||!isLand(x,y)||inSand(x,y)||blocked[y][x]) continue;   // puertas = tiles de calle
-      const fr = t&&l?0 : t&&r?3 : b&&l?8 : b&&r?11 : t?pick([1,2]) : b?pick([9,10]) : l?4 : 7;
-      scene.add.image(x*T+T/2,y*T+T-6,'fence',fr).setOrigin(0.5,1).setDepth(y*T+T-6);
-      blocked[y][x]=true;
+      if(!(t||b||l||r)||!isLand(x,y)||inSand(x,y)||blocked[y][x]) continue;   // agua/arena/edificios = huecos (puertas)
+      wall.push({x,y,t,b,l,r});
     }
+    buildWall(wall);
     banner(g.cx, g.cy, g.color); placeTorch(g.cx+1, g.cy); placeTorch(g.cx-QRX+1, g.cy-QRY+1);
     const casa=(kx,ky,tex,sc)=>{ if(!isLand(kx,ky)||blocked[ky][kx]||inSand(kx,ky)) return false; placeBuilding(tex,kx,ky,sc,{fw:1,fh:1}); return true; };
     if(g.kind==='goblin'){                                   // aldea goblin: chozas + tótems
@@ -676,11 +694,12 @@ function create(){
   for(let ry=0;ry<2;ry++)for(let rx=0;rx<4;rx++){                            // filas de zapallos
     const zx=fa.x-1+rx, zy=fa.y+ry;
     if(isLand(zx,zy)&&!blocked[zy][zx]&&!inSand(zx,zy)){ placeDecoImg(pick(['tdeco12','tdeco13']),zx,zy,0.85); blocked[zy][zx]=true; } }
-  for(let y=fa.y+2;y<=fa.y+4;y++)for(let x=fa.x-2;x<=fa.x+2;x++){            // corral (autotile, con puerta)
+  const corral=[];
+  for(let y=fa.y+2;y<=fa.y+4;y++)for(let x=fa.x-2;x<=fa.x+2;x++){            // corral (autotile por vecinos, con puerta)
     const t=y===fa.y+2, b=y===fa.y+4, l=x===fa.x-2, r=x===fa.x+2;
     if(!(t||b||l||r)||!isLand(x,y)||blocked[y][x]||(x===fa.x&&t)) continue;
-    const fr = t&&l?0 : t&&r?3 : b&&l?8 : b&&r?11 : t?pick([1,2]) : b?pick([9,10]) : l?4 : 7;
-    scene.add.image(x*T+T/2,y*T+T-6,'fence',fr).setOrigin(0.5,1).setDepth(y*T+T-6); blocked[y][x]=true; }
+    corral.push({x,y,t,b,l,r}); }
+  buildWall(corral);
   const pen={tx:fa.x,ty:fa.y+3,r:1};
   spawnSheep(fa.x-1,fa.y+3,pen); spawnSheep(fa.x+1,fa.y+3,pen);
   spawnPig(fa.x,fa.y+3,pen); spawnPig(fa.x+1,fa.y+4,pen);
@@ -805,6 +824,7 @@ function create(){
     }
   }
   if(KINGDOM) startKingdom(this);                    // modo reino: crea el jugador, cámara que sigue, controles y selector
+  else { kMM=$('kMinimap'); if(kMM&&kMM.getContext){ kMMx=kMM.getContext('2d'); kMM.classList.add('on'); } }   // live: minimapa igual que en el reino (facciones)
   { const b=$('liveBar'); if(b) b.style.width='100%'; const r=$('liveRunner'); if(r) r.style.left='100%'; }   // mapa listo: completa la barra
   const sp=$('liveSplash'); if(sp){ sp.classList.add('hide'); setTimeout(()=>{ if(sp) sp.style.display='none'; },700); }   // y oculta la pantalla de carga
 }
@@ -1311,10 +1331,11 @@ function update(time,delta){
   }
   if(KINGDOM){ movePlayer(delta); kUpdateOthers(); kEnemyUpdate(delta); kCarryUpdate();   // reino: usuario + otros + enemigos + acarreo de recursos
     if(atkCd>0) atkCd-=delta;
+    if(player&&player._workT>0) player._workT-=delta;
     if(kReady&&kSpaceKey&&Phaser.Input.Keyboard.JustDown(kSpaceKey)) playerJump();   // Espacio = salto
     if(kReady){ kMMacc+=delta; if(kMMacc>=90){ kMMacc=0; try{ kMinimap(); }catch(e){} }
       kXpAccrue(delta); }                                  // acumula tiempo de juego → XP/nivel
-  }
+  } else if(kMMx){ kMMacc+=delta; if(kMMacc>=110){ kMMacc=0; try{ kMinimap(); }catch(e){} } }   // live: minimapa de facciones
   if(paused) return;
 
   clkAcc+=delta*m;
@@ -1564,6 +1585,7 @@ function movePlayer(delta){
   const b=player.spr.body, spd=player.spd;
   if(!kReady||paused){ b.setVelocity(0); syncPlate(); return; }
   if(player._jumping){ if(b.enable) b.setVelocity(0); syncPlate(); kUpdateNear(); return; }   // durante el salto la unidad queda quieta
+  if(player._workT>0){ b.setVelocity(0); syncPlate(); kUpdateNear(); return; }               // mientras pica/corta queda quieto (sin pisar la anim de trabajo)
   const typing=document.activeElement&&/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);   // no mover mientras se escribe
   let ix=0,iy=0;
   if(!typing&&kCursors){ if(kCursors.left.isDown)ix--; if(kCursors.right.isDown)ix++; if(kCursors.up.isDown)iy--; if(kCursors.down.isDown)iy++; }
@@ -1594,16 +1616,23 @@ function movePlayer(delta){
 /* --- golpe (click) y salto (Espacio): sin sheets de ataque, se fingen con un tween + arco de tajo --- */
 let atkCd=0;
 function playerAttack(){
-  if(!kReady||!player||!player.spr||atkCd>0||player._jumping) return;
+  if(!kReady||!player||!player.spr||atkCd>0||player._jumping||player._workT>0) return;
   const s=player.spr, dir=player.faceLeft?-1:1; s.setFlipX(player.faceLeft);
-  scene.time.delayedCall(120, kHitEnemies);               // el golpe daña a los enemigos cercanos al frente
-  kPickResource();                                         // si estás sobre un nodo (árbol/pastura/mina) recogés el recurso
   const m=(kSel&&kSel.key||'').match(/^(warrior|archer|monk|pawn)_(blue|red|purple|yellow)$/);
+  if(m && m[1]==='pawn'){                                        // ALDEANO: trabaja (pica/corta) a su tamaño, no pelea con el pico en el aire
+    const c=m[2]; if(player.carry) return;                       // si ya carga algo, no trabaja
+    const nearTree=treeSpots.some(t=>Math.hypot(t.x-s.x,(t.y-T*0.6)-s.y)<74);
+    const tool=(nearTree&&scene.anims.exists('chop_'+c+'-a'))?('chop_'+c):('atk_pawn_'+c);   // hacha cerca de árbol, si no pico
+    if(scene.anims.exists(tool+'-a')){ atkCd=580; player._workT=580; s.play(tool+'-a',true); sfx('door',0.28); }
+    scene.time.delayedCall(300,()=>{ kHitEnemies(); kPickResource(); });   // el golpe/recolección conecta a mitad del gesto
+    return;
+  }
+  scene.time.delayedCall(120, kHitEnemies);               // el golpe daña a los enemigos cercanos al frente
   const akey=m?('atk_'+m[1]+'_'+m[2]):null;
-  if(akey && scene.anims.exists(akey+'-a')){                     // ANIMACIÓN DE ATAQUE REAL (espada/arco/báculo/pico)
+  if(akey && scene.anims.exists(akey+'-a')){                     // ANIMACIÓN DE ATAQUE REAL (espada/arco/báculo)
     atkCd = m[1]==='monk'?820:(m[1]==='archer'?560:460);
     const asp=scene.add.sprite(s.x, s.y, akey, 0).setOrigin(0.5,0.72).setDepth(s.y+1).setFlipX(player.faceLeft);
-    asp.setScale(s.displayHeight/192*1.55);                      // ajusta a la altura de la unidad
+    asp.setScale(s.displayHeight/192*1.18);                      // a la altura de la unidad (sin agrandar)
     s.setVisible(false);
     asp.play(akey+'-a');
     const restore=()=>{ if(asp&&asp.active) asp.destroy(); if(player&&player.spr){ player.spr.setVisible(true); player.spr.setFlipX(player.faceLeft); } };
@@ -1836,13 +1865,19 @@ function kCarryUpdate(){                                   // sigue la cabeza + 
 }
 // ===== minimapa: dónde están los otros jugadores reales =====
 let kMM=null, kMMx=null, kMMacc=0;
+const GCOL={}; for(const g of GUILDS){ GCOL[g.id]='#'+g.color.toString(16).padStart(6,'0'); }   // color de facción para el minimapa
 function kMinimap(){
   if(!kMMx||!kMM) return; const W=kMM.width, H=kMM.height, sx=W/WORLD_W, sy=H/WORLD_H;
   kMMx.clearRect(0,0,W,H);
   kMMx.fillStyle='#0e2a38'; kMMx.fillRect(0,0,W,H);                                   // mar
   kMMx.fillStyle='#3f7a3a';                                                            // isla (elipse aprox del terreno)
   kMMx.beginPath(); kMMx.ellipse((COLS/2)*T*sx,(ROWS/2)*T*sy, COLS*0.435*T*sx, ROWS*0.415*T*sy, 0,0,Math.PI*2); kMMx.fill();
-  kMMx.fillStyle='#f2e8cf';                                                            // otros usuarios
+  for(const n of npcs){                                                                // NPCs por facción (guardia/yunque/sombra/sol/goblin)
+    if(n.dead||!n.spr) continue; if(n.sheep) continue;
+    kMMx.fillStyle=GCOL[n.guild]||'#c9c1ad';
+    kMMx.fillRect(n.spr.x*sx-1.1,n.spr.y*sy-1.1,2.2,2.2);
+  }
+  kMMx.fillStyle='#f2e8cf';                                                            // otros usuarios reales (reino)
   for(const id in kOthers){ const o=kOthers[id]; if(!o.spr) continue; kMMx.fillRect(o.spr.x*sx-1.6,o.spr.y*sy-1.6,3.2,3.2); }
   if(player&&player.spr){                                                              // yo (punto dorado)
     kMMx.fillStyle='#f0d564'; kMMx.beginPath(); kMMx.arc(player.spr.x*sx,player.spr.y*sy,2.8,0,Math.PI*2); kMMx.fill();
