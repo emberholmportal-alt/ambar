@@ -118,39 +118,57 @@ function delSel(){ if(!selected) return; const i=placed.indexOf(selected); if(i>
 function flipSel(){ if(!selected) return; selected.flip=!selected.flip; selected.spr.setFlipX(selected.flip); scheduleSave(); }
 function depthSel(dz){ if(!selected) return; selected.depth+=dz; selected.spr.setDepth(selected.depth); scheduleSave(); }
 
-/* ---------- terreno: pintar islas de pasto sobre el mar (autotile + foam) ---------- */
+/* ---------- terreno: pasto / arena / meseta sobre el mar (autotile igual que el juego) ---------- */
 let terrLoaded=false, terrTiles=new Map(), seaBg=null, terrType='grass', brushSize=3;
 const tK=(x,y)=>x+','+y;
 function ensureTerrain(cb){
   if(terrLoaded){ cb(); return; }
   scene.load.spritesheet('e_ground','assets/img/ts/ground.png',{frameWidth:64,frameHeight:64});
+  scene.load.spritesheet('e_tmg','assets/img/ts/tilemap_grass.png',{frameWidth:64,frameHeight:64});
   scene.load.spritesheet('e_foam','assets/img/ts/foam.png',{frameWidth:192,frameHeight:192});
   scene.load.image('e_water','assets/img/ts/water.png');
   scene.load.once('complete',()=>{ terrLoaded=true;
-    seaBg=scene.add.tileSprite(0,0,16000,16000,'e_water').setOrigin(0.5).setDepth(-10000);
-    if(!scene.anims.exists('e_foam-a')) scene.anims.create({key:'e_foam-a',frames:scene.anims.generateFrameNumbers('e_foam',{start:0,end:7}),frameRate:7,repeat:-1});
-    cb(); });
+    seaBg=scene.add.tileSprite(0,0,16000,16000,'e_water').setOrigin(0.5).setDepth(-10000); cb(); });
   scene.load.start();
 }
-const isLandT=(x,y)=>{ const c=terrTiles.get(tK(x,y)); return !!c; };
-function groundIdxE(x,y){ const n=isLandT(x,y-1),s=isLandT(x,y+1),w=isLandT(x-1,y),e=isLandT(x+1,y);   // autotile 3×3 del pasto (igual que el juego)
+const tget=(x,y)=>terrTiles.get(tK(x,y));
+const isLandT=(x,y)=>!!tget(x,y);
+const isSand=(x,y)=>{ const c=tget(x,y); return c&&c.t==='sand'; };
+const isElev=(x,y)=>{ const c=tget(x,y); return c&&c.t==='elev'; };
+function groundIdxE(x,y){ const n=isLandT(x,y-1),s=isLandT(x,y+1),w=isLandT(x-1,y),e=isLandT(x+1,y);
   if(n&&s&&w&&e)return 11; if(!n&&!w&&s&&e)return 0; if(!n&&!e&&s&&w)return 2; if(!s&&!w&&n&&e)return 20; if(!s&&!e&&n&&w)return 22;
   if(!n&&s)return 1; if(!s&&n)return 21; if(!w&&e)return 10; if(!e&&w)return 12; return 11; }
-function retileTerr(x,y){ const c=terrTiles.get(tK(x,y)); if(!c)return;
-  c.spr.setFrame(groundIdxE(x,y));
+function sandIdxE(x,y){ const n=isSand(x,y-1),s=isSand(x,y+1),w=isSand(x-1,y),e=isSand(x+1,y);   // arena/camino (cols 5-7 de ground)
+  if(n&&s&&w&&e)return 16; if(!n&&!w&&s&&e)return 5; if(!n&&!e&&s&&w)return 7; if(!s&&!w&&n&&e)return 25; if(!s&&!e&&n&&w)return 27;
+  if(!n&&s)return 6; if(!s&&n)return 26; if(!w&&e)return 15; if(!e&&w)return 17; return 16; }
+function geIdxE(x,y){ const n=isElev(x,y-1),s=isElev(x,y+1),w=isElev(x-1,y),e=isElev(x+1,y);   // cima de meseta (tmg)
+  if(n&&s&&w&&e)return 15; if(!n&&!w)return 5; if(!n&&!e)return 8; if(!s&&!w)return 32; if(!s&&!e)return 35;
+  if(!n)return 6; if(!s)return 33; if(!w)return 14; if(!e)return 17; return 15; }
+function gcIdxE(x,cy){ const l=isElev(x-1,cy-1)&&!isElev(x-1,cy), r=isElev(x+1,cy-1)&&!isElev(x+1,cy);   // cara de acantilado (tmg 41-44)
+  return l&&r?42:(!l&&r)?41:(l&&!r)?44:43; }
+function retileTerr(x,y){ const c=tget(x,y); if(!c)return;
+  if(c.t==='elev') c.spr.setTexture('e_tmg').setFrame(geIdxE(x,y)).setDepth(-8850);
+  else if(c.t==='sand') c.spr.setTexture('e_ground').setFrame(sandIdxE(x,y)).setDepth(-8950);
+  else c.spr.setTexture('e_ground').setFrame(groundIdxE(x,y)).setDepth(-9000);
+  // foam: sólo tierra a nivel del mar con vecino agua
   const coast=[[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>!isLandT(x+dx,y+dy));
-  if(coast&&!c.foam){ c.foam=scene.add.image(x*64+32,y*64+32,'e_foam').setFrame((x*3+y)%8).setDepth(-9500); }   // foam de costa (frame fijo; el mar de fondo ya da vida)
+  if(coast&&!c.foam){ c.foam=scene.add.image(x*64+32,y*64+32,'e_foam').setFrame((x*3+y)%8).setDepth(-9500); }
   else if(!coast&&c.foam){ c.foam.destroy(); c.foam=null; }
+  // acantilado: cara de piedra en la fila de abajo de una meseta cuyo sur no es meseta
+  const needCliff = c.t==='elev' && !isElev(x,y+1);
+  if(needCliff){ if(!c.cliff) c.cliff=scene.add.image(x*64+32,(y+1)*64+32,'e_tmg').setDepth(-8500);
+    c.cliff.setFrame(gcIdxE(x,y+1)); }
+  else if(c.cliff){ c.cliff.destroy(); c.cliff=null; }
 }
-function paintTile(x,y,grass){
+function paintTile(x,y,type){
   const k=tK(x,y);
-  if(grass){ if(!terrTiles.get(k)) terrTiles.set(k,{spr:scene.add.image(x*64+32,y*64+32,'e_ground',11).setDepth(-9000),foam:null}); }
-  else { const c=terrTiles.get(k); if(c){ c.spr.destroy(); if(c.foam)c.foam.destroy(); terrTiles.delete(k); } }
-  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++) retileTerr(x+dx,y+dy);
+  if(type==='water'){ const c=terrTiles.get(k); if(c){ c.spr.destroy(); if(c.foam)c.foam.destroy(); if(c.cliff)c.cliff.destroy(); terrTiles.delete(k); } }
+  else { let c=terrTiles.get(k); if(!c){ c={t:type,spr:scene.add.image(x*64+32,y*64+32,'e_ground',11),foam:null,cliff:null}; terrTiles.set(k,c); } c.t=type; }
+  for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++) retileTerr(x+dx,y+dy);   // radio 2: el acantilado depende de la fila de arriba
 }
 function paintAt(wx,wy){
   const cx=Math.floor(wx/64), cy=Math.floor(wy/64), r=(brushSize-1)/2;
-  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++) paintTile(cx+dx,cy+dy,terrType==='grass');
+  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++) paintTile(cx+dx,cy+dy,terrType);
   scheduleSave();
 }
 
@@ -201,15 +219,18 @@ function addZone(){
 let saveT=null;
 function scheduleSave(){ clearTimeout(saveT); saveT=setTimeout(saveScene,400); }
 function serialize(){ return placed.filter(o=>!o.floor).map(o=>({id:o.id,x:Math.round(o.x),y:Math.round(o.y),scale:+o.scale.toFixed(3),angle:Math.round(o.angle),flip:o.flip,depth:Math.round(o.depth)})); }
-function serializeTerr(){ const a=[]; for(const k of terrTiles.keys()) a.push(k); return a; }   // "x,y" de cada tile de pasto
+function serializeTerr(){ const a=[]; for(const [k,c] of terrTiles) a.push(c.t==='grass'?k:k+':'+c.t); return a; }   // "x,y" (pasto) o "x,y:sand" / ":elev"
 function sceneData(){ return {objs:serialize(), terr:serializeTerr()}; }
 function saveScene(){ try{ localStorage.setItem(SAVE_KEY,JSON.stringify(sceneData())); }catch(e){} }
 function loadSceneData(d){
   const objs = Array.isArray(d)?d:(d&&d.objs)||[];   // compat: formato viejo = array de objetos
   const terr = (d&&d.terr)||[];
   objs.forEach(o=>{ o._select=false; addObject(o); });
-  if(terr.length) ensureTerrain(()=>{ terr.forEach(k=>{ const [x,y]=k.split(',').map(Number); if(!terrTiles.get(k)) terrTiles.set(k,{spr:scene.add.image(x*64+32,y*64+32,'e_ground',11).setDepth(-9000),foam:null}); });
-    for(const k of terr){ const [x,y]=k.split(',').map(Number); retileTerr(x,y); } });
+  if(terr.length) ensureTerrain(()=>{
+    terr.forEach(s=>{ const i=s.indexOf(':'), k=i<0?s:s.slice(0,i), t=i<0?'grass':s.slice(i+1); const [x,y]=k.split(',').map(Number);
+      if(!terrTiles.get(k)) terrTiles.set(k,{t,spr:scene.add.image(x*64+32,y*64+32,'e_ground',11),foam:null,cliff:null}); else terrTiles.get(k).t=t; });
+    for(const s of terr){ const i=s.indexOf(':'), k=i<0?s:s.slice(0,i); const [x,y]=k.split(',').map(Number); retileTerr(x,y); retileTerr(x,y+1); }
+  });
 }
 function loadScene(){ let d=null; try{ d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null'); }catch(e){} if(d) loadSceneData(d); }
 function clearTerr(){ for(const c of terrTiles.values()){ c.spr.destroy(); if(c.foam)c.foam.destroy(); } terrTiles.clear(); }
@@ -222,7 +243,7 @@ function importJSON(file){ const r=new FileReader(); r.onload=()=>{ try{ const d
 
 /* ---------- UI ---------- */
 function setTool(t){ tool=t; $('toolSelect').classList.toggle('on',t==='select'); $('toolPan').classList.toggle('on',t==='pan');
-  $('brGrass').classList.toggle('on',t==='terrain'&&terrType==='grass'); $('brWater').classList.toggle('on',t==='terrain'&&terrType==='water');
+  ['grass','sand','elev','water'].forEach(tt=>{ const b=$('br'+tt[0].toUpperCase()+tt.slice(1)); if(b) b.classList.toggle('on',t==='terrain'&&terrType===tt); });
   if(t!=='select'){ brush=null; renderGrid(); } if(t==='terrain') select(null); }
 function updateZoom(){ $('zoomInfo').textContent=Math.round(scene.cameras.main.zoom*100)+'%'; }
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('on'),1800); }
@@ -232,6 +253,8 @@ function wireToolbar(){
   $('btnSnap').onclick=()=>{ snapOn=!snapOn; $('btnSnap').classList.toggle('on',snapOn); };
   $('btnZone').onclick=addZone;
   $('brGrass').onclick=()=>{ terrType='grass'; setTool('terrain'); };
+  $('brSand').onclick=()=>{ terrType='sand'; setTool('terrain'); };
+  $('brElev').onclick=()=>{ terrType='elev'; setTool('terrain'); };
   $('brWater').onclick=()=>{ terrType='water'; setTool('terrain'); };
   $('brSize').onchange=e=>{ brushSize=+e.target.value; };
   $('btnSave').onclick=()=>{ saveScene(); toast('Guardado'); };
