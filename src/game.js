@@ -274,6 +274,7 @@ function preload(){
   // terreno
   this.load.spritesheet('ground',TSB+'ground.png',{frameWidth:64,frameHeight:64});
   this.load.spritesheet('tmg',TSB+'tilemap_grass.png',{frameWidth:64,frameHeight:64});   // mesetas: cima de pasto + cara de piedra (grass-on-elevation)
+  this.load.image('stairs',TSB+'stairs.png');   // escalera REAL del tilemap de elevación (reemplaza la procedural)
   this.load.image('water',TSB+'water.png');
   this.load.spritesheet('foam',TSB+'foam.png',{frameWidth:192,frameHeight:192});
   if(KINGDOM){ this.load.spritesheet('boat',TSB+'boat.png',{frameWidth:256,frameHeight:256}); this.load.image('bridge',TSB+'bridge_v.png');   // barcos + muelle del reino
@@ -285,7 +286,9 @@ function preload(){
     for(const c of COLORES) for(const res of ['wood','gold','food']){   // aldeano cargando recurso (pose con la madera/oro/comida en las manos)
       this.load.spritesheet('pc_'+c+'_'+res+'_i',TSB+'pc_'+c+'_'+res+'_i.png',{frameWidth:192,frameHeight:192});
       this.load.spritesheet('pc_'+c+'_'+res+'_r',TSB+'pc_'+c+'_'+res+'_r.png',{frameWidth:192,frameHeight:192}); }
-    for(const c of COLORES) this.load.spritesheet('chop_'+c,TSB+'chop_'+c+'.png',{frameWidth:192,frameHeight:192}); }   // aldeano cortando (hacha)
+    for(const c of COLORES) this.load.spritesheet('chop_'+c,TSB+'chop_'+c+'.png',{frameWidth:192,frameHeight:192});   // aldeano cortando (hacha)
+    for(const c of COLORES){ this.load.spritesheet('mine_'+c,TSB+'mine_'+c+'.png',{frameWidth:192,frameHeight:192});   // picar oro (pico)
+      this.load.spritesheet('hunt_'+c,TSB+'hunt_'+c+'.png',{frameWidth:192,frameHeight:192}); } }                      // cazar comida (cuchillo)
   // edificios por facción + castillo real
   for(const c of COLORES) for(const b of [...CASAS,'tower',...ESPECIALES]) this.load.image(b+'_'+c,TSB+b+'_'+c+'.png');
   this.load.image('castle_black',TSB+'castle_black.png');
@@ -526,7 +529,9 @@ function create(){
     for(const e of KENEMY_DEF){ if(this.textures.exists('ke_'+e.key+'_i')){                // enemigos salvajes: idle + run
       an.create({key:'ke_'+e.key+'-i',frames:an.generateFrameNumbers('ke_'+e.key+'_i',{start:0,end:e.idle-1}),frameRate:6,repeat:-1});
       an.create({key:'ke_'+e.key+'-r',frames:an.generateFrameNumbers('ke_'+e.key+'_r',{start:0,end:e.run-1}),frameRate:9,repeat:-1}); } }
-    for(const c of COLORES){ if(this.textures.exists('chop_'+c)) an.create({key:'chop_'+c+'-a',frames:an.generateFrameNumbers('chop_'+c,{start:0,end:5}),frameRate:13,repeat:0}); }   // cortar
+    for(const c of COLORES){ if(this.textures.exists('chop_'+c)) an.create({key:'chop_'+c+'-a',frames:an.generateFrameNumbers('chop_'+c,{start:0,end:5}),frameRate:13,repeat:0}); }   // cortar (hacha)
+    for(const c of COLORES){ if(this.textures.exists('mine_'+c)) an.create({key:'mine_'+c+'-a',frames:an.generateFrameNumbers('mine_'+c,{start:0,end:5}),frameRate:13,repeat:0});   // picar (pico)
+      if(this.textures.exists('hunt_'+c)) an.create({key:'hunt_'+c+'-a',frames:an.generateFrameNumbers('hunt_'+c,{start:0,end:3}),frameRate:12,repeat:0}); }   // cazar (cuchillo)
     for(const c of COLORES) for(const res of ['wood','gold','food']){ const k='pc_'+c+'_'+res; if(this.textures.exists(k+'_i')){   // aldeano cargando
       an.create({key:k+'-i',frames:an.generateFrameNumbers(k+'_i',{start:0,end:7}),frameRate:6,repeat:-1});
       an.create({key:k+'-r',frames:an.generateFrameNumbers(k+'_r',{start:0,end:5}),frameRate:10,repeat:-1}); } } }
@@ -1756,7 +1761,13 @@ function playerAttack(){
   if(m && m[1]==='pawn'){                                        // ALDEANO: trabaja (pica/corta) a su tamaño, no pelea con el pico en el aire
     const c=m[2]; if(player.carry) return;                       // si ya carga algo, no trabaja
     const nearTree=treeSpots.some(t=>Math.hypot(t.x-s.x,(t.y-T*0.6)-s.y)<74);
-    const tool=(nearTree&&scene.anims.exists('chop_'+c+'-a'))?('chop_'+c):('atk_pawn_'+c);   // hacha cerca de árbol, si no pico
+    const nearMeat=meatSpots.some(t=>Math.hypot(t.x-s.x,t.y-s.y)<74);
+    const nearGold=!!gmPos && Math.hypot(gmPos.x-s.x,gmPos.y-s.y)<92;
+    let tool='mine_'+c;                                          // por defecto: pico
+    if(nearTree) tool='chop_'+c;                                 // hacha: cortar árbol (madera)
+    else if(nearGold) tool='mine_'+c;                            // pico: minar oro
+    else if(nearMeat) tool='hunt_'+c;                            // cuchillo: cazar (comida)
+    if(!scene.anims.exists(tool+'-a')) tool='atk_pawn_'+c;       // fallback
     if(scene.anims.exists(tool+'-a')){ atkCd=580; player._workT=580; s.play(tool+'-a',true); sfx('door',0.28); }
     scene.time.delayedCall(300,()=>{ kHitEnemies(); kPickResource(); });   // el golpe/recolección conecta a mitad del gesto
     return;
@@ -1766,7 +1777,7 @@ function playerAttack(){
   if(akey && scene.anims.exists(akey+'-a')){                     // ANIMACIÓN DE ATAQUE REAL (espada/arco/báculo)
     atkCd = m[1]==='monk'?820:(m[1]==='archer'?560:460);
     const asp=scene.add.sprite(s.x, s.y, akey, 0).setOrigin(0.5,0.72).setDepth(s.y+1).setFlipX(player.faceLeft);
-    asp.setScale(s.displayHeight/192*1.18);                      // a la altura de la unidad (sin agrandar)
+    asp.setScale(kSel&&kSel.scale||WSCALE);                      // el personaje del atk mide ~lo mismo que en la unidad (medido) → misma escala, no el ratio del frame
     s.setVisible(false);
     asp.play(akey+'-a');
     const restore=()=>{ if(asp&&asp.active) asp.destroy(); if(player&&player.spr){ player.spr.setVisible(true); player.spr.setFlipX(player.faceLeft); } };
