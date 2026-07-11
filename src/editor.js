@@ -74,10 +74,42 @@ function create(){
     const z=Phaser.Math.Clamp(cam.zoom*(dy>0?0.88:1.14),0.15,4); cam.setZoom(z);
     const wp2=cam.getWorldPoint(p.x,p.y); cam.scrollX+=wp.x-wp2.x; cam.scrollY+=wp.y-wp2.y; updateZoom(); drawGrid(); });
   wireKeys(); wireToolbar(); wireInspector();
-  loadScene(); drawGrid(); updateZoom();
+  loadScene(); drawGrid(); updateZoom(); layoutUI();
+  window.addEventListener('resize',layoutUI);
   toast('Editor listo · elegí un asset y colocá');
 }
-function update(){ drawSel(); }
+function layoutUI(){ const h=document.querySelector('.toolbar').offsetHeight;   // la toolbar puede envolver a 2 filas: bajá los paneles
+  const P=$('palette'); if(P) P.style.top=h+'px';
+  const I=$('inspector'); if(I) I.style.top=(h+8)+'px';
+  const T=$('toast'); if(T) T.style.top=(h+8)+'px'; }
+function update(){ if(playing) playUpdate(); else drawSel(); }
+
+/* ---------- modo JUGAR: caminar el escenario con un personaje ---------- */
+let playing=false, player=null, pkeys=null;
+function togglePlay(){ playing?stopPlay():startPlay(); }
+function startPlay(){
+  const it = ITEMS.find(i=>i.cat==='unidades'&&i.frames>1&&/run|walk/.test(i.id)) || ITEMS.find(i=>i.cat==='unidades'&&i.frames>1);
+  if(!it){ toast('No hay unidad en el catálogo para probar'); return; }
+  ensureTex(it,()=>{
+    const cam=scene.cameras.main;
+    player={spr:scene.add.sprite(cam.midPoint.x,cam.midPoint.y,it.id), it};
+    if(it.frames>1) player.spr.play(it.id+'-a');
+    player.spr.setDepth(player.spr.y);
+    pkeys=scene.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT');
+    cam.startFollow(player.spr,true,0.12,0.12);
+    playing=true; selG.clear(); document.querySelector('.app').classList.add('playing');
+    $('btnPlay').textContent='◼ Editar'; toast('Modo jugar · WASD / flechas para caminar · Esc para salir');
+  });
+}
+function stopPlay(){ const cam=scene.cameras.main; cam.stopFollow();
+  if(player){ player.spr.destroy(); player=null; } pkeys=null; playing=false;
+  document.querySelector('.app').classList.remove('playing'); $('btnPlay').textContent='▶ Probar'; }
+function playUpdate(){ if(!player||!pkeys) return; let vx=0,vy=0; const sp=4.2;
+  if(pkeys.A.isDown||pkeys.LEFT.isDown)vx-=sp; if(pkeys.D.isDown||pkeys.RIGHT.isDown)vx+=sp;
+  if(pkeys.W.isDown||pkeys.UP.isDown)vy-=sp; if(pkeys.S.isDown||pkeys.DOWN.isDown)vy+=sp;
+  player.spr.x+=vx; player.spr.y+=vy; player.spr.setDepth(player.spr.y);
+  if(vx<0) player.spr.setFlipX(true); else if(vx>0) player.spr.setFlipX(false);
+}
 
 function ensureTex(it,cb){
   if(loadedTex.has(it.id)){ ensureAnim(it); cb(); return; }
@@ -178,6 +210,7 @@ function paintAt(wx,wy){
 
 /* ---------- puntero: place / select / drag / pan / pintar ---------- */
 function onDown(p){
+  if(playing) return;
   const cam=scene.cameras.main, wp=cam.getWorldPoint(p.x,p.y);
   if(tool==='pan'||spaceHeld||p.middleButtonDown()){ panning=true; panLast={x:p.x,y:p.y}; return; }
   if(p.rightButtonDown()){ if(brush){brush=null;renderGrid();} else select(null); return; }
@@ -191,6 +224,7 @@ function onDown(p){
   } else { if(!shiftHeld) select(null); panning=true; panLast={x:p.x,y:p.y}; }       // click en vacío arrastra la cámara
 }
 function onMove(p){
+  if(playing) return;
   const cam=scene.cameras.main;
   if(painting&&terrLoaded){ const wp=cam.getWorldPoint(p.x,p.y); paintAt(wp.x,wp.y); return; }
   if(panning&&panLast){ cam.scrollX-=(p.x-panLast.x)/cam.zoom; cam.scrollY-=(p.y-panLast.y)/cam.zoom; panLast={x:p.x,y:p.y}; drawGrid(); return; }
@@ -279,7 +313,7 @@ function wireToolbar(){
   $('btnExport').onclick=exportJSON; $('btnImport').onclick=()=>$('fileIn').click();
   $('fileIn').onchange=e=>{ if(e.target.files[0]) importJSON(e.target.files[0]); };
   $('btnClear').onclick=clearAll;
-  $('btnUndo').onclick=undo; $('btnRedo').onclick=redo;
+  $('btnUndo').onclick=undo; $('btnRedo').onclick=redo; $('btnPlay').onclick=togglePlay;
   $('btnPalette').onclick=()=>$('palette').classList.toggle('hide');
 }
 function wireInspector(){
@@ -291,6 +325,7 @@ function wireInspector(){
 function wireKeys(){
   window.addEventListener('keydown',e=>{
     if(e.target.tagName==='INPUT') return;
+    if(playing){ if(e.key==='Escape') stopPlay(); return; }
     if(e.key==='Shift') shiftHeld=true;
     if(e.code==='Space'){ spaceHeld=true; e.preventDefault(); }
     else if(e.key==='v'||e.key==='V') setTool('select');
