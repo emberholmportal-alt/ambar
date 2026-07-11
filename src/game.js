@@ -495,9 +495,9 @@ function buildWall(cells){
     const nl=has(c.x-1,c.y), nr=has(c.x+1,c.y), nu=has(c.x,c.y-1), nd=has(c.x,c.y+1);
     let fr;
     if(nr&&nd) fr=0; else if(nl&&nd) fr=3; else if(nr&&nu) fr=8; else if(nl&&nu) fr=11;   // esquinas: dos brazos perpendiculares
-    else if(nl||nr) fr = c.b?pick([9,10]):pick([1,2]);                                    // tramo horizontal (arriba/abajo según su fila)
+    else if(nl||nr) fr = pick([1,2]);                                                     // tramo horizontal: SIEMPRE frames 1/2 (tilean); los 9/10 tienen medio riel y dejan huecos
     else if(nu||nd) fr = c.r?7:4;                                                         // tramo vertical (izq/der según su columna)
-    else fr = c.t?pick([1,2]):c.b?pick([9,10]):(c.r?7:4);                                 // poste suelto: al menos coherente con su lado
+    else fr = (c.t||c.b)?pick([1,2]):(c.r?7:4);                                           // poste suelto
     scene.add.image(c.x*T+T/2,c.y*T+T-6,'fence',fr).setOrigin(0.5,1).setDepth(c.y*T+T-6);
     blocked[c.y][c.x]=true;
   }
