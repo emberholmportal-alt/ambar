@@ -5,10 +5,10 @@
 const $=id=>document.getElementById(id);
 let MANIFEST=null, ITEMS=[], BYID={}, CATS=[];
 let scene=null, game=null;
-let placed=[], selected=null, brush=null, tool='select';
+let placed=[], selected=null, selSet=[], dragOffs=null, brush=null, tool='select';
 let gridOn=false, snapOn=false, GRID=64;
 let loadedTex=new Set(), gridG=null, selG=null;
-let spaceHeld=false, panning=false, panLast=null, dragging=false, dragOff=null, painting=false;
+let spaceHeld=false, shiftHeld=false, panning=false, panLast=null, dragging=false, painting=false;
 const SAVE_KEY='aoa_editor_scene';
 
 /* ---------- arranque: primero el manifest, después Phaser ---------- */
@@ -104,19 +104,23 @@ function addObject(o){   // o: {id,x,y,scale,angle,flip,depth?}
 }
 function placeAt(it,x,y){ if(snapOn){ x=Math.round(x/GRID)*GRID+GRID/2; y=Math.round(y/GRID)*GRID+GRID/2; } addObject({id:it.id,x,y,scale:1,angle:0}); scheduleSave(); }
 
-/* ---------- selección + transform ---------- */
-function pickAt(wx,wy){ for(let i=placed.length-1;i>=0;i--){ const b=placed[i].spr.getBounds(); if(b.contains(wx,wy)) return placed[i]; } return null; }
-function select(o){ selected=o; const insp=$('inspector'); if(!o){ insp.classList.remove('on'); return; }
-  insp.classList.add('on'); $('inScale').value=Math.round(o.scale*100); $('inScaleV').textContent=Math.round(o.scale*100)+'%';
-  $('inAngle').value=Math.round(o.angle); $('inAngleV').textContent=Math.round(o.angle)+'°'; }
-function drawSel(){ selG.clear(); if(!selected||!selected.spr.active) return; const b=selected.spr.getBounds();
-  selG.lineStyle(2/scene.cameras.main.zoom,0xf0d564,1).strokeRect(b.x,b.y,b.width,b.height); }
-function applyScale(v){ if(!selected) return; selected.scale=v; selected.spr.setScale(v); $('inScaleV').textContent=Math.round(v*100)+'%'; scheduleSave(); }
-function applyAngle(v){ if(!selected) return; selected.angle=v; selected.spr.setAngle(v); $('inAngleV').textContent=Math.round(v)+'°'; scheduleSave(); }
-function duplicate(){ if(!selected) return; const o=selected; addObject({id:o.id,x:o.x+28,y:o.y+28,scale:o.scale,angle:o.angle,flip:o.flip,depth:o.depth}); scheduleSave(); }
-function delSel(){ if(!selected) return; const i=placed.indexOf(selected); if(i>=0) placed.splice(i,1); selected.spr.destroy(); select(null); scheduleSave(); }
-function flipSel(){ if(!selected) return; selected.flip=!selected.flip; selected.spr.setFlipX(selected.flip); scheduleSave(); }
-function depthSel(dz){ if(!selected) return; selected.depth+=dz; selected.spr.setDepth(selected.depth); scheduleSave(); }
+/* ---------- selección (múltiple) + transform ---------- */
+function pickAt(wx,wy){ for(let i=placed.length-1;i>=0;i--){ if(placed[i].floor) continue; const b=placed[i].spr.getBounds(); if(b.contains(wx,wy)) return placed[i]; } return null; }
+function select(o,additive){ const insp=$('inspector');
+  if(!o){ selSet=[]; selected=null; insp.classList.remove('on'); return; }
+  if(additive){ const i=selSet.indexOf(o); if(i>=0) selSet.splice(i,1); else selSet.push(o); } else selSet=[o];
+  selected=selSet[selSet.length-1]||null;
+  if(!selected){ insp.classList.remove('on'); return; }
+  insp.classList.add('on'); $('inScale').value=Math.round(selected.scale*100); $('inScaleV').textContent=Math.round(selected.scale*100)+'%';
+  $('inAngle').value=Math.round(selected.angle); $('inAngleV').textContent=Math.round(selected.angle)+'°'; }
+function drawSel(){ selG.clear(); const z=scene.cameras.main.zoom;
+  selSet.forEach(o=>{ if(!o.spr.active) return; const b=o.spr.getBounds(); selG.lineStyle(2/z,o===selected?0xf0d564:0xc9a227,1).strokeRect(b.x,b.y,b.width,b.height); }); }
+function applyScale(v){ selSet.forEach(o=>{ o.scale=v; o.spr.setScale(v); }); $('inScaleV').textContent=Math.round(v*100)+'%'; scheduleSave(); }
+function applyAngle(v){ selSet.forEach(o=>{ o.angle=v; o.spr.setAngle(v); }); $('inAngleV').textContent=Math.round(v)+'°'; scheduleSave(); }
+function duplicate(){ if(!selSet.length) return; selSet.forEach(o=>addObject({id:o.id,x:o.x+28,y:o.y+28,scale:o.scale,angle:o.angle,flip:o.flip,depth:o.depth,_select:false})); scheduleSave(); }
+function delSel(){ if(!selSet.length) return; selSet.forEach(o=>{ const i=placed.indexOf(o); if(i>=0) placed.splice(i,1); o.spr.destroy(); }); select(null); scheduleSave(); }
+function flipSel(){ selSet.forEach(o=>{ o.flip=!o.flip; o.spr.setFlipX(o.flip); }); scheduleSave(); }
+function depthSel(dz){ selSet.forEach(o=>{ o.depth+=dz; o.spr.setDepth(o.depth); }); scheduleSave(); }
 
 /* ---------- terreno: pasto / arena / meseta sobre el mar (autotile igual que el juego) ---------- */
 let terrLoaded=false, terrTiles=new Map(), seaBg=null, terrType='grass', brushSize=3;
@@ -180,15 +184,19 @@ function onDown(p){
   if(tool==='terrain'){ ensureTerrain(()=>paintAt(wp.x,wp.y)); painting=true; return; }
   if(brush){ placeAt(brush,wp.x,wp.y); return; }
   const hit=pickAt(wp.x,wp.y);
-  if(hit){ select(hit); dragging=true; dragOff={x:hit.spr.x-wp.x,y:hit.spr.y-wp.y}; } else { select(null); panning=true; panLast={x:p.x,y:p.y}; }   // click en vacío arrastra la cámara
+  if(hit){
+    if(shiftHeld){ select(hit,true); return; }                    // shift-click = sumar/quitar de la selección
+    if(selSet.indexOf(hit)<0) select(hit,false);
+    dragging=true; dragOffs=selSet.map(o=>({o,dx:o.spr.x-wp.x,dy:o.spr.y-wp.y}));   // arrastra TODO lo seleccionado
+  } else { if(!shiftHeld) select(null); panning=true; panLast={x:p.x,y:p.y}; }       // click en vacío arrastra la cámara
 }
 function onMove(p){
   const cam=scene.cameras.main;
   if(painting&&terrLoaded){ const wp=cam.getWorldPoint(p.x,p.y); paintAt(wp.x,wp.y); return; }
   if(panning&&panLast){ cam.scrollX-=(p.x-panLast.x)/cam.zoom; cam.scrollY-=(p.y-panLast.y)/cam.zoom; panLast={x:p.x,y:p.y}; drawGrid(); return; }
-  if(dragging&&selected){ const wp=cam.getWorldPoint(p.x,p.y); let x=wp.x+dragOff.x,y=wp.y+dragOff.y;
-    if(snapOn){ x=Math.round(x/GRID)*GRID+GRID/2; y=Math.round(y/GRID)*GRID+GRID/2; }
-    selected.spr.setPosition(x,y); selected.x=x; selected.y=y; selected.depth=y; selected.spr.setDepth(y); }
+  if(dragging&&dragOffs){ const wp=cam.getWorldPoint(p.x,p.y);
+    dragOffs.forEach(({o,dx,dy})=>{ let x=wp.x+dx,y=wp.y+dy; if(snapOn){ x=Math.round(x/GRID)*GRID+GRID/2; y=Math.round(y/GRID)*GRID+GRID/2; }
+      o.spr.setPosition(x,y); o.x=x; o.y=y; o.depth=y; o.spr.setDepth(y); }); }
 }
 function onUp(){ if(dragging||painting) scheduleSave(); panning=false; dragging=false; painting=false; panLast=null; }
 
@@ -217,7 +225,17 @@ function addZone(){
 
 /* ---------- guardar / cargar / exportar ---------- */
 let saveT=null;
-function scheduleSave(){ clearTimeout(saveT); saveT=setTimeout(saveScene,400); }
+function scheduleSave(){ clearTimeout(saveT); saveT=setTimeout(()=>{ snapshot(); saveScene(); },350); }
+
+/* ---------- deshacer / rehacer (snapshots del escenario) ---------- */
+let undoStack=[], redoStack=[], lastSnap=null, restoring=false;
+function curState(){ return JSON.stringify(sceneData()); }
+function snapshot(){ if(restoring) return; const s=curState(); if(s===lastSnap) return;
+  if(lastSnap!==null){ undoStack.push(lastSnap); if(undoStack.length>80) undoStack.shift(); redoStack=[]; } lastSnap=s; }
+function restore(s){ restoring=true; placed.filter(o=>!o.floor).forEach(o=>o.spr.destroy()); placed=placed.filter(o=>o.floor); clearTerr(); select(null);
+  loadSceneData(JSON.parse(s)); lastSnap=s; restoring=false; try{ localStorage.setItem(SAVE_KEY,s); }catch(e){} }
+function undo(){ if(!undoStack.length){ toast('Nada que deshacer'); return; } redoStack.push(curState()); restore(undoStack.pop()); toast('Deshacer'); }
+function redo(){ if(!redoStack.length){ toast('Nada que rehacer'); return; } undoStack.push(curState()); restore(redoStack.pop()); toast('Rehacer'); }
 function serialize(){ return placed.filter(o=>!o.floor).map(o=>({id:o.id,x:Math.round(o.x),y:Math.round(o.y),scale:+o.scale.toFixed(3),angle:Math.round(o.angle),flip:o.flip,depth:Math.round(o.depth)})); }
 function serializeTerr(){ const a=[]; for(const [k,c] of terrTiles) a.push(c.t==='grass'?k:k+':'+c.t); return a; }   // "x,y" (pasto) o "x,y:sand" / ":elev"
 function sceneData(){ return {objs:serialize(), terr:serializeTerr()}; }
@@ -261,6 +279,7 @@ function wireToolbar(){
   $('btnExport').onclick=exportJSON; $('btnImport').onclick=()=>$('fileIn').click();
   $('fileIn').onchange=e=>{ if(e.target.files[0]) importJSON(e.target.files[0]); };
   $('btnClear').onclick=clearAll;
+  $('btnUndo').onclick=undo; $('btnRedo').onclick=redo;
   $('btnPalette').onclick=()=>$('palette').classList.toggle('hide');
 }
 function wireInspector(){
@@ -272,12 +291,15 @@ function wireInspector(){
 function wireKeys(){
   window.addEventListener('keydown',e=>{
     if(e.target.tagName==='INPUT') return;
+    if(e.key==='Shift') shiftHeld=true;
     if(e.code==='Space'){ spaceHeld=true; e.preventDefault(); }
     else if(e.key==='v'||e.key==='V') setTool('select');
     else if(e.key==='h'||e.key==='H') setTool('pan');
     else if(e.key==='g'||e.key==='G'){ gridOn=!gridOn; $('btnGrid').classList.toggle('on',gridOn); drawGrid(); }
     else if(e.key==='Delete'||e.key==='Backspace'){ delSel(); }
     else if((e.ctrlKey||e.metaKey)&&(e.key==='d')){ e.preventDefault(); duplicate(); }
+    else if((e.ctrlKey||e.metaKey)&&(e.key==='z')){ e.preventDefault(); if(e.shiftKey) redo(); else undo(); }
+    else if((e.ctrlKey||e.metaKey)&&(e.key==='y')){ e.preventDefault(); redo(); }
     else if((e.ctrlKey||e.metaKey)&&(e.key==='s')){ e.preventDefault(); saveScene(); toast('Guardado'); }
     else if(e.key==='f'||e.key==='F') flipSel();
     else if(e.key==='Escape'){ brush=null; renderGrid(); select(null); }
@@ -288,6 +310,6 @@ function wireKeys(){
       else if(e.key==='.') applyAngle(((selected.angle+15+540)%360)-180);
     }
   });
-  window.addEventListener('keyup',e=>{ if(e.code==='Space') spaceHeld=false; });
+  window.addEventListener('keyup',e=>{ if(e.code==='Space') spaceHeld=false; if(e.key==='Shift') shiftHeld=false; });
 }
 })();
