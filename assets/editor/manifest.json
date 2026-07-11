@@ -1,0 +1,4376 @@
+{
+"count": 484,
+"cats": {
+"terreno": 9,
+"naturaleza": 11,
+"rocas": 4,
+"agua": 13,
+"decoracion": 18,
+"recursos": 72,
+"edificios": 59,
+"puentes": 1,
+"efectos": 12,
+"unidades": 196,
+"enemigos": 75,
+"cielo": 8,
+"otros": 6
+},
+"items": [
+{
+"id": "ground_shadows",
+"cat": "terreno",
+"file": "assets/img/pack/ground_shadows.png",
+"fw": 192,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "ground_tilemap_elevation",
+"cat": "terreno",
+"file": "assets/img/pack/ground_tilemap_elevation.png",
+"fw": 256,
+"fh": 512,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "ground_tilemap_flat",
+"cat": "terreno",
+"file": "assets/img/pack/ground_tilemap_flat.png",
+"fw": 640,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "tileset_shadow",
+"cat": "terreno",
+"file": "assets/img/pack/tileset_shadow.png",
+"fw": 192,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "tileset_tilemap_color1",
+"cat": "terreno",
+"file": "assets/img/pack/tileset_tilemap_color1.png",
+"fw": 576,
+"fh": 384,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "tileset_tilemap_color2",
+"cat": "terreno",
+"file": "assets/img/pack/tileset_tilemap_color2.png",
+"fw": 576,
+"fh": 384,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "tileset_tilemap_color3",
+"cat": "terreno",
+"file": "assets/img/pack/tileset_tilemap_color3.png",
+"fw": 576,
+"fh": 384,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "tileset_tilemap_color4",
+"cat": "terreno",
+"file": "assets/img/pack/tileset_tilemap_color4.png",
+"fw": 576,
+"fh": 384,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "tileset_tilemap_color5",
+"cat": "terreno",
+"file": "assets/img/pack/tileset_tilemap_color5.png",
+"fw": 576,
+"fh": 384,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "bushes_bushe1",
+"cat": "naturaleza",
+"file": "assets/img/pack/bushes_bushe1.png",
+"fw": 128,
+"fh": 128,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "bushes_bushe2",
+"cat": "naturaleza",
+"file": "assets/img/pack/bushes_bushe2.png",
+"fw": 128,
+"fh": 128,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "bushes_bushe3",
+"cat": "naturaleza",
+"file": "assets/img/pack/bushes_bushe3.png",
+"fw": 128,
+"fh": 128,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "bushes_bushe4",
+"cat": "naturaleza",
+"file": "assets/img/pack/bushes_bushe4.png",
+"fw": 128,
+"fh": 128,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "resources_wood_trees_tree3",
+"cat": "naturaleza",
+"file": "assets/img/pack/resources_wood_trees_tree3.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "resources_wood_trees_tree4",
+"cat": "naturaleza",
+"file": "assets/img/pack/resources_wood_trees_tree4.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "root_troll_dead_tree",
+"cat": "naturaleza",
+"file": "assets/img/pack/root_troll_dead_tree.png",
+"fw": 384,
+"fh": 320,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "wood_trees_stump_1",
+"cat": "naturaleza",
+"file": "assets/img/pack/wood_trees_stump_1.png",
+"fw": 192,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "wood_trees_stump_2",
+"cat": "naturaleza",
+"file": "assets/img/pack/wood_trees_stump_2.png",
+"fw": 192,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "wood_trees_stump_3",
+"cat": "naturaleza",
+"file": "assets/img/pack/wood_trees_stump_3.png",
+"fw": 192,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "wood_trees_stump_4",
+"cat": "naturaleza",
+"file": "assets/img/pack/wood_trees_stump_4.png",
+"fw": 192,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "rocks_rock1",
+"cat": "rocas",
+"file": "assets/img/pack/rocks_rock1.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "rocks_rock2",
+"cat": "rocas",
+"file": "assets/img/pack/rocks_rock2.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "rocks_rock3",
+"cat": "rocas",
+"file": "assets/img/pack/rocks_rock3.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "rocks_rock4",
+"cat": "rocas",
+"file": "assets/img/pack/rocks_rock4.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "rubber_duck_rubber_duck",
+"cat": "agua",
+"file": "assets/img/pack/rubber_duck_rubber_duck.png",
+"fw": 96,
+"fh": 32,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "tileset_water_background",
+"cat": "agua",
+"file": "assets/img/pack/tileset_water_background.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "tileset_water_foam",
+"cat": "agua",
+"file": "assets/img/pack/tileset_water_foam.png",
+"fw": 192,
+"fh": 192,
+"frames": 16,
+"fps": 8
+},
+{
+"id": "water_foam_foam",
+"cat": "agua",
+"file": "assets/img/pack/water_foam_foam.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "water_rocks_rocks_01",
+"cat": "agua",
+"file": "assets/img/pack/water_rocks_rocks_01.png",
+"fw": 128,
+"fh": 128,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "water_rocks_rocks_02",
+"cat": "agua",
+"file": "assets/img/pack/water_rocks_rocks_02.png",
+"fw": 128,
+"fh": 128,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "water_rocks_rocks_03",
+"cat": "agua",
+"file": "assets/img/pack/water_rocks_rocks_03.png",
+"fw": 128,
+"fh": 128,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "water_rocks_rocks_04",
+"cat": "agua",
+"file": "assets/img/pack/water_rocks_rocks_04.png",
+"fw": 128,
+"fh": 128,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "water_water",
+"cat": "agua",
+"file": "assets/img/pack/water_water.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "water_water_rocks_01",
+"cat": "agua",
+"file": "assets/img/pack/water_water_rocks_01.png",
+"fw": 64,
+"fh": 64,
+"frames": 16,
+"fps": 8
+},
+{
+"id": "water_water_rocks_02",
+"cat": "agua",
+"file": "assets/img/pack/water_water_rocks_02.png",
+"fw": 64,
+"fh": 64,
+"frames": 16,
+"fps": 8
+},
+{
+"id": "water_water_rocks_03",
+"cat": "agua",
+"file": "assets/img/pack/water_water_rocks_03.png",
+"fw": 64,
+"fh": 64,
+"frames": 16,
+"fps": 8
+},
+{
+"id": "water_water_rocks_04",
+"cat": "agua",
+"file": "assets/img/pack/water_water_rocks_04.png",
+"fw": 64,
+"fh": 64,
+"frames": 16,
+"fps": 8
+},
+{
+"id": "deco_01",
+"cat": "decoracion",
+"file": "assets/img/pack/deco_01.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "deco_02",
+"cat": "decoracion",
+"file": "assets/img/pack/deco_02.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "deco_03",
+"cat": "decoracion",
+"file": "assets/img/pack/deco_03.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "deco_04",
+"cat": "decoracion",
+"file": "assets/img/pack/deco_04.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "deco_05",
+"cat": "decoracion",
+"file": "assets/img/pack/deco_05.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "deco_06",
+"cat": "decoracion",
+"file": "assets/img/pack/deco_06.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "deco_07",
+"cat": "decoracion",
+"file": "assets/img/pack/deco_07.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "deco_08",
+"cat": "decoracion",
+"file": "assets/img/pack/deco_08.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "deco_09",
+"cat": "decoracion",
+"file": "assets/img/pack/deco_09.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "deco_10",
+"cat": "decoracion",
+"file": "assets/img/pack/deco_10.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "deco_11",
+"cat": "decoracion",
+"file": "assets/img/pack/deco_11.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "deco_12",
+"cat": "decoracion",
+"file": "assets/img/pack/deco_12.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "deco_13",
+"cat": "decoracion",
+"file": "assets/img/pack/deco_13.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "deco_14",
+"cat": "decoracion",
+"file": "assets/img/pack/deco_14.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "deco_15",
+"cat": "decoracion",
+"file": "assets/img/pack/deco_15.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "deco_16",
+"cat": "decoracion",
+"file": "assets/img/pack/deco_16.png",
+"fw": 64,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "deco_17",
+"cat": "decoracion",
+"file": "assets/img/pack/deco_17.png",
+"fw": 64,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "deco_18",
+"cat": "decoracion",
+"file": "assets/img/pack/deco_18.png",
+"fw": 192,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "gold_mine_goldmine_active",
+"cat": "recursos",
+"file": "assets/img/pack/gold_mine_goldmine_active.png",
+"fw": 192,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "gold_mine_goldmine_destroyed",
+"cat": "recursos",
+"file": "assets/img/pack/gold_mine_goldmine_destroyed.png",
+"fw": 192,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "gold_mine_goldmine_inactive",
+"cat": "recursos",
+"file": "assets/img/pack/gold_mine_goldmine_inactive.png",
+"fw": 192,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "gold_resource_gold_resource",
+"cat": "recursos",
+"file": "assets/img/pack/gold_resource_gold_resource.png",
+"fw": 128,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "gold_stone_1_highlight",
+"cat": "recursos",
+"file": "assets/img/pack/gold_stone_1_highlight.png",
+"fw": 128,
+"fh": 128,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "gold_stone_2_highlight",
+"cat": "recursos",
+"file": "assets/img/pack/gold_stone_2_highlight.png",
+"fw": 128,
+"fh": 128,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "gold_stone_3_highlight",
+"cat": "recursos",
+"file": "assets/img/pack/gold_stone_3_highlight.png",
+"fw": 128,
+"fh": 128,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "gold_stone_4_highlight",
+"cat": "recursos",
+"file": "assets/img/pack/gold_stone_4_highlight.png",
+"fw": 128,
+"fh": 128,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "gold_stone_5_highlight",
+"cat": "recursos",
+"file": "assets/img/pack/gold_stone_5_highlight.png",
+"fw": 128,
+"fh": 128,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "gold_stone_6_highlight",
+"cat": "recursos",
+"file": "assets/img/pack/gold_stone_6_highlight.png",
+"fw": 128,
+"fh": 128,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "house_goblin_house_destroyed",
+"cat": "recursos",
+"file": "assets/img/pack/house_goblin_house_destroyed.png",
+"fw": 128,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "meat_resource_meat_resource",
+"cat": "recursos",
+"file": "assets/img/pack/meat_resource_meat_resource.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "meat_sheep_sheep_grass",
+"cat": "recursos",
+"file": "assets/img/pack/meat_sheep_sheep_grass.png",
+"fw": 128,
+"fh": 128,
+"frames": 12,
+"fps": 8
+},
+{
+"id": "meat_sheep_sheep_idle",
+"cat": "recursos",
+"file": "assets/img/pack/meat_sheep_sheep_idle.png",
+"fw": 128,
+"fh": 128,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "meat_sheep_sheep_move",
+"cat": "recursos",
+"file": "assets/img/pack/meat_sheep_sheep_move.png",
+"fw": 128,
+"fh": 128,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_gold",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_idle_gold.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_gold2",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_idle_gold2.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_gold3",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_idle_gold3.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_gold4",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_idle_gold4.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_gold5",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_idle_gold5.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_meat",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_idle_meat.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_meat2",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_idle_meat2.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_meat3",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_idle_meat3.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_meat4",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_idle_meat4.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_meat5",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_idle_meat5.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_wood",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_idle_wood.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_wood2",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_idle_wood2.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_wood3",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_idle_wood3.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_wood4",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_idle_wood4.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_wood5",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_idle_wood5.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_gold",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_run_gold.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_gold2",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_run_gold2.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_gold3",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_run_gold3.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_gold4",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_run_gold4.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_gold5",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_run_gold5.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_meat",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_run_meat.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_meat2",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_run_meat2.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_meat3",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_run_meat3.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_meat4",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_run_meat4.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_meat5",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_run_meat5.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_wood",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_run_wood.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_wood2",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_run_wood2.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_wood3",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_run_wood3.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_wood4",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_run_wood4.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_wood5",
+"cat": "recursos",
+"file": "assets/img/pack/pawn_pawn_run_wood5.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "resource_gold_resource_highlight",
+"cat": "recursos",
+"file": "assets/img/pack/resource_gold_resource_highlight.png",
+"fw": 128,
+"fh": 128,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "resources_g_idle_noshadow",
+"cat": "recursos",
+"file": "assets/img/pack/resources_g_idle_noshadow.png",
+"fw": 128,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "resources_m_idle_noshadow",
+"cat": "recursos",
+"file": "assets/img/pack/resources_m_idle_noshadow.png",
+"fw": 128,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "resources_resources_g_idle",
+"cat": "recursos",
+"file": "assets/img/pack/resources_resources_g_idle.png",
+"fw": 128,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "resources_resources_g_spawn",
+"cat": "recursos",
+"file": "assets/img/pack/resources_resources_g_spawn.png",
+"fw": 128,
+"fh": 128,
+"frames": 7,
+"fps": 8
+},
+{
+"id": "resources_resources_m_idle",
+"cat": "recursos",
+"file": "assets/img/pack/resources_resources_m_idle.png",
+"fw": 128,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "resources_resources_m_spawn",
+"cat": "recursos",
+"file": "assets/img/pack/resources_resources_m_spawn.png",
+"fw": 128,
+"fh": 128,
+"frames": 7,
+"fps": 8
+},
+{
+"id": "resources_resources_w_idle",
+"cat": "recursos",
+"file": "assets/img/pack/resources_resources_w_idle.png",
+"fw": 128,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "resources_resources_w_spawn",
+"cat": "recursos",
+"file": "assets/img/pack/resources_resources_w_spawn.png",
+"fw": 128,
+"fh": 128,
+"frames": 7,
+"fps": 8
+},
+{
+"id": "resources_sheep_happysheep_bouncing",
+"cat": "recursos",
+"file": "assets/img/pack/resources_sheep_happysheep_bouncing.png",
+"fw": 128,
+"fh": 128,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "resources_sheep_happysheep_idle",
+"cat": "recursos",
+"file": "assets/img/pack/resources_sheep_happysheep_idle.png",
+"fw": 128,
+"fh": 128,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "resources_tools_tool_01",
+"cat": "recursos",
+"file": "assets/img/pack/resources_tools_tool_01.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "resources_tools_tool_02",
+"cat": "recursos",
+"file": "assets/img/pack/resources_tools_tool_02.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "resources_tools_tool_03",
+"cat": "recursos",
+"file": "assets/img/pack/resources_tools_tool_03.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "resources_tools_tool_04",
+"cat": "recursos",
+"file": "assets/img/pack/resources_tools_tool_04.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "resources_w_idle_noshadow",
+"cat": "recursos",
+"file": "assets/img/pack/resources_w_idle_noshadow.png",
+"fw": 128,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "stones_gold_stone_1",
+"cat": "recursos",
+"file": "assets/img/pack/stones_gold_stone_1.png",
+"fw": 128,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "stones_gold_stone_2",
+"cat": "recursos",
+"file": "assets/img/pack/stones_gold_stone_2.png",
+"fw": 128,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "stones_gold_stone_3",
+"cat": "recursos",
+"file": "assets/img/pack/stones_gold_stone_3.png",
+"fw": 128,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "stones_gold_stone_4",
+"cat": "recursos",
+"file": "assets/img/pack/stones_gold_stone_4.png",
+"fw": 128,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "stones_gold_stone_5",
+"cat": "recursos",
+"file": "assets/img/pack/stones_gold_stone_5.png",
+"fw": 128,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "stones_gold_stone_6",
+"cat": "recursos",
+"file": "assets/img/pack/stones_gold_stone_6.png",
+"fw": 128,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "tower_wood_tower_destroyed",
+"cat": "recursos",
+"file": "assets/img/pack/tower_wood_tower_destroyed.png",
+"fw": 256,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "tower_wood_tower_inconstruction",
+"cat": "recursos",
+"file": "assets/img/pack/tower_wood_tower_inconstruction.png",
+"fw": 256,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "wood_house_goblin_house",
+"cat": "recursos",
+"file": "assets/img/pack/wood_house_goblin_house.png",
+"fw": 128,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "wood_resource_wood_resource",
+"cat": "recursos",
+"file": "assets/img/pack/wood_resource_wood_resource.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "wooden_fence_64x64_tile",
+"cat": "recursos",
+"file": "assets/img/pack/wooden_fence_64x64_tile.png",
+"fw": 256,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_black_buildings_archery",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_black_buildings_archery.png",
+"fw": 192,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_black_buildings_barracks",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_black_buildings_barracks.png",
+"fw": 192,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_black_buildings_castle",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_black_buildings_castle.png",
+"fw": 320,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_black_buildings_house1",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_black_buildings_house1.png",
+"fw": 128,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_black_buildings_house2",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_black_buildings_house2.png",
+"fw": 128,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_black_buildings_house3",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_black_buildings_house3.png",
+"fw": 128,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_black_buildings_monastery",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_black_buildings_monastery.png",
+"fw": 192,
+"fh": 320,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_black_buildings_tower",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_black_buildings_tower.png",
+"fw": 128,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_blue_buildings_archery",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_blue_buildings_archery.png",
+"fw": 192,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_blue_buildings_barracks",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_blue_buildings_barracks.png",
+"fw": 192,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_blue_buildings_castle",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_blue_buildings_castle.png",
+"fw": 320,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_blue_buildings_house1",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_blue_buildings_house1.png",
+"fw": 128,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_blue_buildings_house2",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_blue_buildings_house2.png",
+"fw": 128,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_blue_buildings_house3",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_blue_buildings_house3.png",
+"fw": 128,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_blue_buildings_monastery",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_blue_buildings_monastery.png",
+"fw": 192,
+"fh": 320,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_blue_buildings_tower",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_blue_buildings_tower.png",
+"fw": 128,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_castle_castle_blue",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_castle_castle_blue.png",
+"fw": 320,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_castle_castle_construction",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_castle_castle_construction.png",
+"fw": 320,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_castle_castle_destroyed",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_castle_castle_destroyed.png",
+"fw": 320,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_castle_castle_purple",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_castle_castle_purple.png",
+"fw": 320,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_castle_castle_red",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_castle_castle_red.png",
+"fw": 320,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_castle_castle_yellow",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_castle_castle_yellow.png",
+"fw": 320,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_house_house_blue",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_house_house_blue.png",
+"fw": 128,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_house_house_construction",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_house_house_construction.png",
+"fw": 128,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_house_house_destroyed",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_house_house_destroyed.png",
+"fw": 128,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_house_house_purple",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_house_house_purple.png",
+"fw": 128,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_house_house_red",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_house_house_red.png",
+"fw": 128,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_house_house_yellow",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_house_house_yellow.png",
+"fw": 128,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_purple_buildings_archery",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_purple_buildings_archery.png",
+"fw": 192,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_purple_buildings_barracks",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_purple_buildings_barracks.png",
+"fw": 192,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_purple_buildings_castle",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_purple_buildings_castle.png",
+"fw": 320,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_purple_buildings_house1",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_purple_buildings_house1.png",
+"fw": 128,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_purple_buildings_house2",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_purple_buildings_house2.png",
+"fw": 128,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_purple_buildings_house3",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_purple_buildings_house3.png",
+"fw": 128,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_purple_buildings_monastery",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_purple_buildings_monastery.png",
+"fw": 192,
+"fh": 320,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_purple_buildings_tower",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_purple_buildings_tower.png",
+"fw": 128,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_red_buildings_archery",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_red_buildings_archery.png",
+"fw": 192,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_red_buildings_barracks",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_red_buildings_barracks.png",
+"fw": 192,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_red_buildings_castle",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_red_buildings_castle.png",
+"fw": 320,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_red_buildings_house1",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_red_buildings_house1.png",
+"fw": 128,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_red_buildings_house2",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_red_buildings_house2.png",
+"fw": 128,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_red_buildings_house3",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_red_buildings_house3.png",
+"fw": 128,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_red_buildings_monastery",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_red_buildings_monastery.png",
+"fw": 192,
+"fh": 320,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_red_buildings_tower",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_red_buildings_tower.png",
+"fw": 128,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_tower_tower_blue",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_tower_tower_blue.png",
+"fw": 128,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_tower_tower_construction",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_tower_tower_construction.png",
+"fw": 128,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_tower_tower_destroyed",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_tower_tower_destroyed.png",
+"fw": 128,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_tower_tower_purple",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_tower_tower_purple.png",
+"fw": 128,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_tower_tower_red",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_tower_tower_red.png",
+"fw": 128,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_tower_tower_yellow",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_tower_tower_yellow.png",
+"fw": 128,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_yellow_buildings_archery",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_yellow_buildings_archery.png",
+"fw": 192,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_yellow_buildings_barracks",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_yellow_buildings_barracks.png",
+"fw": 192,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_yellow_buildings_castle",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_yellow_buildings_castle.png",
+"fw": 320,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_yellow_buildings_house1",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_yellow_buildings_house1.png",
+"fw": 128,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_yellow_buildings_house2",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_yellow_buildings_house2.png",
+"fw": 128,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_yellow_buildings_house3",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_yellow_buildings_house3.png",
+"fw": 128,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_yellow_buildings_monastery",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_yellow_buildings_monastery.png",
+"fw": 192,
+"fh": 320,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "buildings_yellow_buildings_tower",
+"cat": "edificios",
+"file": "assets/img/pack/buildings_yellow_buildings_tower.png",
+"fw": 128,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "tower_pirate_tower_ground",
+"cat": "edificios",
+"file": "assets/img/pack/tower_pirate_tower_ground.png",
+"fw": 128,
+"fh": 192,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "bridge_bridge_all",
+"cat": "puentes",
+"file": "assets/img/pack/bridge_bridge_all.png",
+"fw": 192,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "effects_explosion_explosions",
+"cat": "efectos",
+"file": "assets/img/pack/effects_explosion_explosions.png",
+"fw": 192,
+"fh": 192,
+"frames": 9,
+"fps": 8
+},
+{
+"id": "effects_fire_fire",
+"cat": "efectos",
+"file": "assets/img/pack/effects_fire_fire.png",
+"fw": 128,
+"fh": 128,
+"frames": 7,
+"fps": 8
+},
+{
+"id": "hex_shaman_explosion_spell",
+"cat": "efectos",
+"file": "assets/img/pack/hex_shaman_explosion_spell.png",
+"fw": 192,
+"fh": 192,
+"frames": 10,
+"fps": 8
+},
+{
+"id": "particle_fx_dust_01",
+"cat": "efectos",
+"file": "assets/img/pack/particle_fx_dust_01.png",
+"fw": 64,
+"fh": 64,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "particle_fx_dust_02",
+"cat": "efectos",
+"file": "assets/img/pack/particle_fx_dust_02.png",
+"fw": 64,
+"fh": 64,
+"frames": 10,
+"fps": 8
+},
+{
+"id": "particle_fx_explosion_01",
+"cat": "efectos",
+"file": "assets/img/pack/particle_fx_explosion_01.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "particle_fx_explosion_02",
+"cat": "efectos",
+"file": "assets/img/pack/particle_fx_explosion_02.png",
+"fw": 192,
+"fh": 192,
+"frames": 10,
+"fps": 8
+},
+{
+"id": "particle_fx_fire_01",
+"cat": "efectos",
+"file": "assets/img/pack/particle_fx_fire_01.png",
+"fw": 64,
+"fh": 64,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "particle_fx_fire_02",
+"cat": "efectos",
+"file": "assets/img/pack/particle_fx_fire_02.png",
+"fw": 64,
+"fh": 64,
+"frames": 10,
+"fps": 8
+},
+{
+"id": "particle_fx_fire_03",
+"cat": "efectos",
+"file": "assets/img/pack/particle_fx_fire_03.png",
+"fw": 64,
+"fh": 64,
+"frames": 12,
+"fps": 8
+},
+{
+"id": "particle_fx_water_splash",
+"cat": "efectos",
+"file": "assets/img/pack/particle_fx_water_splash.png",
+"fw": 192,
+"fh": 192,
+"frames": 9,
+"fps": 8
+},
+{
+"id": "shaman_hex_shaman_explosion",
+"cat": "efectos",
+"file": "assets/img/pack/shaman_hex_shaman_explosion.png",
+"fw": 128,
+"fh": 128,
+"frames": 9,
+"fps": 8
+},
+{
+"id": "black_units_archer_arrow",
+"cat": "unidades",
+"file": "assets/img/pack/black_units_archer_arrow.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "black_units_monk_heal",
+"cat": "unidades",
+"file": "assets/img/pack/black_units_monk_heal.png",
+"fw": 192,
+"fh": 192,
+"frames": 11,
+"fps": 8
+},
+{
+"id": "black_units_monk_idle",
+"cat": "unidades",
+"file": "assets/img/pack/black_units_monk_idle.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "black_units_monk_run",
+"cat": "unidades",
+"file": "assets/img/pack/black_units_monk_run.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "blue_units_archer_arrow",
+"cat": "unidades",
+"file": "assets/img/pack/blue_units_archer_arrow.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "blue_units_monk_heal",
+"cat": "unidades",
+"file": "assets/img/pack/blue_units_monk_heal.png",
+"fw": 192,
+"fh": 192,
+"frames": 11,
+"fps": 8
+},
+{
+"id": "blue_units_monk_idle",
+"cat": "unidades",
+"file": "assets/img/pack/blue_units_monk_idle.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "blue_units_monk_run",
+"cat": "unidades",
+"file": "assets/img/pack/blue_units_monk_run.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "lancer_lancer_down_attack",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_down_attack.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_down_attack2",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_down_attack2.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_down_attack3",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_down_attack3.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_down_attack4",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_down_attack4.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_down_attack5",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_down_attack5.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_down_defence",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_down_defence.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "lancer_lancer_down_defence2",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_down_defence2.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "lancer_lancer_down_defence3",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_down_defence3.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "lancer_lancer_down_defence4",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_down_defence4.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "lancer_lancer_down_defence5",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_down_defence5.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "lancer_lancer_downright_attack",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_downright_attack.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_downright_attack2",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_downright_attack2.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_downright_attack3",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_downright_attack3.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_downright_attack4",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_downright_attack4.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_downright_attack5",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_downright_attack5.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_downright_defence",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_downright_defence.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "lancer_lancer_downright_defence2",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_downright_defence2.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "lancer_lancer_downright_defence3",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_downright_defence3.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "lancer_lancer_downright_defence4",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_downright_defence4.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "lancer_lancer_downright_defence5",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_downright_defence5.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "lancer_lancer_right_attack",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_right_attack.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_right_attack2",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_right_attack2.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_right_attack3",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_right_attack3.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_right_attack4",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_right_attack4.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_right_attack5",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_right_attack5.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_right_defence",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_right_defence.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "lancer_lancer_right_defence2",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_right_defence2.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "lancer_lancer_right_defence3",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_right_defence3.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "lancer_lancer_right_defence4",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_right_defence4.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "lancer_lancer_right_defence5",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_right_defence5.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "lancer_lancer_up_attack",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_up_attack.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_up_attack2",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_up_attack2.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_up_attack3",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_up_attack3.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_up_attack4",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_up_attack4.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_up_attack5",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_up_attack5.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_up_defence",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_up_defence.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "lancer_lancer_up_defence2",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_up_defence2.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "lancer_lancer_up_defence3",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_up_defence3.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "lancer_lancer_up_defence4",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_up_defence4.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "lancer_lancer_up_defence5",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_up_defence5.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "lancer_lancer_upright_attack",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_upright_attack.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_upright_attack2",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_upright_attack2.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_upright_attack3",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_upright_attack3.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_upright_attack4",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_upright_attack4.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_upright_attack5",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_upright_attack5.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "lancer_lancer_upright_defence",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_upright_defence.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "lancer_lancer_upright_defence2",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_upright_defence2.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "lancer_lancer_upright_defence3",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_upright_defence3.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "lancer_lancer_upright_defence4",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_upright_defence4.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "lancer_lancer_upright_defence5",
+"cat": "unidades",
+"file": "assets/img/pack/lancer_lancer_upright_defence5.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_axe",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_idle_axe.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_axe2",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_idle_axe2.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_axe3",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_idle_axe3.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_axe4",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_idle_axe4.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_axe5",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_idle_axe5.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_hammer",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_idle_hammer.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_hammer2",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_idle_hammer2.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_hammer3",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_idle_hammer3.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_hammer4",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_idle_hammer4.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_hammer5",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_idle_hammer5.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_knife",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_idle_knife.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_knife2",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_idle_knife2.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_knife3",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_idle_knife3.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_knife4",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_idle_knife4.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_knife5",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_idle_knife5.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_pickaxe",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_idle_pickaxe.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_pickaxe2",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_idle_pickaxe2.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_pickaxe3",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_idle_pickaxe3.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_pickaxe4",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_idle_pickaxe4.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_idle_pickaxe5",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_idle_pickaxe5.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "pawn_pawn_interact_axe",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_interact_axe.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_interact_axe2",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_interact_axe2.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_interact_axe3",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_interact_axe3.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_interact_axe4",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_interact_axe4.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_interact_axe5",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_interact_axe5.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_interact_hammer",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_interact_hammer.png",
+"fw": 192,
+"fh": 192,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "pawn_pawn_interact_hammer2",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_interact_hammer2.png",
+"fw": 192,
+"fh": 192,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "pawn_pawn_interact_hammer3",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_interact_hammer3.png",
+"fw": 192,
+"fh": 192,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "pawn_pawn_interact_hammer4",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_interact_hammer4.png",
+"fw": 192,
+"fh": 192,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "pawn_pawn_interact_hammer5",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_interact_hammer5.png",
+"fw": 192,
+"fh": 192,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "pawn_pawn_interact_knife",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_interact_knife.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "pawn_pawn_interact_knife2",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_interact_knife2.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "pawn_pawn_interact_knife3",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_interact_knife3.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "pawn_pawn_interact_knife4",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_interact_knife4.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "pawn_pawn_interact_knife5",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_interact_knife5.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "pawn_pawn_interact_pickaxe",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_interact_pickaxe.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_interact_pickaxe2",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_interact_pickaxe2.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_interact_pickaxe3",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_interact_pickaxe3.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_interact_pickaxe4",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_interact_pickaxe4.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_interact_pickaxe5",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_interact_pickaxe5.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_axe",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_run_axe.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_axe2",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_run_axe2.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_axe3",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_run_axe3.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_axe4",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_run_axe4.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_axe5",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_run_axe5.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_hammer",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_run_hammer.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_hammer2",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_run_hammer2.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_hammer3",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_run_hammer3.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_hammer4",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_run_hammer4.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_hammer5",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_run_hammer5.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_knife",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_run_knife.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_knife2",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_run_knife2.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_knife3",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_run_knife3.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_knife4",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_run_knife4.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_knife5",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_run_knife5.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_pickaxe",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_run_pickaxe.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_pickaxe2",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_run_pickaxe2.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_pickaxe3",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_run_pickaxe3.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_pickaxe4",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_run_pickaxe4.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "pawn_pawn_run_pickaxe5",
+"cat": "unidades",
+"file": "assets/img/pack/pawn_pawn_run_pickaxe5.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "purple_units_archer_arrow",
+"cat": "unidades",
+"file": "assets/img/pack/purple_units_archer_arrow.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "purple_units_monk_heal",
+"cat": "unidades",
+"file": "assets/img/pack/purple_units_monk_heal.png",
+"fw": 192,
+"fh": 192,
+"frames": 11,
+"fps": 8
+},
+{
+"id": "purple_units_monk_idle",
+"cat": "unidades",
+"file": "assets/img/pack/purple_units_monk_idle.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "purple_units_monk_run",
+"cat": "unidades",
+"file": "assets/img/pack/purple_units_monk_run.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "red_units_archer_arrow",
+"cat": "unidades",
+"file": "assets/img/pack/red_units_archer_arrow.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "red_units_monk_heal",
+"cat": "unidades",
+"file": "assets/img/pack/red_units_monk_heal.png",
+"fw": 192,
+"fh": 192,
+"frames": 11,
+"fps": 8
+},
+{
+"id": "red_units_monk_idle",
+"cat": "unidades",
+"file": "assets/img/pack/red_units_monk_idle.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "red_units_monk_run",
+"cat": "unidades",
+"file": "assets/img/pack/red_units_monk_run.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "troops_archer_arrow_arrow",
+"cat": "unidades",
+"file": "assets/img/pack/troops_archer_arrow_arrow.png",
+"fw": 64,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "units_archer_archer_idle",
+"cat": "unidades",
+"file": "assets/img/pack/units_archer_archer_idle.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "units_archer_archer_idle2",
+"cat": "unidades",
+"file": "assets/img/pack/units_archer_archer_idle2.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "units_archer_archer_idle3",
+"cat": "unidades",
+"file": "assets/img/pack/units_archer_archer_idle3.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "units_archer_archer_idle4",
+"cat": "unidades",
+"file": "assets/img/pack/units_archer_archer_idle4.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "units_archer_archer_idle5",
+"cat": "unidades",
+"file": "assets/img/pack/units_archer_archer_idle5.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "units_archer_archer_run",
+"cat": "unidades",
+"file": "assets/img/pack/units_archer_archer_run.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "units_archer_archer_run2",
+"cat": "unidades",
+"file": "assets/img/pack/units_archer_archer_run2.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "units_archer_archer_run3",
+"cat": "unidades",
+"file": "assets/img/pack/units_archer_archer_run3.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "units_archer_archer_run4",
+"cat": "unidades",
+"file": "assets/img/pack/units_archer_archer_run4.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "units_archer_archer_run5",
+"cat": "unidades",
+"file": "assets/img/pack/units_archer_archer_run5.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "units_archer_archer_shoot",
+"cat": "unidades",
+"file": "assets/img/pack/units_archer_archer_shoot.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "units_archer_archer_shoot2",
+"cat": "unidades",
+"file": "assets/img/pack/units_archer_archer_shoot2.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "units_archer_archer_shoot3",
+"cat": "unidades",
+"file": "assets/img/pack/units_archer_archer_shoot3.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "units_archer_archer_shoot4",
+"cat": "unidades",
+"file": "assets/img/pack/units_archer_archer_shoot4.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "units_archer_archer_shoot5",
+"cat": "unidades",
+"file": "assets/img/pack/units_archer_archer_shoot5.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "units_lancer_lancer_idle",
+"cat": "unidades",
+"file": "assets/img/pack/units_lancer_lancer_idle.png",
+"fw": 320,
+"fh": 320,
+"frames": 12,
+"fps": 8
+},
+{
+"id": "units_lancer_lancer_idle2",
+"cat": "unidades",
+"file": "assets/img/pack/units_lancer_lancer_idle2.png",
+"fw": 320,
+"fh": 320,
+"frames": 12,
+"fps": 8
+},
+{
+"id": "units_lancer_lancer_idle3",
+"cat": "unidades",
+"file": "assets/img/pack/units_lancer_lancer_idle3.png",
+"fw": 320,
+"fh": 320,
+"frames": 12,
+"fps": 8
+},
+{
+"id": "units_lancer_lancer_idle4",
+"cat": "unidades",
+"file": "assets/img/pack/units_lancer_lancer_idle4.png",
+"fw": 320,
+"fh": 320,
+"frames": 12,
+"fps": 8
+},
+{
+"id": "units_lancer_lancer_idle5",
+"cat": "unidades",
+"file": "assets/img/pack/units_lancer_lancer_idle5.png",
+"fw": 320,
+"fh": 320,
+"frames": 12,
+"fps": 8
+},
+{
+"id": "units_lancer_lancer_run",
+"cat": "unidades",
+"file": "assets/img/pack/units_lancer_lancer_run.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "units_lancer_lancer_run2",
+"cat": "unidades",
+"file": "assets/img/pack/units_lancer_lancer_run2.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "units_lancer_lancer_run3",
+"cat": "unidades",
+"file": "assets/img/pack/units_lancer_lancer_run3.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "units_lancer_lancer_run4",
+"cat": "unidades",
+"file": "assets/img/pack/units_lancer_lancer_run4.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "units_lancer_lancer_run5",
+"cat": "unidades",
+"file": "assets/img/pack/units_lancer_lancer_run5.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "units_monk_heal_effect",
+"cat": "unidades",
+"file": "assets/img/pack/units_monk_heal_effect.png",
+"fw": 192,
+"fh": 192,
+"frames": 11,
+"fps": 8
+},
+{
+"id": "units_monk_heal_effect2",
+"cat": "unidades",
+"file": "assets/img/pack/units_monk_heal_effect2.png",
+"fw": 192,
+"fh": 192,
+"frames": 11,
+"fps": 8
+},
+{
+"id": "units_monk_heal_effect3",
+"cat": "unidades",
+"file": "assets/img/pack/units_monk_heal_effect3.png",
+"fw": 192,
+"fh": 192,
+"frames": 11,
+"fps": 8
+},
+{
+"id": "units_monk_heal_effect4",
+"cat": "unidades",
+"file": "assets/img/pack/units_monk_heal_effect4.png",
+"fw": 192,
+"fh": 192,
+"frames": 11,
+"fps": 8
+},
+{
+"id": "units_monk_heal_effect5",
+"cat": "unidades",
+"file": "assets/img/pack/units_monk_heal_effect5.png",
+"fw": 192,
+"fh": 192,
+"frames": 11,
+"fps": 8
+},
+{
+"id": "units_pawn_pawn_idle",
+"cat": "unidades",
+"file": "assets/img/pack/units_pawn_pawn_idle.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "units_pawn_pawn_idle2",
+"cat": "unidades",
+"file": "assets/img/pack/units_pawn_pawn_idle2.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "units_pawn_pawn_idle3",
+"cat": "unidades",
+"file": "assets/img/pack/units_pawn_pawn_idle3.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "units_pawn_pawn_idle4",
+"cat": "unidades",
+"file": "assets/img/pack/units_pawn_pawn_idle4.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "units_pawn_pawn_idle5",
+"cat": "unidades",
+"file": "assets/img/pack/units_pawn_pawn_idle5.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "units_pawn_pawn_run",
+"cat": "unidades",
+"file": "assets/img/pack/units_pawn_pawn_run.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "units_pawn_pawn_run2",
+"cat": "unidades",
+"file": "assets/img/pack/units_pawn_pawn_run2.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "units_pawn_pawn_run3",
+"cat": "unidades",
+"file": "assets/img/pack/units_pawn_pawn_run3.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "units_pawn_pawn_run4",
+"cat": "unidades",
+"file": "assets/img/pack/units_pawn_pawn_run4.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "units_pawn_pawn_run5",
+"cat": "unidades",
+"file": "assets/img/pack/units_pawn_pawn_run5.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_attack1",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_attack1.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_attack12",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_attack12.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_attack13",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_attack13.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_attack14",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_attack14.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_attack15",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_attack15.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_attack2",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_attack2.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_attack22",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_attack22.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_attack23",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_attack23.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_attack24",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_attack24.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_attack25",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_attack25.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_guard",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_guard.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_guard2",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_guard2.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_guard3",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_guard3.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_guard4",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_guard4.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_guard5",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_guard5.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_idle",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_idle.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_idle2",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_idle2.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_idle3",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_idle3.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_idle4",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_idle4.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_idle5",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_idle5.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_run",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_run.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_run2",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_run2.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_run3",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_run3.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_run4",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_run4.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "units_warrior_warrior_run5",
+"cat": "unidades",
+"file": "assets/img/pack/units_warrior_warrior_run5.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "yellow_units_archer_arrow",
+"cat": "unidades",
+"file": "assets/img/pack/yellow_units_archer_arrow.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "yellow_units_monk_heal",
+"cat": "unidades",
+"file": "assets/img/pack/yellow_units_monk_heal.png",
+"fw": 192,
+"fh": 192,
+"frames": 11,
+"fps": 8
+},
+{
+"id": "yellow_units_monk_idle",
+"cat": "unidades",
+"file": "assets/img/pack/yellow_units_monk_idle.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "yellow_units_monk_run",
+"cat": "unidades",
+"file": "assets/img/pack/yellow_units_monk_run.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "boat_seahorse_boat_idle",
+"cat": "enemigos",
+"file": "assets/img/pack/boat_seahorse_boat_idle.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "caveborn_cave_cave_idle",
+"cat": "enemigos",
+"file": "assets/img/pack/caveborn_cave_cave_idle.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "caveborn_lizard_lizard_attack",
+"cat": "enemigos",
+"file": "assets/img/pack/caveborn_lizard_lizard_attack.png",
+"fw": 192,
+"fh": 192,
+"frames": 9,
+"fps": 8
+},
+{
+"id": "caveborn_lizard_lizard_hit",
+"cat": "enemigos",
+"file": "assets/img/pack/caveborn_lizard_lizard_hit.png",
+"fw": 192,
+"fh": 192,
+"frames": 2,
+"fps": 8
+},
+{
+"id": "caveborn_lizard_lizard_idle",
+"cat": "enemigos",
+"file": "assets/img/pack/caveborn_lizard_lizard_idle.png",
+"fw": 192,
+"fh": 192,
+"frames": 7,
+"fps": 8
+},
+{
+"id": "caveborn_lizard_lizard_run",
+"cat": "enemigos",
+"file": "assets/img/pack/caveborn_lizard_lizard_run.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "caveborn_snake_snake_attack",
+"cat": "enemigos",
+"file": "assets/img/pack/caveborn_snake_snake_attack.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "caveborn_snake_snake_idle",
+"cat": "enemigos",
+"file": "assets/img/pack/caveborn_snake_snake_idle.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "caveborn_snake_snake_run",
+"cat": "enemigos",
+"file": "assets/img/pack/caveborn_snake_snake_run.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "caveborn_spider_spider_attack",
+"cat": "enemigos",
+"file": "assets/img/pack/caveborn_spider_spider_attack.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "caveborn_spider_spider_idle",
+"cat": "enemigos",
+"file": "assets/img/pack/caveborn_spider_spider_idle.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "caveborn_spider_spider_run",
+"cat": "enemigos",
+"file": "assets/img/pack/caveborn_spider_spider_run.png",
+"fw": 192,
+"fh": 192,
+"frames": 5,
+"fps": 8
+},
+{
+"id": "caveborn_turtle_turtle_attack",
+"cat": "enemigos",
+"file": "assets/img/pack/caveborn_turtle_turtle_attack.png",
+"fw": 320,
+"fh": 320,
+"frames": 10,
+"fps": 8
+},
+{
+"id": "caveborn_turtle_turtle_idle",
+"cat": "enemigos",
+"file": "assets/img/pack/caveborn_turtle_turtle_idle.png",
+"fw": 320,
+"fh": 320,
+"frames": 10,
+"fps": 8
+},
+{
+"id": "caveborn_turtle_turtle_walk",
+"cat": "enemigos",
+"file": "assets/img/pack/caveborn_turtle_turtle_walk.png",
+"fw": 320,
+"fh": 320,
+"frames": 7,
+"fps": 8
+},
+{
+"id": "enemies_gnoll_gnoll_bone",
+"cat": "enemigos",
+"file": "assets/img/pack/enemies_gnoll_gnoll_bone.png",
+"fw": 64,
+"fh": 64,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "enemies_gnoll_gnoll_hit",
+"cat": "enemigos",
+"file": "assets/img/pack/enemies_gnoll_gnoll_hit.png",
+"fw": 192,
+"fh": 192,
+"frames": 2,
+"fps": 8
+},
+{
+"id": "enemies_gnoll_gnoll_idle",
+"cat": "enemigos",
+"file": "assets/img/pack/enemies_gnoll_gnoll_idle.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "enemies_gnoll_gnoll_throw",
+"cat": "enemigos",
+"file": "assets/img/pack/enemies_gnoll_gnoll_throw.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "enemies_gnoll_gnoll_walk",
+"cat": "enemigos",
+"file": "assets/img/pack/enemies_gnoll_gnoll_walk.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "enemies_gnome_gnome_attack",
+"cat": "enemigos",
+"file": "assets/img/pack/enemies_gnome_gnome_attack.png",
+"fw": 192,
+"fh": 192,
+"frames": 7,
+"fps": 8
+},
+{
+"id": "enemies_gnome_gnome_idle",
+"cat": "enemigos",
+"file": "assets/img/pack/enemies_gnome_gnome_idle.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "enemies_gnome_gnome_run",
+"cat": "enemigos",
+"file": "assets/img/pack/enemies_gnome_gnome_run.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "enemies_minotaur_minotaur_attack",
+"cat": "enemigos",
+"file": "assets/img/pack/enemies_minotaur_minotaur_attack.png",
+"fw": 320,
+"fh": 320,
+"frames": 12,
+"fps": 8
+},
+{
+"id": "enemies_minotaur_minotaur_guard",
+"cat": "enemigos",
+"file": "assets/img/pack/enemies_minotaur_minotaur_guard.png",
+"fw": 320,
+"fh": 320,
+"frames": 11,
+"fps": 8
+},
+{
+"id": "enemies_minotaur_minotaur_walk",
+"cat": "enemigos",
+"file": "assets/img/pack/enemies_minotaur_minotaur_walk.png",
+"fw": 320,
+"fh": 320,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "enemies_skull_skull_attack",
+"cat": "enemigos",
+"file": "assets/img/pack/enemies_skull_skull_attack.png",
+"fw": 192,
+"fh": 192,
+"frames": 7,
+"fps": 8
+},
+{
+"id": "enemies_skull_skull_guard",
+"cat": "enemigos",
+"file": "assets/img/pack/enemies_skull_skull_guard.png",
+"fw": 192,
+"fh": 192,
+"frames": 7,
+"fps": 8
+},
+{
+"id": "enemies_skull_skull_idle",
+"cat": "enemigos",
+"file": "assets/img/pack/enemies_skull_skull_idle.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "enemies_skull_skull_run",
+"cat": "enemigos",
+"file": "assets/img/pack/enemies_skull_skull_run.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "enemies_thief_thief_attack",
+"cat": "enemigos",
+"file": "assets/img/pack/enemies_thief_thief_attack.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "enemies_thief_thief_idle",
+"cat": "enemigos",
+"file": "assets/img/pack/enemies_thief_thief_idle.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "enemies_thief_thief_run",
+"cat": "enemigos",
+"file": "assets/img/pack/enemies_thief_thief_run.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "fish_bomb_bomb_fuselit",
+"cat": "enemigos",
+"file": "assets/img/pack/fish_bomb_bomb_fuselit.png",
+"fw": 128,
+"fh": 128,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "fish_bomb_bomb_idle",
+"cat": "enemigos",
+"file": "assets/img/pack/fish_bomb_bomb_idle.png",
+"fw": 128,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "fish_bomb_bomb_spinning",
+"cat": "enemigos",
+"file": "assets/img/pack/fish_bomb_bomb_spinning.png",
+"fw": 128,
+"fh": 128,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "fish_bomb_fish_idle",
+"cat": "enemigos",
+"file": "assets/img/pack/fish_bomb_fish_idle.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "fish_bomb_fish_run",
+"cat": "enemigos",
+"file": "assets/img/pack/fish_bomb_fish_run.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "fish_bomb_fish_shoot",
+"cat": "enemigos",
+"file": "assets/img/pack/fish_bomb_fish_shoot.png",
+"fw": 192,
+"fh": 192,
+"frames": 7,
+"fps": 8
+},
+{
+"id": "fish_cannon_cannon_ball",
+"cat": "enemigos",
+"file": "assets/img/pack/fish_cannon_cannon_ball.png",
+"fw": 128,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "fish_cannon_cannon_down",
+"cat": "enemigos",
+"file": "assets/img/pack/fish_cannon_cannon_down.png",
+"fw": 128,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "fish_cannon_cannon_downright",
+"cat": "enemigos",
+"file": "assets/img/pack/fish_cannon_cannon_downright.png",
+"fw": 128,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "fish_cannon_cannon_right",
+"cat": "enemigos",
+"file": "assets/img/pack/fish_cannon_cannon_right.png",
+"fw": 128,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "fish_cannon_cannon_up",
+"cat": "enemigos",
+"file": "assets/img/pack/fish_cannon_cannon_up.png",
+"fw": 128,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "fish_cannon_cannon_upright",
+"cat": "enemigos",
+"file": "assets/img/pack/fish_cannon_cannon_upright.png",
+"fw": 128,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "fish_harpoon_shark_harpoon",
+"cat": "enemigos",
+"file": "assets/img/pack/fish_harpoon_shark_harpoon.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "fish_hut_fish_hut",
+"cat": "enemigos",
+"file": "assets/img/pack/fish_hut_fish_hut.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "goblin_torch_goblin_attack",
+"cat": "enemigos",
+"file": "assets/img/pack/goblin_torch_goblin_attack.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "goblin_torch_goblin_idle",
+"cat": "enemigos",
+"file": "assets/img/pack/goblin_torch_goblin_idle.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "goblin_torch_goblin_run",
+"cat": "enemigos",
+"file": "assets/img/pack/goblin_torch_goblin_run.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "hex_shaman_transformation_spell",
+"cat": "enemigos",
+"file": "assets/img/pack/hex_shaman_transformation_spell.png",
+"fw": 192,
+"fh": 192,
+"frames": 11,
+"fps": 8
+},
+{
+"id": "raiders_pig_pig_idle",
+"cat": "enemigos",
+"file": "assets/img/pack/raiders_pig_pig_idle.png",
+"fw": 192,
+"fh": 192,
+"frames": 10,
+"fps": 8
+},
+{
+"id": "raiders_pig_pig_run",
+"cat": "enemigos",
+"file": "assets/img/pack/raiders_pig_pig_run.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "root_troll_bones_01",
+"cat": "enemigos",
+"file": "assets/img/pack/root_troll_bones_01.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "root_troll_bones_02",
+"cat": "enemigos",
+"file": "assets/img/pack/root_troll_bones_02.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "root_troll_bones_03",
+"cat": "enemigos",
+"file": "assets/img/pack/root_troll_bones_03.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "seahorse_boat_bomb_fish",
+"cat": "enemigos",
+"file": "assets/img/pack/seahorse_boat_bomb_fish.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "seahorse_boat_harpoon_shark",
+"cat": "enemigos",
+"file": "assets/img/pack/seahorse_boat_harpoon_shark.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "seahorse_boat_paddle_shark",
+"cat": "enemigos",
+"file": "assets/img/pack/seahorse_boat_paddle_shark.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "shaman_hex_shaman_attack",
+"cat": "enemigos",
+"file": "assets/img/pack/shaman_hex_shaman_attack.png",
+"fw": 192,
+"fh": 192,
+"frames": 10,
+"fps": 8
+},
+{
+"id": "shaman_hex_shaman_idle",
+"cat": "enemigos",
+"file": "assets/img/pack/shaman_hex_shaman_idle.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "shaman_hex_shaman_projectile",
+"cat": "enemigos",
+"file": "assets/img/pack/shaman_hex_shaman_projectile.png",
+"fw": 128,
+"fh": 128,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "shaman_hex_shaman_run",
+"cat": "enemigos",
+"file": "assets/img/pack/shaman_hex_shaman_run.png",
+"fw": 192,
+"fh": 192,
+"frames": 4,
+"fps": 8
+},
+{
+"id": "shark_harpoon_shark_idle",
+"cat": "enemigos",
+"file": "assets/img/pack/shark_harpoon_shark_idle.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "shark_harpoon_shark_run",
+"cat": "enemigos",
+"file": "assets/img/pack/shark_harpoon_shark_run.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "shark_harpoon_shark_throw",
+"cat": "enemigos",
+"file": "assets/img/pack/shark_harpoon_shark_throw.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "shark_paddle_shark_attack",
+"cat": "enemigos",
+"file": "assets/img/pack/shark_paddle_shark_attack.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "shark_paddle_shark_idle",
+"cat": "enemigos",
+"file": "assets/img/pack/shark_paddle_shark_idle.png",
+"fw": 192,
+"fh": 192,
+"frames": 8,
+"fps": 8
+},
+{
+"id": "shark_paddle_shark_row",
+"cat": "enemigos",
+"file": "assets/img/pack/shark_paddle_shark_row.png",
+"fw": 192,
+"fh": 192,
+"frames": 7,
+"fps": 8
+},
+{
+"id": "shark_paddle_shark_run",
+"cat": "enemigos",
+"file": "assets/img/pack/shark_paddle_shark_run.png",
+"fw": 192,
+"fh": 192,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "troll_skull_spike_01",
+"cat": "enemigos",
+"file": "assets/img/pack/troll_skull_spike_01.png",
+"fw": 64,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "troll_skull_spike_02",
+"cat": "enemigos",
+"file": "assets/img/pack/troll_skull_spike_02.png",
+"fw": 64,
+"fh": 128,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "troops_tnt_dynamite_dynamite",
+"cat": "enemigos",
+"file": "assets/img/pack/troops_tnt_dynamite_dynamite.png",
+"fw": 64,
+"fh": 64,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "turtle_turtle_guard_in",
+"cat": "enemigos",
+"file": "assets/img/pack/turtle_turtle_guard_in.png",
+"fw": 320,
+"fh": 320,
+"frames": 6,
+"fps": 8
+},
+{
+"id": "turtle_turtle_guard_out",
+"cat": "enemigos",
+"file": "assets/img/pack/turtle_turtle_guard_out.png",
+"fw": 320,
+"fh": 320,
+"frames": 3,
+"fps": 8
+},
+{
+"id": "clouds_clouds_01",
+"cat": "cielo",
+"file": "assets/img/pack/clouds_clouds_01.png",
+"fw": 576,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "clouds_clouds_02",
+"cat": "cielo",
+"file": "assets/img/pack/clouds_clouds_02.png",
+"fw": 576,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "clouds_clouds_03",
+"cat": "cielo",
+"file": "assets/img/pack/clouds_clouds_03.png",
+"fw": 576,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "clouds_clouds_04",
+"cat": "cielo",
+"file": "assets/img/pack/clouds_clouds_04.png",
+"fw": 576,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "clouds_clouds_05",
+"cat": "cielo",
+"file": "assets/img/pack/clouds_clouds_05.png",
+"fw": 576,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "clouds_clouds_06",
+"cat": "cielo",
+"file": "assets/img/pack/clouds_clouds_06.png",
+"fw": 576,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "clouds_clouds_07",
+"cat": "cielo",
+"file": "assets/img/pack/clouds_clouds_07.png",
+"fw": 576,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "clouds_clouds_08",
+"cat": "cielo",
+"file": "assets/img/pack/clouds_clouds_08.png",
+"fw": 576,
+"fh": 256,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "ui_pointers_01",
+"cat": "otros",
+"file": "assets/img/pack/ui_pointers_01.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "ui_pointers_02",
+"cat": "otros",
+"file": "assets/img/pack/ui_pointers_02.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "ui_pointers_03",
+"cat": "otros",
+"file": "assets/img/pack/ui_pointers_03.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "ui_pointers_04",
+"cat": "otros",
+"file": "assets/img/pack/ui_pointers_04.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "ui_pointers_05",
+"cat": "otros",
+"file": "assets/img/pack/ui_pointers_05.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+},
+{
+"id": "ui_pointers_06",
+"cat": "otros",
+"file": "assets/img/pack/ui_pointers_06.png",
+"fw": 64,
+"fh": 64,
+"frames": 1,
+"fps": 0
+}
+]
+}

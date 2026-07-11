@@ -982,8 +982,9 @@ function placeDecoImg(key,tx,ty,sc){
   scene.add.image(x,y,key).setOrigin(0.5,1).setScale(sc).setDepth(y);
 }
 function placeTree(tx,ty){
-  const x=tx*T+T/2, y=ty*T+T;
-  scene.add.sprite(x,y,'tree').play({key:'tree-a',startFrame:rint(0,3)}).setOrigin(0.5,0.92).setScale(Phaser.Math.FloatBetween(0.55,0.72)).setDepth(y);
+  const x=tx*T+T/2, y=ty*T+T, sc=Phaser.Math.FloatBetween(0.55,0.72);
+  scene.add.ellipse(x, y+8*sc, 48*sc, 16*sc, 0x09140a, 0.22).setDepth(y-1);   // sombra de copa: da profundidad (los árboles no traían sombra al piso)
+  scene.add.sprite(x,y,'tree').play({key:'tree-a',startFrame:rint(0,3)}).setOrigin(0.5,0.92).setScale(sc).setDepth(y);
   if(blocked[ty]) blocked[ty][tx]=true;
   if(KINGDOM && obstacles){ const foot=scene.add.rectangle(x, y-12, 18, 14).setVisible(false);   // tronco sólido: en el reino el jugador lo rodea
     scene.physics.add.existing(foot,true); obstacles.add(foot); }
